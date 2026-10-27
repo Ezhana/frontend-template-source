@@ -42,10 +42,41 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # Exercises the published create-ezhana-app package pinned in devDependencies: tarball
-      # contents, bin resolution, official scaffolders, overlay and package.json patching.
-      # Uses the default apps/<name> target so the workspace's pinned pnpm version is used.
-      - name: Smoke-test create:app
+  # Exercises the published create-ezhana-app package pinned in devDependencies: tarball contents,
+  # bin resolution, official scaffolders, overlay and package.json patching.
+  #
+  # One app is generated per job on purpose. The generator adds apps/<name> to the workspace; a
+  # second `pnpm create:app` in the same job would make pnpm verify the (now stale) lockfile before
+  # running and fail on the new importer. A matrix also keeps the failure attributable to a template.
+  create-app:
+    name: Create ${{ matrix.template }} app
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        template: [react, vue]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24.21.0
+          cache: true
+          require-lockfile: true
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Create ${{ matrix.template }} app
+        run: pnpm create:app ${{ matrix.template }} generated-app --no-install
+
+      - name: Check generated files
         run: |
-          pnpm create:app react smoke-react --no-install
-          pnpm create:app vue smoke-vue --no-install
+          test -f apps/generated-app/eslint.config.mjs
+          test -f apps/generated-app/prettier.config.mjs
+          test -f apps/generated-app/src/theme/useTheme.ts
+          test ! -f apps/generated-app/.oxlintrc.json

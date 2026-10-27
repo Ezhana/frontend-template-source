@@ -35,7 +35,7 @@ frontend-template/
 │   └── README.md                # empty; pnpm create:app will add apps/<name>
 ├── packages/
 │   └── README.md                # optional placeholder; users add their own packages
-├── .github/workflows/ci.yml     # install → format → lint → build → create:app smoke
+├── .github/workflows/ci.yml     # validate + create:app matrix
 ├── eslint.config.mjs            # imports @ezhana/eslint-config-base from npm
 ├── prettier.config.mjs          # imports @ezhana/prettier-config from npm
 ├── lint-staged.config.mjs
@@ -186,8 +186,8 @@ Enable GitHub's **Template repository** setting on the generated repository.
 3. Set a clear description, for example: "Generated from frontend-template-source — do not edit
    directly." Add topics such as `template`, `monorepo`, `react`, `vue`, `vite`, `design-tokens`.
 4. Enable Actions. The generated repository has its own CI
-   (`install → format → lint → build → create:app smoke`) and does not need npm secrets. The
-   `create:app` smoke step exercises the published generator.
+   (a `validate` job plus a `create:app` matrix) and does not need npm secrets. The
+   `create:app` matrix exercises the published generator.
 5. **Do not require pull requests/reviews on `main` unless the token can bypass the rules** — the
    export workflow force-pushes `main`. The simplest policy is an unprotected `main` plus a note
    that the repository is generated; edits belong in the source repository.
@@ -206,7 +206,7 @@ Run **Actions → Export template repo → Run workflow** in the source reposito
 
 - the generated repository contains an empty `apps/`, the pinned `create-ezhana-app` devDependency,
   the optional `packages/README.md`, both READMEs and a committed `pnpm-lock.yaml`;
-- the generated CI is green, including the `create:app` smoke step;
+- the generated CI is green, including the `create:app` matrix job;
 - _Template repository_ is enabled;
 - the source repository is **not** a template.
 
