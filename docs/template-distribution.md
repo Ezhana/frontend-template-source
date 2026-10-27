@@ -8,6 +8,13 @@ The public **template repository** (the one users click "Use this template" on) 
 this repository. It keeps the monorepo layout (`apps/` + `packages/`) but does not contain any
 `@ezhana/*` source code: all shared packages are installed from npm.
 
+## Direction
+
+The template is moving to a generator-first workflow: no default apps are shipped; after cloning,
+users run `pnpm create:app` and choose a stack. See
+[ADR 0001](adr/0001-create-app-in-template-repo.md) for the decision, the repository-patch rules and
+the CLI distribution model. The current exporter still emits the two apps until that change lands.
+
 ## Repository roles
 
 | Repository                                    | Contains                                                            | Dependency strategy               | GitHub Template |
