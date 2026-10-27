@@ -48,7 +48,7 @@ jobs:
           require-lockfile: true
 
       - name: Generate app
-        run: pnpm create:app ${{ matrix.template }} "$RUNNER_TEMP/generated-app"
+        run: pnpm create:app ${{ matrix.template }} generated-app --target "$RUNNER_TEMP/generated-app"
 
       - name: Check generated files
         run: |

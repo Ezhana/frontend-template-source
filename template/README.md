@@ -2,85 +2,76 @@
 
 English | [简体中文](./README.zh-CN.md)
 
-A pnpm monorepo starter with two application templates and an optional place for your own shared
-packages.
+A pnpm workspace starter generated from `frontend-template-source`. This repository intentionally
+ships **no application by default**: after cloning or using **Use this template**, choose React or
+Vue with one command.
 
-- `apps/react-vite` — React + TypeScript + Vite
-- `apps/vue-vite` — Vue 3 + TypeScript + Vite
-- `packages/` — **optional** workspace directory for packages you develop yourself
-- Shared tooling from npm: `@ezhana/eslint-config-*`, `@ezhana/prettier-config`
-- Theming from npm: `@ezhana/design-tokens` + `@ezhana/theme`
+```bash
+pnpm create:app
+```
 
-This repository is generated from `frontend-template-source`. Use **Use this template** or clone it
-directly; do not edit the generated repository by hand. You can keep both applications or delete the
-one you do not use. Both share the same root tooling, linting and CI configuration.
+The command prompts for the framework and app name, scaffolds with the official
+`create-vite` / `create-vue` version, applies the `@ezhana/*` ESLint, Prettier and theme integration,
+then installs the app under `apps/<name>`. Non-interactive usage:
+
+```bash
+pnpm create:app react my-app
+pnpm create:app vue my-app
+```
+
+Generated apps share the root tooling, linting, commit hooks and CI configuration.
 
 ## Requirements
 
 - Node.js 24
 - pnpm 12
+- Network access for the first `pnpm create:app` (the official scaffolders and npm packages are
+  downloaded)
 
 ## Usage
 
 ```bash
-pnpm install
-pnpm dev:react      # or: pnpm dev:vue
-```
-
-Build, lint and format:
-
-```bash
-pnpm build          # builds packages/* (if any), then both apps
-pnpm build:apps     # only the apps
-pnpm build:packages # only packages/*
+pnpm install          # optional: install root tooling
+pnpm create:app       # choose React or Vue, then enter an app name
+pnpm dev              # run generated apps
+pnpm build            # build generated apps
 pnpm lint
-pnpm format
-pnpm check          # format:check + lint + build
+pnpm check            # format:check + lint + build
 ```
 
-Each app can also be run directly:
+You can also use the workspace filters directly:
 
 ```bash
-pnpm --dir apps/react-vite dev
-pnpm --dir apps/vue-vite dev
+pnpm --filter ./apps/my-app dev
+pnpm --filter ./apps/my-app build
 ```
 
 ## Packages (optional)
 
-The `packages/` directory is intentionally kept as a workspace location for your own shared
-packages. It only contains a `README.md` placeholder — no example package. **If you do not need
-shared packages, you can delete the `packages/` directory and remove the `build:packages` script
-from the root `package.json`.**
+`packages/` is an optional placeholder for your own shared packages. It contains only a `README.md`.
+**If you do not need shared packages, delete the `packages/` directory and remove the
+`build:packages` script from the root `package.json`.** See [`packages/README.md`](packages/README.md).
 
-To add a package, create `packages/<your-package>` with a `package.json`, `src/` and a build script,
-then add it to an app with `"workspace:*"`. See [`packages/README.md`](packages/README.md) for the
-recommended setup and conventions.
-
-The `@ezhana/*` packages are regular npm dependencies, not linked workspace sources. This keeps the
-template small and lets you upgrade tooling and theming independently.
+The `@ezhana/*` packages are regular npm dependencies, not linked workspace sources.
 
 ## Theming
 
-The apps consume published design tokens and the theme runtime from npm. The generated CSS custom
-properties are imported in each app entry file; no local token build step is required.
+Generated apps consume published design tokens and the theme runtime from npm. The generated CSS
+custom properties are imported in each app entry file; no local token build step is required.
 
 - The color mode follows the operating system by default (`prefers-color-scheme`).
 - `data-theme` selects the theme; `data-color-mode` is written only for an explicit color mode.
-- A theme switcher is included in both apps.
+- A theme switcher is generated into both React and Vue apps.
 
-See the npm package documentation for the token contract, theme extension and the runtime API:
+See the npm package documentation for the token contract and runtime API:
 
-- [`@ezhana/design-tokens`](https://www.npmjs.com/package/@ezhana/design-tokens) — token layers,
-  themes, CSS variables and design narratives
-- [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme) — theme/color-mode state machine
-
-If you need to change token values or add a new theme, fork the design-tokens library; otherwise you
-can override semantic CSS variables from application CSS as documented in the package README.
+- [`@ezhana/design-tokens`](https://www.npmjs.com/package/@ezhana/design-tokens)
+- [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
 
 ## CI
 
 `.github/workflows/ci.yml` runs `pnpm install --frozen-lockfile`, `pnpm format:check`, `pnpm lint`
-and `pnpm build` on every push and pull request.
+and `pnpm build` on every push and pull request. With no apps yet, the app steps are no-ops.
 
 ## License
 

@@ -4,10 +4,14 @@
 with `create-vite` / `create-vue`, then applies the `@ezhana/*` configuration and theme overlay.
 
 ```bash
+pnpm create:app
+# select React or Vue, then enter the app name
+
 pnpm create:app react my-react-app
 pnpm create:app vue my-vue-app
 ```
 
+Apps are created under `apps/<name>` by default. Use `--target <path>` to generate elsewhere.
 The command requires network access (the external scaffolders are downloaded with `pnpm dlx`) and
 Node.js 24 + pnpm 12.
 
@@ -17,7 +21,8 @@ Node.js 24 + pnpm 12.
 preflight → scaffold (external CLI, pinned version) → normalize → overlay → install → verify → move
 ```
 
-1. **preflight**: validate the template name and that the target directory is empty.
+1. **preflight**: resolve the template (interactive prompt or arguments) and the target
+   (`apps/<name>` by default); the target directory must be empty.
 2. **scaffold**: run the pinned external scaffolder in a staging directory next to the target.
    `create-vite@9.3.3` (`react-ts`) and `create-vue@3.24.0` (`--ts`) are pinned in
    [`recipes/`](../tools/create-app/recipes/index.mjs).
@@ -42,6 +47,10 @@ Options:
 | `--no-install` | scaffold + normalize + overlay only (useful for inspecting output) |
 | `--no-verify`  | install dependencies but skip format/lint/build                    |
 | `--keep-temp`  | keep the staging directory when generation fails                   |
+| `--target`     | explicit output path instead of `apps/<name>`                      |
+| `--root`       | workspace root used for the default `apps/<name>` path             |
+| `--name`       | app directory name (alternative to the second positional argument) |
+| `--list`       | list available templates                                           |
 
 ## Config detection and timing
 
@@ -64,8 +73,8 @@ The overlays are small and shared by generated apps:
   ESLint/Prettier configs.
 
 When `@ezhana/*` APIs change, update the overlay files and regenerate an app in CI. The source
-repository no longer keeps sample apps: `apps/react-vite` / `apps/vue-vite` exist only in the
-generated `frontend-template` repository, and are produced by this pipeline.
+repository no longer keeps sample apps; apps exist only after a user runs `pnpm create:app` (in the
+generated template repository or locally).
 
 ## CI
 
@@ -75,6 +84,16 @@ recipe change and is covered by the same matrix.
 
 ## Relationship to `frontend-template`
 
-`scripts/export-template.mjs` calls this generator for both frameworks, applies the monorepo
-`template/` skeleton, generates the root lockfile and exports the result. This keeps one source of
-truth for the overlay and avoids maintaining full sample apps.
+`scripts/export-template.mjs` copies this tool (including `versions.json`) into the generated
+`frontend-template` repository, exports an empty `apps/` placeholder, adds a root `create:app`
+script and generates the root lockfile. The generated template therefore carries its own generator
+and lets users choose a stack after cloning; no default apps are exported.
+
+`versions.json` is generated from the source package versions by:
+
+```bash
+pnpm sync:create-app
+```
+
+Run it after bumping `@ezhana/*` versions. The export regenerates the manifest in the copied tool
+from the same source data.

@@ -10,14 +10,13 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises'
-import { dirname, join, relative } from 'node:path'
+import { basename, dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { recipes } from '../recipes/index.mjs'
 
 const toolRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-const sourceRoot = dirname(dirname(toolRoot))
 
 const LINTER_FORMATTER_DEPENDENCY =
   /^(eslint($|-|\/)|@eslint\/|@typescript-eslint\/|@vue\/eslint-|eslint-plugin-|eslint-config-|oxlint$|prettier$|globals$|typescript-eslint$)/
@@ -75,39 +74,17 @@ const exists = async (path) => {
 const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'))
 const writeJson = async (path, value) => writeFile(path, `${JSON.stringify(value, null, 2)}\n`)
 
-const readWorkspaceVersions = async () => {
-  const packagesDir = join(sourceRoot, 'packages')
-  const versions = new Map()
-  for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
-    const manifestPath = join(packagesDir, entry.name, 'package.json')
-    if (!(await exists(manifestPath))) continue
-    const manifest = await readJson(manifestPath)
-    if (manifest.name && manifest.version) versions.set(manifest.name, manifest.version)
-  }
-  return versions
-}
+const readVersionManifest = async () => {
+  const manifest = await readJson(join(toolRoot, 'versions.json'))
+  const versions = new Map(Object.entries(manifest.packages ?? {}))
+  const catalog = manifest.catalog ?? {}
+  const fontVersion = manifest.font
 
-const readCatalog = async () => {
-  const text = await readFile(join(sourceRoot, 'pnpm-workspace.yaml'), 'utf8')
-  const section = text.match(/^catalog:\n((?: {2}.+\n)+)/m)?.[1] ?? ''
-  const catalog = {}
-  for (const line of section.split('\n')) {
-    const match = line.match(/^ {2}([^:]+):\s*(.+)$/)
-    if (match) catalog[match[1].trim()] = match[2].trim()
+  if (!fontVersion) throw new Error('versions.json is missing font.')
+  if (!catalog.eslint || !catalog.prettier || !catalog.typescript) {
+    throw new Error('versions.json is missing catalog versions.')
   }
-  return catalog
-}
-
-const readFontVersion = async () => {
-  for (const app of ['apps/react-vite', 'apps/vue-vite']) {
-    const manifestPath = join(sourceRoot, app, 'package.json')
-    if (!(await exists(manifestPath))) continue
-    const manifest = await readJson(manifestPath)
-    const version = manifest.dependencies?.['@fontsource-variable/public-sans']
-    if (version) return version
-  }
-  return '^5.3.0'
+  return { versions, catalog, fontVersion }
 }
 
 const slugify = (value) =>
@@ -258,7 +235,9 @@ const removeAppWorkspaceFile = async (appDir) => {
 }
 
 const install = async (appDir) => {
-  await run('pnpm', ['install'], appDir, 'Installing dependencies')
+  // CI=1 is set for the non-interactive external scaffolders; do not let pnpm infer a frozen
+  // lockfile here, because apps/<name> is a new workspace importer.
+  await run('pnpm', ['install', '--no-frozen-lockfile'], appDir, 'Installing dependencies')
   await removeAppWorkspaceFile(appDir)
 }
 
@@ -292,10 +271,8 @@ export const createApp = async ({
   await mkdir(dirname(targetPath), { recursive: true })
   const stagingDir = await mkdtemp(join(dirname(targetPath), '.create-app-'))
   const appDir = join(stagingDir, 'app')
-  const title = targetPath.split('/').filter(Boolean).at(-1) ?? 'app'
-  const versions = await readWorkspaceVersions()
-  const catalog = await readCatalog()
-  const fontVersion = await readFontVersion()
+  const title = basename(targetPath)
+  const { versions, catalog, fontVersion } = await readVersionManifest()
   const meta = {
     versions,
     catalog,
@@ -310,15 +287,18 @@ export const createApp = async ({
     await normalize(recipe, appDir, meta)
     await applyOverlay(recipe, appDir, meta)
 
+    // Move before installing so that, inside a template workspace, the new app is part of
+    // apps/* when pnpm resolves the workspace and installs its dependencies.
+    await rename(appDir, targetPath)
+
     if (shouldInstall) {
-      await install(appDir)
+      await install(targetPath)
       if (shouldVerify) {
-        await verify(appDir)
-        await removeAppWorkspaceFile(appDir)
+        await verify(targetPath)
+        await removeAppWorkspaceFile(targetPath)
       }
     }
 
-    await rename(appDir, targetPath)
     process.stdout.write(
       `\nCreated ${recipe.label} app at ${targetPath}\n\n` +
         `  cd ${relative(process.cwd(), targetPath) || targetPath}\n` +

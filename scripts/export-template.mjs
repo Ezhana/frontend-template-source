@@ -2,10 +2,9 @@
 /**
  * Export the consumer-facing template repository from this development monorepo.
  *
- * Apps are generated with the same external-scaffolder pipeline as `pnpm create:app`; this repository
- * no longer keeps full sample apps. The exported template keeps `apps/` (both frameworks), an
- * optional `packages/` placeholder for the user's own packages, and resolves every `@ezhana/*`
- * dependency to the published npm version.
+ * The exported template is a workspace starter with an empty `apps/` and a bundled standalone
+ * `tools/create-app`; users choose React or Vue with `pnpm create:app`. Every `@ezhana/*`
+ * dependency resolved by the generator points at the published npm version.
  *
  * Usage:
  *   node scripts/export-template.mjs [--out <dir>] [--install]
@@ -20,16 +19,11 @@ import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { createApp } from '../tools/create-app/lib/create.mjs'
+import { readSourceVersions } from './lib/source-versions.mjs'
 
 const sourceRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const skeletonDir = join(sourceRoot, 'template')
 const defaultOut = join(sourceRoot, 'dist-template', 'frontend-template')
-
-const APPS = [
-  { template: 'react', directory: 'apps/react-vite' },
-  { template: 'vue', directory: 'apps/vue-vite' },
-]
 
 const ROOT_FILES = [
   '.editorconfig',
@@ -102,18 +96,17 @@ const createRootManifest = async (outDir) => {
   const manifest = {
     name: 'frontend-template',
     private: true,
-    description: 'Frontend monorepo template with React and Vue apps and shared packages.',
+    description: 'Frontend monorepo starter; choose React or Vue with pnpm create:app.',
     scripts: {
-      lint: 'eslint . && pnpm --dir apps/react-vite lint && pnpm --dir apps/vue-vite lint',
-      'lint:fix':
-        'eslint . --fix && pnpm --dir apps/react-vite lint:fix && pnpm --dir apps/vue-vite lint:fix',
+      lint: 'eslint . && pnpm -r --filter "./apps/*" --if-present lint',
+      'lint:fix': 'eslint . --fix && pnpm -r --filter "./apps/*" --if-present lint:fix',
       format: 'prettier . --write',
       'format:check': 'prettier . --check',
       'build:packages': 'pnpm -r --filter "./packages/*" --if-present build',
-      'build:apps': 'pnpm --dir apps/react-vite build && pnpm --dir apps/vue-vite build',
+      'build:apps': 'pnpm -r --filter "./apps/*" --if-present build',
       build: 'pnpm build:packages && pnpm build:apps',
-      'dev:react': 'pnpm --dir apps/react-vite dev',
-      'dev:vue': 'pnpm --dir apps/vue-vite dev',
+      dev: 'pnpm -r --filter "./apps/*" --parallel --if-present dev',
+      'create:app': 'node ./tools/create-app/bin/create-app.mjs',
       check: 'pnpm format:check && pnpm lint && pnpm build',
       prepare: 'simple-git-hooks',
     },
@@ -163,31 +156,47 @@ const copyRootFiles = async (outDir) => {
 
 const validateOutput = async (outDir) => {
   const problems = []
-  const manifests = [
-    join(outDir, 'package.json'),
-    ...APPS.map((app) => join(outDir, app.directory, 'package.json')),
-  ]
-  for (const manifestPath of manifests) {
-    const manifest = await readJson(manifestPath)
-    const text = JSON.stringify(manifest)
-    if (text.includes('workspace:')) {
-      problems.push(`${relative(outDir, manifestPath)} still contains a workspace: dependency`)
-    }
+  const rootManifest = await readJson(join(outDir, 'package.json'))
+  if (JSON.stringify(rootManifest).includes('workspace:')) {
+    problems.push('package.json still contains a workspace: dependency')
+  }
+  if (rootManifest.scripts?.['create:app'] !== 'node ./tools/create-app/bin/create-app.mjs') {
+    problems.push('root create:app script is missing')
   }
 
-  for (const app of APPS) {
-    const manifest = await readJson(join(outDir, app.directory, 'package.json'))
-    if (manifest.scripts?.predev || manifest.scripts?.prebuild) {
-      problems.push(`${app.directory} still runs a local token build in predev/prebuild`)
-    }
+  for (const file of [
+    'packages/README.md',
+    'apps/README.md',
+    'tools/create-app/bin/create-app.mjs',
+    'tools/create-app/versions.json',
+  ]) {
+    if (!(await exists(join(outDir, file)))) problems.push(`${file} is missing`)
   }
 
-  if (!(await exists(join(outDir, 'packages/README.md')))) {
-    problems.push('packages/README.md placeholder is missing')
+  const appEntries = await readdir(join(outDir, 'apps'), { withFileTypes: true })
+  if (appEntries.some((entry) => entry.isDirectory())) {
+    problems.push('generated template must not contain default apps')
   }
 
   if (problems.length > 0)
     throw new Error(`Generated template is invalid:\n- ${problems.join('\n- ')}`)
+}
+
+const copyCreateApp = async (outDir) => {
+  const from = join(sourceRoot, 'tools/create-app')
+  const to = join(outDir, 'tools/create-app')
+  await cp(from, to, {
+    recursive: true,
+    filter: (source) => {
+      const rel = relative(from, source)
+      if (!rel) return true
+      return !rel
+        .split('/')
+        .some((segment) => segment === 'node_modules' || segment.startsWith('.create-app-'))
+    },
+  })
+  const versions = await readSourceVersions(sourceRoot)
+  await writeJson(join(to, 'versions.json'), versions)
 }
 
 const formatOutput = (outDir) => {
@@ -236,16 +245,7 @@ const main = async () => {
 
   await cp(skeletonDir, resolvedOut, { recursive: true })
   await copyRootFiles(resolvedOut)
-
-  for (const app of APPS) {
-    await createApp({
-      template: app.template,
-      target: join(resolvedOut, app.directory),
-      install: false,
-      verify: false,
-    })
-  }
-
+  await copyCreateApp(resolvedOut)
   await createRootManifest(resolvedOut)
   await validateOutput(resolvedOut)
   formatOutput(resolvedOut)
@@ -254,7 +254,7 @@ const main = async () => {
 
   process.stdout.write(
     `Template exported to ${relative(sourceRoot, resolvedOut) || resolvedOut}\n` +
-      `  apps: ${APPS.map((app) => app.directory).join(', ')} (generated)\n` +
+      '  apps: empty (create with pnpm create:app)\n' +
       '  packages: optional placeholder (README only; users add their own workspaces here)\n' +
       (install
         ? '  pnpm-lock.yaml generated\n'

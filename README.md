@@ -216,35 +216,41 @@ The generator then:
 4. installs dependencies once, formats, lints and builds;
 5. moves the app into place only after verification succeeds.
 
+Run `pnpm create:app` without arguments for an interactive framework/name prompt. By default the app
+is created under `apps/<name>`; use `--target <path>` for a different directory.
+
 Generated app commands:
 
 ```bash
-cd my-react-app
+cd apps/my-react-app
 pnpm dev
 pnpm build
 pnpm lint
 pnpm format:check
 ```
 
-Options: `--no-install`, `--no-verify`, `--keep-temp`. See
+Options: `--no-install`, `--no-verify`, `--keep-temp`, `--target`, `--root`. See
 [`docs/create-app.md`](docs/create-app.md).
 
 ### Use the generated template repository
 
-The generated `frontend-template` repository has:
+The generated `frontend-template` repository is a **workspace starter with no default apps**:
 
-- `apps/react-vite` and `apps/vue-vite` — generated React/Vue apps;
+- `apps/` — empty; users choose a stack with one command;
 - `packages/` — optional placeholder for your own workspace packages (delete it if unused);
 - `README.md` (English) and `README.zh-CN.md` (中文);
 - shared linting, formatting, commit hooks and CI from npm.
 
 ```bash
-pnpm install
-pnpm dev:react      # or: pnpm dev:vue
+pnpm create:app     # interactive: choose React or Vue, then enter an app name
+pnpm dev            # run the generated app(s)
 pnpm build
 pnpm lint
 pnpm check
 ```
+
+The command is routed to the official `create-vite` / `create-vue` CLI and then patched with the
+Ezhana configuration and theme integration. The generated app appears under `apps/<name>`.
 
 To add your own package, create `packages/<name>`, reference it with `"workspace:*"` from an app,
 and run `pnpm build:packages` before `pnpm build`. See the template's `packages/README.md`.
@@ -256,8 +262,8 @@ pnpm install
 pnpm check                    # format:check + lint + tests
 pnpm build:tokens             # regenerate token dist/ for local inspection
 
-pnpm create:app react /tmp/check-react   # inspect the generated app
-pnpm create:app vue /tmp/check-vue
+pnpm create:app react check-react --target /tmp/check-react   # inspect the generated app
+pnpm create:app vue check-vue --target /tmp/check-vue
 
 pnpm export:template --install           # generate dist-template/frontend-template
 ```

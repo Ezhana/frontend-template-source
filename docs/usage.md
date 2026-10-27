@@ -74,8 +74,8 @@ pnpm build:tokens            # generate dist/ locally for inspection
 pnpm test                    # token contract/contrast tests + theme runtime tests
 pnpm check                   # format:check + lint + tests
 
-pnpm create:app react /tmp/check-react   # generate a React app with the overlay
-pnpm create:app vue /tmp/check-vue       # generate a Vue app with the overlay
+pnpm create:app react check-react --target /tmp/check-react   # generate to /tmp
+pnpm create:app vue check-vue --target /tmp/check-vue
 pnpm export:template --install            # assemble the generated frontend-template repository
 ```
 
@@ -308,8 +308,8 @@ complete worked example (custom palette, Public Sans, level-2 shape/spacing, mea
 1. `pnpm build:tokens` → validates contracts and emits `dist/` (not committed).
 2. `pnpm test` → resolved-theme JSON is checked for contract completeness and WCAG AA contrast; the
    theme runtime tests use fake DOM/storage/media queries.
-3. `pnpm create:app react|vue <dir>` → scaffolds with the pinned external generator, applies the
-   config/theme overlay, then installs, lints and builds the generated app.
+3. `pnpm create:app react|vue <name>` → scaffolds into `apps/<name>` with the pinned external
+   generator, applies the config/theme overlay, then installs, lints and builds the generated app.
 4. `pnpm export:template --install` → generates both apps, assembles `frontend-template` and creates
    its root lockfile.
 5. CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `test`; the
