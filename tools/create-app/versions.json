@@ -1,6 +1,6 @@
 {
   "packages": {
-    "@ezhana/design-tokens": "0.2.0",
+    "@ezhana/design-tokens": "0.2.1",
     "@ezhana/eslint-config-base": "0.1.0",
     "@ezhana/eslint-config-react": "0.1.1",
     "@ezhana/eslint-config-typescript": "0.1.0",
