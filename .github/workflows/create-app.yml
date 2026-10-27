@@ -1,0 +1,54 @@
+name: Create app matrix
+
+on:
+  workflow_dispatch:
+
+  push:
+    paths:
+      - 'tools/create-app/**'
+      - 'packages/**'
+      - 'pnpm-workspace.yaml'
+
+  pull_request:
+    paths:
+      - 'tools/create-app/**'
+      - 'packages/**'
+      - 'pnpm-workspace.yaml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: create-app-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create:
+    name: Create ${{ matrix.template }} app
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        template: [react, vue]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24.21.0
+          cache: true
+          require-lockfile: true
+
+      - name: Generate app
+        run: pnpm create:app ${{ matrix.template }} "$RUNNER_TEMP/generated-app"
+
+      - name: Check generated files
+        run: |
+          test -f "$RUNNER_TEMP/generated-app/eslint.config.mjs"
+          test -f "$RUNNER_TEMP/generated-app/prettier.config.mjs"
+          test -f "$RUNNER_TEMP/generated-app/src/theme/useTheme.ts"
+          test ! -f "$RUNNER_TEMP/generated-app/.oxlintrc.json"

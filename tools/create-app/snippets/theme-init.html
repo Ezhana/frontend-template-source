@@ -1,0 +1,20 @@
+<script>
+  ;(function () {
+    var root = document.documentElement
+    var stored = null
+    try {
+      stored = JSON.parse(localStorage.getItem('ezhana-theme') || 'null')
+    } catch (error) {
+      stored = null
+    }
+    root.setAttribute(
+      'data-theme',
+      (stored && typeof stored.theme === 'string' && stored.theme) || 'default',
+    )
+    if (stored && (stored.mode === 'light' || stored.mode === 'dark')) {
+      root.setAttribute('data-color-mode', stored.mode)
+    } else {
+      root.removeAttribute('data-color-mode')
+    }
+  })()
+</script>

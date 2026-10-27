@@ -371,6 +371,21 @@ The template apps use `@ezhana/theme`, which:
 An inline classic script in each `index.html` resolves the stored preference before first paint, so
 the correct theme is applied without a flash of the wrong theme.
 
+## Creating an App
+
+Apps can also be generated from the official framework scaffolders (`create-vite` / `create-vue`)
+and then normalized with the Ezhana configuration and theme overlay:
+
+```bash
+pnpm create:app react my-react-app
+pnpm create:app vue my-vue-app
+```
+
+The generator pins the external scaffold versions, removes generated ESLint/Prettier
+configuration, applies the `@ezhana/*` configs and theme integration, then installs, lints and builds
+the result. See [`docs/create-app.md`](docs/create-app.md) for the lifecycle and the overlay
+maintenance rules.
+
 ## Template Distribution
 
 This repository is the source/development monorepo. The public template repository is generated from

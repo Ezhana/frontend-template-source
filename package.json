@@ -16,7 +16,8 @@
     "changeset:status": "changeset status",
     "changeset:version": "changeset version",
     "changeset:publish": "changeset publish",
-    "export:template": "node ./scripts/export-template.mjs"
+    "export:template": "node ./scripts/export-template.mjs",
+    "create:app": "node ./tools/create-app/bin/create-app.mjs"
   },
   "author": "Ezhana",
   "license": "MIT",

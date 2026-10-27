@@ -1,0 +1,26 @@
+export const recipes = {
+  react: {
+    label: 'React + TypeScript',
+    scaffoldPackage: 'create-vite@9.3.3',
+    scaffoldArgs: ['--template', 'react-ts', '--no-interactive', '--no-immediate', '--no-eslint'],
+    mainEntry: 'src/main.tsx',
+    styleEntry: 'src/index.css',
+    appEntry: 'src/App.tsx',
+    buildScript: 'tsc -b && vite build',
+    removeDependencies: [],
+    overlay: 'overlays/react',
+    eslintConfig: '@ezhana/eslint-config-react',
+  },
+  vue: {
+    label: 'Vue + TypeScript',
+    scaffoldPackage: 'create-vue@3.24.0',
+    scaffoldArgs: ['--ts', '--force'],
+    mainEntry: 'src/main.ts',
+    styleEntry: 'src/assets/main.css',
+    appEntry: 'src/App.vue',
+    buildScript: 'vue-tsc -b && vite build',
+    removeDependencies: ['npm-run-all2'],
+    overlay: 'overlays/vue',
+    eslintConfig: '@ezhana/eslint-config-vue',
+  },
+}

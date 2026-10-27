@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 dist-template/
+.create-app-*/
 .pnpm-store/
 
 .idea/
