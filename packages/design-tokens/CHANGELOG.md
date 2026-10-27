@@ -1,5 +1,11 @@
 # @ezhana/design-tokens
 
+## 0.2.1
+
+### Patch Changes
+
+- Ship the Cerulean design narrative in the published package tarball.
+
 ## 0.2.0
 
 ### Minor Changes

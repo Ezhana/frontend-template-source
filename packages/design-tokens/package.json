@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/design-tokens",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Layered design tokens compiled to CSS custom properties for the template themes.",
   "type": "module",
   "exports": {
