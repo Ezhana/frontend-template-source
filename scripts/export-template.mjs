@@ -145,6 +145,11 @@ const copyRootFiles = async (outDir) => {
         content = content.replace('packages:\n', "packages:\n  - 'apps/*'\n")
       }
     }
+    if (file === '.prettierignore' && !content.includes('pnpm-workspace.yaml')) {
+      // pnpm can rewrite this file with generated supply-chain policy; do not fail CI on its
+      // formatting.
+      content += '\npnpm-workspace.yaml\n'
+    }
     await writeFile(join(outDir, file), content)
   }
 
@@ -248,9 +253,9 @@ const main = async () => {
   await copyCreateApp(resolvedOut)
   await createRootManifest(resolvedOut)
   await validateOutput(resolvedOut)
-  formatOutput(resolvedOut)
 
   if (install) installLockfile(resolvedOut)
+  formatOutput(resolvedOut)
 
   process.stdout.write(
     `Template exported to ${relative(sourceRoot, resolvedOut) || resolvedOut}\n` +
