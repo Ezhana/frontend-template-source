@@ -12,7 +12,9 @@ pnpm create:app
 
 The command prompts for the framework and app name, scaffolds with the official
 `create-vite` / `create-vue` version, applies the `@ezhana/*` ESLint, Prettier and theme integration,
-then installs the app under `apps/<name>`. Non-interactive usage:
+then installs the app under `apps/<name>`. The generator itself is the published
+`create-ezhana-app` package, pinned as a regular devDependency, so it is versioned and audited
+together with the rest of the workspace tooling. Non-interactive usage:
 
 ```bash
 pnpm create:app react my-app
@@ -25,13 +27,15 @@ Generated apps share the root tooling, linting, commit hooks and CI configuratio
 
 - Node.js 24
 - pnpm 12
+- Run `pnpm install` once before `pnpm create:app`; it installs the pinned generator together with
+  the root tooling
 - Network access for the first `pnpm create:app` (the official scaffolders and npm packages are
   downloaded)
 
 ## Usage
 
 ```bash
-pnpm install          # optional: install root tooling
+pnpm install          # installs root tooling and the pinned create-ezhana-app generator
 pnpm create:app       # choose React or Vue, then enter an app name
 pnpm dev              # run generated apps
 pnpm build            # build generated apps

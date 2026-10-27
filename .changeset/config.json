@@ -13,5 +13,5 @@
     "tag": false,
     "version": false
   },
-  "changedFilePatterns": ["packages/**"]
+  "changedFilePatterns": ["packages/**", "tools/**"]
 }

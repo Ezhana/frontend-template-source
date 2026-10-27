@@ -7,8 +7,8 @@ name: Export template repo
 #   - repository variable TEMPLATE_REPO, e.g. "ezhana/frontend-template"
 #   - repository secret TEMPLATE_REPO_TOKEN (fine-grained token with contents: write on that repo)
 #
-# Run this after the @ezhana/* packages have been published, so the pinned version ranges in the
-# generated template resolve on npm.
+# Run this after the @ezhana/* packages and the create-ezhana-app version referenced by the
+# generated template have been published, so the pinned versions in the template resolve on npm.
 
 on:
   workflow_dispatch:
@@ -43,6 +43,11 @@ jobs:
 
       - name: Install workspace
         run: pnpm install --frozen-lockfile
+
+      - name: Verify create-ezhana-app is published
+        run: |
+          version=$(node -p "require('./tools/create-app/package.json').version")
+          pnpm view "create-ezhana-app@$version" version
 
       - name: Export template
         run: pnpm export:template --install

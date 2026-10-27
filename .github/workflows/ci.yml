@@ -35,6 +35,11 @@ jobs:
           node --version
           pnpm --version
 
+      - name: Check create-app version manifest
+        run: |
+          pnpm sync:create-app
+          git diff --exit-code -- tools/create-app/versions.json
+
       - name: Check formatting
         run: pnpm format:check
 

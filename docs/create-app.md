@@ -1,7 +1,9 @@
 # Creating an app from external scaffolders
 
 `tools/create-app` is a thin wrapper around the official framework scaffolders. It generates an app
-with `create-vite` / `create-vue`, then applies the `@ezhana/*` configuration and theme overlay.
+with `create-vite` / `create-vue`, then applies the `@ezhana/*` configuration and theme overlay. The
+same code is published as [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) and
+pinned by the generated template; this repository runs it from `tools/create-app` directly.
 
 ```bash
 pnpm create:app
@@ -13,7 +15,8 @@ pnpm create:app vue my-vue-app
 
 Apps are created under `apps/<name>` by default. Use `--target <path>` to generate elsewhere.
 The command requires network access (the external scaffolders are downloaded with `pnpm dlx`) and
-Node.js 24 + pnpm 12.
+Node.js 24 + pnpm 12. In the generated template, run `pnpm install` once first: it installs the
+pinned `create-ezhana-app` devDependency.
 
 ## Lifecycle
 
@@ -79,21 +82,40 @@ generated template repository or locally).
 ## CI
 
 `.github/workflows/create-app.yml` runs the generator matrix (React and Vue), installs the generated
-app, then lints and builds it. External scaffolders are pinned, so a version bump is an explicit
-recipe change and is covered by the same matrix.
+app, then lints and builds it. It also packs the tarball and checks the published file set, so the
+package layout cannot break silently. External scaffolders are pinned, so a version bump is an
+explicit recipe change and is covered by the same matrix.
 
-## Relationship to `frontend-template`
+## Distribution
 
-`scripts/export-template.mjs` copies this tool (including `versions.json`) into the generated
-`frontend-template` repository, exports an empty `apps/` placeholder, adds a root `create:app`
-script and generates the root lockfile. The generated template therefore carries its own generator
-and lets users choose a stack after cloning; no default apps are exported.
+The tool is published as the [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app)
+npm package; see [ADR 0002](adr/0002-distribute-create-app-via-npm.md). The generated
+`frontend-template` repository depends on it as an exact devDependency and exposes it as
+`pnpm create:app`:
 
-`versions.json` is generated from the source package versions by:
+```json
+{
+  "devDependencies": {
+    "create-ezhana-app": "<version>"
+  },
+  "scripts": {
+    "create:app": "create-ezhana-app"
+  }
+}
+```
+
+`scripts/export-template.mjs` reads the version from `tools/create-app/package.json`, injects the
+devDependency and script, and never copies the tool into the template. Users run `pnpm install` once
+before the command, which puts the pinned generator (and its integrity) in the template's
+`pnpm-lock.yaml`. The package, not the template snapshot, is versioned and audited.
+
+`versions.json` is regenerated from the source package versions by the package's `prepack` hook (and
+manually with `pnpm sync:create-app`):
 
 ```bash
 pnpm sync:create-app
 ```
 
-Run it after bumping `@ezhana/*` versions. The export regenerates the manifest in the copied tool
-from the same source data.
+Run it after bumping `@ezhana/*` versions. Publishing requires the pinned `create-ezhana-app` version
+to exist on npm before the template is exported; the export workflow verifies that first, and the
+generated template's CI smoke-tests `pnpm create:app` against the installed package.

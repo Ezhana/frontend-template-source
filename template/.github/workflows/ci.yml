@@ -41,3 +41,11 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+      # Exercises the published create-ezhana-app package pinned in devDependencies: tarball
+      # contents, bin resolution, official scaffolders, overlay and package.json patching.
+      # Uses the default apps/<name> target so the workspace's pinned pnpm version is used.
+      - name: Smoke-test create:app
+        run: |
+          pnpm create:app react smoke-react --no-install
+          pnpm create:app vue smoke-vue --no-install

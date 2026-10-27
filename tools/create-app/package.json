@@ -1,0 +1,43 @@
+{
+  "name": "create-ezhana-app",
+  "version": "0.1.0",
+  "description": "Scaffold a React or Vue app inside an Ezhana frontend-template workspace.",
+  "type": "module",
+  "bin": {
+    "create-ezhana-app": "./bin/create-app.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "overlays",
+    "recipes",
+    "snippets",
+    "versions.json",
+    "README.md"
+  ],
+  "keywords": [
+    "create-app",
+    "scaffold",
+    "starter",
+    "vite",
+    "react",
+    "vue",
+    "monorepo"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "tools/create-app"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepack": "node ../../scripts/sync-create-app-versions.mjs"
+  }
+}

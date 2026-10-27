@@ -10,7 +10,8 @@ pnpm create:app
 ```
 
 命令会询问框架和应用名，调用官方 `create-vite` / `create-vue` 生成项目，套用 `@ezhana/*` 的
-ESLint、Prettier 和主题集成，最后把应用安装到 `apps/<name>`。非交互用法：
+ESLint、Prettier 和主题集成，最后把应用安装到 `apps/<name>`。生成器本身是已发布的
+`create-ezhana-app` 包，以普通 devDependency 精确锁定，随 workspace 一起版本化和审计。非交互用法：
 
 ```bash
 pnpm create:app react my-app
@@ -23,12 +24,13 @@ pnpm create:app vue my-app
 
 - Node.js 24
 - pnpm 12
+- 首次使用前执行一次 `pnpm install`，它会安装根目录工具和固定版本的生成器
 - 首次执行 `pnpm create:app` 需要网络（会下载官方脚手架和 npm 包）
 
 ## 使用方式
 
 ```bash
-pnpm install          # 可选：安装根目录工具
+pnpm install          # 安装根目录工具和固定版本的 create-ezhana-app 生成器
 pnpm create:app       # 选择 React 或 Vue，并输入应用名
 pnpm dev              # 运行已生成的应用
 pnpm build            # 构建已生成的应用

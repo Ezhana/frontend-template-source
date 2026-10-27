@@ -310,12 +310,14 @@ complete worked example (custom palette, Public Sans, level-2 shape/spacing, mea
    theme runtime tests use fake DOM/storage/media queries.
 3. `pnpm create:app react|vue <name>` → scaffolds into `apps/<name>` with the pinned external
    generator, applies the config/theme overlay, then installs, lints and builds the generated app.
-4. `pnpm export:template --install` → generates both apps, assembles `frontend-template` and creates
-   its root lockfile.
+4. `pnpm export:template --install` → assembles the empty-apps `frontend-template`, pins the
+   published `create-ezhana-app` devDependency and creates its root lockfile.
 5. CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `test`; the
-   `.github/workflows/create-app.yml` matrix runs the generated React/Vue apps through lint/build.
-6. Publishing: Changesets bumps `@ezhana/design-tokens` / `@ezhana/theme`; the token package's
-   `prepack` rebuilds `dist/`, so the published tarball contains the generated artifacts.
+   `.github/workflows/create-app.yml` matrix runs the generated React/Vue apps through lint/build and
+   packs the generator tarball; the generated template's own CI smoke-tests `pnpm create:app`.
+6. Publishing: Changesets bumps `@ezhana/design-tokens` / `@ezhana/theme` / `create-ezhana-app`; the
+   token package's `prepack` rebuilds `dist/` and the generator's `prepack` refreshes
+   `versions.json`, so the published tarballs contain the generated artifacts.
 
 ## Debugging checklist
 

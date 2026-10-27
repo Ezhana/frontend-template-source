@@ -2,24 +2,24 @@
 /**
  * Export the consumer-facing template repository from this development monorepo.
  *
- * The exported template is a workspace starter with an empty `apps/` and a bundled standalone
- * `tools/create-app`; users choose React or Vue with `pnpm create:app`. Every `@ezhana/*`
- * dependency resolved by the generator points at the published npm version.
+ * The exported template is a workspace starter with an empty `apps/`; users choose React or Vue
+ * with `pnpm create:app`. The command runs the published `create-ezhana-app` package, pinned as an
+ * exact devDependency so the generated lockfile covers it — the generator is not vendored into the
+ * template repository. Every `@ezhana/*` dependency resolved by the generator points at the
+ * published npm version.
  *
  * Usage:
  *   node scripts/export-template.mjs [--out <dir>] [--install]
  *
  * --install runs `pnpm install --lockfile-only` in the generated directory so the exported
- * repository has a pnpm-lock.yaml. Run it after the @ezhana/* versions in package.json have been
- * published to npm.
+ * repository has a pnpm-lock.yaml. Run it after the @ezhana/* versions referenced by the template
+ * and the create-ezhana-app version pinned in its devDependencies have been published to npm.
  */
 import { spawnSync } from 'node:child_process'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-
-import { readSourceVersions } from './lib/source-versions.mjs'
 
 const sourceRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const skeletonDir = join(sourceRoot, 'template')
@@ -84,9 +84,18 @@ const readPublishedVersions = async () => {
   return versions
 }
 
+const readCreateAppVersion = async () => {
+  const manifest = await readJson(join(sourceRoot, 'tools/create-app/package.json'))
+  if (!manifest.version) {
+    throw new Error('tools/create-app/package.json is missing a version.')
+  }
+  return manifest.version
+}
+
 const createRootManifest = async (outDir) => {
   const sourceRootManifest = await readJson(join(sourceRoot, 'package.json'))
   const versions = await readPublishedVersions()
+  const createAppVersion = await readCreateAppVersion()
 
   const required = ['@ezhana/eslint-config-base', '@ezhana/prettier-config']
   for (const name of required) {
@@ -106,7 +115,7 @@ const createRootManifest = async (outDir) => {
       'build:apps': 'pnpm -r --filter "./apps/*" --if-present build',
       build: 'pnpm build:packages && pnpm build:apps',
       dev: 'pnpm -r --filter "./apps/*" --parallel --if-present dev',
-      'create:app': 'node ./tools/create-app/bin/create-app.mjs',
+      'create:app': 'create-ezhana-app',
       check: 'pnpm format:check && pnpm lint && pnpm build',
       prepare: 'simple-git-hooks',
     },
@@ -118,6 +127,7 @@ const createRootManifest = async (outDir) => {
     devDependencies: {
       '@ezhana/eslint-config-base': `^${versions.get('@ezhana/eslint-config-base')}`,
       '@ezhana/prettier-config': `^${versions.get('@ezhana/prettier-config')}`,
+      'create-ezhana-app': createAppVersion,
       eslint: 'catalog:',
       'lint-staged': sourceRootManifest.devDependencies['lint-staged'],
       prettier: 'catalog:',
@@ -127,6 +137,7 @@ const createRootManifest = async (outDir) => {
   }
 
   await writeJson(join(outDir, 'package.json'), manifest)
+  return createAppVersion
 }
 
 const copyRootFiles = async (outDir) => {
@@ -140,6 +151,9 @@ const copyRootFiles = async (outDir) => {
       // This exclusion list only exists for source-repo dependency policy; the template does not
       // need it and should stay focused on the workspaces + catalog.
       content = content.replace(/\nminimumReleaseAgeExclude:\n(?:[ ]{2}- .*\n)+/g, '\n')
+      // `tools/*` exists so the generator can be published from the source repo; the template
+      // consumes the published package instead.
+      content = content.replace(/^[ ]{2}- 'tools\/\*'\n/m, '')
       // The source repo no longer contains apps/; the generated template does.
       if (!content.includes("'apps/*'")) {
         content = content.replace('packages:\n', "packages:\n  - 'apps/*'\n")
@@ -165,17 +179,29 @@ const validateOutput = async (outDir) => {
   if (JSON.stringify(rootManifest).includes('workspace:')) {
     problems.push('package.json still contains a workspace: dependency')
   }
-  if (rootManifest.scripts?.['create:app'] !== 'node ./tools/create-app/bin/create-app.mjs') {
-    problems.push('root create:app script is missing')
+  if (rootManifest.scripts?.['create:app'] !== 'create-ezhana-app') {
+    problems.push('root create:app script must run the published create-ezhana-app package')
+  }
+  const createAppVersion = rootManifest.devDependencies?.['create-ezhana-app']
+  if (
+    typeof createAppVersion !== 'string' ||
+    !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(createAppVersion)
+  ) {
+    problems.push('root create-ezhana-app devDependency must be an exact published version')
   }
 
-  for (const file of [
-    'packages/README.md',
-    'apps/README.md',
-    'tools/create-app/bin/create-app.mjs',
-    'tools/create-app/versions.json',
-  ]) {
+  for (const file of ['packages/README.md', 'apps/README.md']) {
     if (!(await exists(join(outDir, file)))) problems.push(`${file} is missing`)
+  }
+
+  if (await exists(join(outDir, 'tools'))) {
+    problems.push(
+      'generated template must not vendor tools/; create:app uses the published package',
+    )
+  }
+  const workspace = await readFile(join(outDir, 'pnpm-workspace.yaml'), 'utf8')
+  if (workspace.includes("'tools/*'")) {
+    problems.push('generated pnpm-workspace.yaml must not include the tools/* workspace glob')
   }
 
   const appEntries = await readdir(join(outDir, 'apps'), { withFileTypes: true })
@@ -185,23 +211,6 @@ const validateOutput = async (outDir) => {
 
   if (problems.length > 0)
     throw new Error(`Generated template is invalid:\n- ${problems.join('\n- ')}`)
-}
-
-const copyCreateApp = async (outDir) => {
-  const from = join(sourceRoot, 'tools/create-app')
-  const to = join(outDir, 'tools/create-app')
-  await cp(from, to, {
-    recursive: true,
-    filter: (source) => {
-      const rel = relative(from, source)
-      if (!rel) return true
-      return !rel
-        .split('/')
-        .some((segment) => segment === 'node_modules' || segment.startsWith('.create-app-'))
-    },
-  })
-  const versions = await readSourceVersions(sourceRoot)
-  await writeJson(join(to, 'versions.json'), versions)
 }
 
 const formatOutput = (outDir) => {
@@ -227,7 +236,7 @@ const formatOutput = (outDir) => {
     throw new Error('Prettier failed while formatting the generated template.')
 }
 
-const installLockfile = (outDir) => {
+const installLockfile = (outDir, createAppVersion) => {
   const result = spawnSync('pnpm', ['install', '--lockfile-only', '--ignore-scripts'], {
     cwd: outDir,
     stdio: 'inherit',
@@ -235,9 +244,17 @@ const installLockfile = (outDir) => {
   })
   if (result.status !== 0) {
     throw new Error(
-      'pnpm install --lockfile-only failed. Publish the @ezhana/* package versions first, ' +
-        'then rerun the export with --install.',
+      'pnpm install --lockfile-only failed. Publish the @ezhana/* package versions and ' +
+        `create-ezhana-app@${createAppVersion} first, then rerun the export with --install.`,
     )
+  }
+}
+
+const assertSourceToolIsPublishable = async () => {
+  for (const file of ['package.json', 'bin/create-app.mjs', 'versions.json']) {
+    if (!(await exists(join(sourceRoot, 'tools/create-app', file)))) {
+      throw new Error(`tools/create-app/${file} is missing; the generator must stay publishable.`)
+    }
   }
 }
 
@@ -245,22 +262,24 @@ const main = async () => {
   const { outDir, install } = parseArgs()
   const resolvedOut = outDir.startsWith('/') ? outDir : join(sourceRoot, outDir)
 
+  await assertSourceToolIsPublishable()
+
   await rm(resolvedOut, { recursive: true, force: true })
   await mkdir(resolvedOut, { recursive: true })
 
   await cp(skeletonDir, resolvedOut, { recursive: true })
   await copyRootFiles(resolvedOut)
-  await copyCreateApp(resolvedOut)
-  await createRootManifest(resolvedOut)
+  const createAppVersion = await createRootManifest(resolvedOut)
   await validateOutput(resolvedOut)
 
-  if (install) installLockfile(resolvedOut)
+  if (install) installLockfile(resolvedOut, createAppVersion)
   formatOutput(resolvedOut)
 
   process.stdout.write(
     `Template exported to ${relative(sourceRoot, resolvedOut) || resolvedOut}\n` +
       '  apps: empty (create with pnpm create:app)\n' +
       '  packages: optional placeholder (README only; users add their own workspaces here)\n' +
+      `  create:app: create-ezhana-app@${createAppVersion} (published package, pinned in devDependencies)\n` +
       (install
         ? '  pnpm-lock.yaml generated\n'
         : '  note: rerun with --install to generate pnpm-lock.yaml\n'),

@@ -1,6 +1,7 @@
 # ADR 0001: Create apps from inside the template repository
 
-- **Status:** Accepted
+- **Status:** Accepted; the generator distribution section is superseded by
+  [ADR 0002](0002-distribute-create-app-via-npm.md)
 - **Date:** 2026-10-27
 - **Scope:** `frontend-template` distribution and `tools/create-app`
 
@@ -55,6 +56,10 @@ Apps are created under `apps/<name>` and become part of the existing pnpm worksp
 
 ### Distribution of the generator
 
+> Superseded by [ADR 0002](0002-distribute-create-app-via-npm.md): the generator is published as
+> `create-ezhana-app` and pinned as an exact devDependency of the generated template. The section
+> below is kept for context.
+
 `create:app` must be a standalone command and must not depend on this source repository's
 `packages/*` or `apps/*` directories. The preferred distribution is a published npm package (for
 example `create-ezhana-app`) containing:
@@ -64,19 +69,21 @@ example `create-ezhana-app`) containing:
 - a version manifest for `@ezhana/*` packages;
 - the CLI entry point.
 
-The generated template declares the command as a dependency or invokes it through a pinned
-`pnpm dlx` version:
+The generated template declares the command as a dependency:
 
 ```json
 {
+  "devDependencies": {
+    "create-ezhana-app": "<pinned>"
+  },
   "scripts": {
-    "create:app": "pnpm dlx create-ezhana-app@<pinned>"
+    "create:app": "create-ezhana-app"
   }
 }
 ```
 
-Vendoring the generator into the template is a transitional option only. If it is vendored, the
-export must also inject the version manifest and overlays so the command remains self-contained.
+Vendoring the generator into the template was a transitional option only; see ADR 0002 for why it
+was dropped.
 
 ## Architecture
 
@@ -187,7 +194,8 @@ The initial `apps/` directory is empty except for a README/placeholder. `pnpm in
 
 ## Open questions
 
-- Publish the CLI as `create-ezhana-app` or vendor it until the first stable release?
+- ~~Publish the CLI as `create-ezhana-app` or vendor it until the first stable release?~~ Resolved
+  by [ADR 0002](0002-distribute-create-app-via-npm.md): published package, exact devDependency, no vendoring.
 - Should the template still include a minimal "hello world" app for visual smoke tests, or keep
   `apps/` empty?
 - Which package manager selection is exposed in the prompt: pnpm only, or pnpm/npm/yarn?

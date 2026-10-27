@@ -1,8 +1,9 @@
 # Template distribution: source repository → generated template repository
 
 This repository is the **source/development monorepo**. It contains the `@ezhana/*` package sources,
-the external-scaffolder pipeline (`tools/create-app`) and the template skeleton. The React and Vue
-applications are generated on demand; no full sample apps are committed.
+the external-scaffolder pipeline (`tools/create-app`, published as `create-ezhana-app`) and the
+template skeleton. The React and Vue applications are generated on demand; no full sample apps are
+committed.
 
 The public **template repository** (the one users click "Use this template" on) is generated from
 this repository. It keeps the monorepo layout (`apps/` + `packages/`) but does not contain any
@@ -11,16 +12,17 @@ this repository. It keeps the monorepo layout (`apps/` + `packages/`) but does n
 ## Direction
 
 The template uses a generator-first workflow: it ships no default apps; after cloning, users run
-`pnpm create:app` and choose a stack. See
-[ADR 0001](adr/0001-create-app-in-template-repo.md) for the decision and the repository-patch
-rules.
+`pnpm install` and then `pnpm create:app` and choose a stack. The generator is a **published npm
+package**, pinned as an exact devDependency, not a copy in the template repository — see
+[ADR 0002](adr/0002-distribute-create-app-via-npm.md). [ADR 0001](adr/0001-create-app-in-template-repo.md)
+still governs the in-repo workflow and the repository-patch rules.
 
 ## Repository roles
 
 | Repository                                    | Contains                                                                      | Dependency strategy               | GitHub Template |
 | --------------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------- | --------------- |
 | this repo (`frontend-template-source`)        | `packages/*` + `tools/create-app` + `template/` + changesets                  | `workspace:*` for `@ezhana/*`     | No              |
-| generated template repo (`frontend-template`) | empty `apps/` + bundled `tools/create-app` + optional `packages/` placeholder | npm semver ranges for `@ezhana/*` | Yes             |
+| generated template repo (`frontend-template`) | empty `apps/` + pinned `create-ezhana-app` + optional `packages/` placeholder | npm semver ranges for `@ezhana/*` | Yes             |
 
 Both repositories are pnpm monorepos. The generated template starts without apps; the user chooses
 React or Vue with `pnpm create:app`, and can create multiple apps in the same workspace.
@@ -31,23 +33,27 @@ React or Vue with `pnpm create:app`, and can create multiple apps in the same wo
 frontend-template/
 ├── apps/
 │   └── README.md                # empty; pnpm create:app will add apps/<name>
-├── tools/create-app/            # self-contained generator (bin, recipes, overlays, versions)
 ├── packages/
 │   └── README.md                # optional placeholder; users add their own packages
-├── .github/workflows/ci.yml     # install → format → lint → build
+├── .github/workflows/ci.yml     # install → format → lint → build → create:app smoke
 ├── eslint.config.mjs            # imports @ezhana/eslint-config-base from npm
 ├── prettier.config.mjs          # imports @ezhana/prettier-config from npm
 ├── lint-staged.config.mjs
 ├── pnpm-workspace.yaml          # apps/*, packages/*, catalog
-├── package.json                 # create:app + dynamic apps/* scripts; no changesets
-├── pnpm-lock.yaml
+├── package.json                 # create:app (published generator) + dynamic apps/* scripts
+├── pnpm-lock.yaml               # includes the pinned create-ezhana-app version
 ├── README.md
 └── README.zh-CN.md
 ```
 
+The generator is **not** vendored: the root `package.json` pins the published `create-ezhana-app`
+package in `devDependencies` and routes `create:app` to its bin. `pnpm install` therefore installs
+the generator together with the root tooling, and `pnpm-lock.yaml` covers it.
+
 The generated root `package.json` has:
 
 - npm dependencies on `@ezhana/eslint-config-base` and `@ezhana/prettier-config`;
+- an exact `create-ezhana-app` devDependency (the version published for this template snapshot);
 - `create:app`, `dev`, `build:packages`, `build:apps`, `build`, `lint` and `check` scripts;
 - app scripts use `pnpm -r --filter "./apps/*" --if-present`, so with zero apps install/lint/build
   are valid;
@@ -64,14 +70,18 @@ From the source repository:
 # Generate into dist-template/frontend-template (gitignored) without a lockfile
 pnpm export:template
 
-# Generate and create pnpm-lock.yaml (requires the pinned @ezhana/* versions to exist on npm)
+# Generate and create pnpm-lock.yaml (requires the pinned @ezhana/* versions and
+# create-ezhana-app@<version> to exist on npm)
 pnpm export:template --install
 ```
 
-The export copies the `template/` skeleton and the self-contained `tools/create-app` directory,
-writes a fresh `versions.json` into the copied tool, and generates the root lockfile with
-`--install`. It validates that no `workspace:` dependency remains, that `apps/` is empty, that
-`tools/create-app` is complete and that the optional `packages/README.md` placeholder is present.
+The export copies the `template/` skeleton, reads the generator version from
+`tools/create-app/package.json`, pins it as an exact root devDependency with a `create:app` script,
+and never copies `tools/`. It validates that no `workspace:` dependency remains, that `apps/` is
+empty, that the `create:app` script points at the published package with an exact version, that
+`tools/` is absent (including the `tools/*` workspace glob) and that the optional
+`packages/README.md` placeholder is present. `--install` then writes the root lockfile, which fails
+if the pinned generator version is not on npm.
 
 `template/` is the source of truth for template-only files (README, CI workflow, empty `apps/`,
 `packages/` scaffold). The generic root configs are copied from this repository.
@@ -81,16 +91,18 @@ writes a fresh `versions.json` into the copied tool, and generates the root lock
 `.github/workflows/export-template.yml` is a `workflow_dispatch` job that:
 
 1. installs this workspace,
-2. runs `pnpm export:template --install`,
-3. initializes a git repository in `dist-template/frontend-template`,
-4. force-pushes it to the repository configured by:
+2. verifies that the `create-ezhana-app` version pinned by the export exists on npm
+   (`pnpm view create-ezhana-app@<version> version`),
+3. runs `pnpm export:template --install`,
+4. initializes a git repository in `dist-template/frontend-template`,
+5. force-pushes it to the repository configured by:
    - repository variable `TEMPLATE_REPO` (for example `ezhana/frontend-template`);
    - repository secret `TEMPLATE_REPO_TOKEN` (fine-grained token with `contents: write` on the
      template repository).
 
-Run it **after** publishing the `@ezhana/*` versions referenced by the generated manifests. The
-template repository is generated and force-pushed; changes should be made in this source repository,
-not in the generated one.
+Run it **after** publishing the `@ezhana/*` versions and `create-ezhana-app` version referenced by
+the generated manifests. The template repository is generated and force-pushed; changes should be
+made in this source repository, not in the generated one.
 
 Enable GitHub's **Template repository** setting on the generated repository.
 
@@ -173,14 +185,15 @@ Enable GitHub's **Template repository** setting on the generated repository.
 2. After the first successful export, enable _Settings → General → Template repository_.
 3. Set a clear description, for example: "Generated from frontend-template-source — do not edit
    directly." Add topics such as `template`, `monorepo`, `react`, `vue`, `vite`, `design-tokens`.
-4. Enable Actions. The generated repository has its own CI (`install → format → lint → build`) and
-   does not need npm secrets.
+4. Enable Actions. The generated repository has its own CI
+   (`install → format → lint → build → create:app smoke`) and does not need npm secrets. The
+   `create:app` smoke step exercises the published generator.
 5. **Do not require pull requests/reviews on `main` unless the token can bypass the rules** — the
    export workflow force-pushes `main`. The simplest policy is an unprotected `main` plus a note
    that the repository is generated; edits belong in the source repository.
-6. **Do not enable Renovate/Dependabot for `@ezhana/*`** in the generated repository: dependency
-   updates are published through releases in the source repository and applied by regenerating the
-   template. Renovate PRs would be overwritten by the next force-push.
+6. **Do not enable Renovate/Dependabot for `@ezhana/*` or `create-ezhana-app`** in the generated
+   repository: dependency updates are published through releases in the source repository and
+   applied by regenerating the template. Renovate PRs would be overwritten by the next force-push.
 7. Configure issues/PRs to point to the source repository (repository description or an issue
    template) because generated content is replaced on every export.
 8. Optionally tag generated commits (`template-YYYY.MM.DD`) for traceability; template consumers do
@@ -189,24 +202,32 @@ Enable GitHub's **Template repository** setting on the generated repository.
 ### First export
 
 Run **Actions → Export template repo → Run workflow** in the source repository after publishing the
-`@ezhana/*` versions. The job pushes `main` to `TEMPLATE_REPO`. Then verify:
+`@ezhana/*` versions and `create-ezhana-app`. The job pushes `main` to `TEMPLATE_REPO`. Then verify:
 
-- the generated repository contains an empty `apps/`, `tools/create-app`, the optional
-  `packages/README.md`, both READMEs and a committed `pnpm-lock.yaml`;
-- the generated CI is green;
+- the generated repository contains an empty `apps/`, the pinned `create-ezhana-app` devDependency,
+  the optional `packages/README.md`, both READMEs and a committed `pnpm-lock.yaml`;
+- the generated CI is green, including the `create:app` smoke step;
 - _Template repository_ is enabled;
 - the source repository is **not** a template.
 
 ## Prerelease checklist
 
 1. `pnpm check` in this repository.
-2. `pnpm changeset version` + `pnpm changeset publish` for package changes (the template pins the
-   versions in the manifests; a version that is not on npm makes `--install` fail).
-3. Run `pnpm sync:create-app` to refresh the standalone generator's `versions.json`.
-4. Verify the published packages with `pnpm view @ezhana/design-tokens version` (and the config
-   packages).
+2. `pnpm changeset version` + `pnpm changeset publish` for package changes, including
+   `create-ezhana-app` (the template pins the published versions; a version that is not on npm
+   makes `--install` fail). The generator's `prepack` hook refreshes `versions.json` before packing.
+   From GitHub Actions, publish with provenance (`pnpm publish --provenance`, or trusted publishing,
+   which attaches it automatically); local publishes omit provenance.
+3. Run `pnpm sync:create-app` locally to keep the committed `versions.json` in sync (CI verifies it).
+4. Verify the published packages with `pnpm view @ezhana/design-tokens version`,
+   `pnpm view create-ezhana-app version` (and the config packages).
 5. Run `pnpm export:template --install` (or dispatch the export workflow) and let the generated
    template's own CI pass.
+
+If the generated template is meant for teams with a strict `minimumReleaseAge` policy, note that
+pnpm 12's built-in default is 1440 minutes (non-strict); a version published minutes ago may still be
+rejected by strict consumers. Prefer exporting the template at least a day after publishing a new
+generator version.
 
 The first template validation surfaced a real packaging bug: `@ezhana/eslint-config-vue@0.1.0` had
 its runtime dependencies in `devDependencies`, so a consumer install could not resolve
@@ -230,8 +251,12 @@ repository.
 ## Version policy
 
 - The generator pins `@ezhana/*` to `^<version>` from this monorepo's package manifests.
+- The generated template pins `create-ezhana-app` to an **exact** version (no `^`), so a template
+  snapshot always generates the same apps. Bump the generator version in the source repository, then
+  regenerate the template; do not bump it in the generated repository.
 - Run `pnpm changeset version` and `pnpm changeset publish` first, then regenerate the template.
-- The generated `pnpm-lock.yaml` is committed by the publish workflow.
+- The generated `pnpm-lock.yaml` is committed by the publish workflow and covers the pinned
+  generator, so `pnpm install --frozen-lockfile` fails if it is not published.
 - Template CI installs with `--frozen-lockfile`, catching missing files/exports in published
   packages.
 - For 0.x packages, `^0.2.0` accepts patch releases only; review minor releases manually if you

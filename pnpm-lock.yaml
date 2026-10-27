@@ -334,6 +334,8 @@ importers:
 
   packages/theme: {}
 
+  tools/create-app: {}
+
 packages:
 
   '@babel/code-frame@7.29.7':
