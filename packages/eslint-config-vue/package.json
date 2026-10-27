@@ -33,7 +33,7 @@
     "eslint": "catalog:",
     "typescript": "catalog:"
   },
-  "devDependencies": {
+  "dependencies": {
     "@ezhana/eslint-config-base": "workspace:*",
     "@ezhana/eslint-config-typescript": "workspace:*",
     "eslint-plugin-vue": "~10.11.0",

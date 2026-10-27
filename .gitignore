@@ -7,6 +7,10 @@ coverage/
 
 .DS_Store
 
+# generated template output (scripts/export-template.mjs)
+dist-template/
+.pnpm-store/
+
 *.local
 
 .env

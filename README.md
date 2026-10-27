@@ -1,6 +1,8 @@
-# Frontend Template
+# Frontend Template Source
 
-A pnpm-based frontend monorepo providing reusable ESLint and Prettier configurations, plus Vue and React + Vite project templates.
+Source/development monorepo for the `frontend-template` repository. It provides reusable ESLint and
+Prettier configurations, the design-token and theme packages, plus Vue and React + Vite template
+sources. The consumer-facing template repository is generated from this repository.
 
 ## Features
 
@@ -31,7 +33,7 @@ The repository pins the package manager in the root `package.json` and defines t
 ## Repository Structure
 
 ```text
-frontend-template/
+frontend-template-source/
 ├── apps/
 │   ├── vue-vite/
 │   └── react-vite/
@@ -145,7 +147,7 @@ Includes:
 - themes as semantic-token overrides: `default`, `cerulean` and `ocean` × `light` and `dark`
 - theme-owned typography: `cerulean` ships Public Sans as a self-hosted variable font
 - no component layer by design — optional separate package when a component system needs one
-- theme design narratives under [`docs/themes/`](docs/themes/cerulean/DESIGN.md)
+- theme design narratives in [`packages/design-tokens/docs/themes/`](packages/design-tokens/docs/themes/cerulean/DESIGN.md)
 - build-time contract validation and WCAG AA contrast tests
 
 Usage:
@@ -343,7 +345,7 @@ contract is incomplete, and `pnpm test` checks the contract plus WCAG AA contras
 
 Each theme has its own design narrative; the Cerulean theme — derived from a
 monochrome-blue/Public Sans design brief — is documented in
-[`docs/themes/cerulean/DESIGN.md`](docs/themes/cerulean/DESIGN.md) and demonstrates the full
+[`packages/design-tokens/docs/themes/cerulean/DESIGN.md`](packages/design-tokens/docs/themes/cerulean/DESIGN.md) and demonstrates the full
 extension workflow (palette ramp, theme typeface, level-2 rounding, measured contrast table).
 
 The component layer is intentionally absent: component tokens belong to a component API and are
@@ -368,6 +370,20 @@ The template apps use `@ezhana/theme`, which:
 
 An inline classic script in each `index.html` resolves the stored preference before first paint, so
 the correct theme is applied without a flash of the wrong theme.
+
+## Template Distribution
+
+This repository is the source/development monorepo. The public template repository is generated from
+it: apps keep the `apps/` + `packages/` monorepo layout, while every `@ezhana/*` dependency is
+installed from npm instead of being linked from `packages/`.
+
+```bash
+pnpm export:template --install          # generate dist-template/frontend-template
+```
+
+The generated repository is force-pushed by `.github/workflows/export-template.yml` after packages
+are published. See [`docs/template-distribution.md`](docs/template-distribution.md) for the full
+model, required GitHub variables/secrets, and the user-package workflow.
 
 ## Development Workflow
 

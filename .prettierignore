@@ -1,6 +1,8 @@
 node_modules/
 dist/
 coverage/
+dist-template/
+.pnpm-store/
 
 .idea/
 .vscode/

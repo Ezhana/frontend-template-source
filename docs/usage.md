@@ -295,7 +295,7 @@ without changing the token architecture.
 | Add a theme typeface  | override `font.family.sans` / `font.family.heading` in a theme file and load the font in the app entry                                                                           | only Cerulean currently does this (Public Sans)                      |
 | Add a component layer | create a separate `@ezhana/component-tokens` package that consumes semantic tokens only                                                                                          | own tests/contract; no changes to `design-tokens`                    |
 
-Theme design narratives live under [`docs/themes/`](themes/cerulean/DESIGN.md); Cerulean is a
+Theme design narratives live with the token package, e.g. [`@ezhana/design-tokens/docs/themes/cerulean/DESIGN.md`](../packages/design-tokens/docs/themes/cerulean/DESIGN.md); Cerulean is a
 complete worked example (custom palette, Public Sans, level-2 shape/spacing, measured contrast).
 
 ## Build, CI and release flow
@@ -323,15 +323,15 @@ complete worked example (custom palette, Public Sans, level-2 shape/spacing, mea
 
 ## File map
 
-| File                                       | Purpose                                          |
-| ------------------------------------------ | ------------------------------------------------ |
-| `packages/design-tokens/tokens/**`         | token sources (primitive / semantic / themes)    |
-| `packages/design-tokens/scripts/build.mjs` | Style Dictionary build + validation              |
-| `packages/design-tokens/dist/**`           | generated CSS / JSON / JS + d.ts (not committed) |
-| `packages/theme/index.js`                  | framework-agnostic theme runtime                 |
-| `apps/*/src/theme/manager.ts`              | app singleton wired to generated metadata        |
-| `apps/*/src/theme/useTheme.ts`             | React / Vue adapter                              |
-| `apps/*/src/components/ThemeSwitcher.*`    | switcher UI                                      |
-| `apps/*/index.html`                        | pre-paint inline script                          |
-| `apps/*/src/main.*`                        | CSS/font import order                            |
-| `docs/themes/cerulean/DESIGN.md`           | worked example of a theme's design narrative     |
+| File                                                    | Purpose                                          |
+| ------------------------------------------------------- | ------------------------------------------------ |
+| `packages/design-tokens/tokens/**`                      | token sources (primitive / semantic / themes)    |
+| `packages/design-tokens/scripts/build.mjs`              | Style Dictionary build + validation              |
+| `packages/design-tokens/dist/**`                        | generated CSS / JSON / JS + d.ts (not committed) |
+| `packages/theme/index.js`                               | framework-agnostic theme runtime                 |
+| `apps/*/src/theme/manager.ts`                           | app singleton wired to generated metadata        |
+| `apps/*/src/theme/useTheme.ts`                          | React / Vue adapter                              |
+| `apps/*/src/components/ThemeSwitcher.*`                 | switcher UI                                      |
+| `apps/*/index.html`                                     | pre-paint inline script                          |
+| `apps/*/src/main.*`                                     | CSS/font import order                            |
+| `packages/design-tokens/docs/themes/cerulean/DESIGN.md` | worked example of a theme's design narrative     |

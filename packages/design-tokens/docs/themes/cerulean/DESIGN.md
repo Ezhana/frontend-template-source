@@ -170,14 +170,14 @@ theme.setMode('system') // no data-color-mode attribute; CSS follows the OS
 
 ## Implementation Notes
 
-| Concern                                                                                     | Location                                                                                                                  |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Theme overrides (semantic tokens: accent set, fonts, control radius)                        | [`tokens/themes/cerulean.json`](../../../packages/design-tokens/tokens/themes/cerulean.json)                              |
-| Cerulean palette ramp                                                                       | [`tokens/primitive/color.json`](../../../packages/design-tokens/tokens/primitive/color.json) (`primitive.color.cerulean`) |
-| Semantic aliases (`--color-accent` → primitive/theme value, `--font-family-*` → theme font) | [`tokens/semantic/`](../../../packages/design-tokens/tokens/semantic/)                                                    |
-| Public Sans (self-hosted variable font)                                                     | `@fontsource-variable/public-sans`, imported in both app entrypoints                                                      |
-| Generation + validation                                                                     | `pnpm build:tokens` / `pnpm --filter @ezhana/design-tokens test`                                                          |
-| Switcher UI (theme options are generated from metadata)                                     | React: `ThemeSwitcher.tsx`; Vue: `ThemeSwitcher.vue`                                                                      |
+| Concern                                                                                     | Location                                                                                           |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Theme overrides (semantic tokens: accent set, fonts, control radius)                        | [`tokens/themes/cerulean.json`](../../../tokens/themes/cerulean.json)                              |
+| Cerulean palette ramp                                                                       | [`tokens/primitive/color.json`](../../../tokens/primitive/color.json) (`primitive.color.cerulean`) |
+| Semantic aliases (`--color-accent` → primitive/theme value, `--font-family-*` → theme font) | [`tokens/semantic/`](../../../tokens/semantic/)                                                    |
+| Public Sans (self-hosted variable font)                                                     | `@fontsource-variable/public-sans`, imported in both app entrypoints                               |
+| Generation + validation                                                                     | `pnpm build:tokens` / `pnpm --filter @ezhana/design-tokens test`                                   |
+| Switcher UI (theme options are generated from metadata)                                     | React: `ThemeSwitcher.tsx`; Vue: `ThemeSwitcher.vue`                                               |
 
 Adding the theme required **no application-specific theming code**: the generated `themes` metadata
 feeds the switcher, `[data-theme="cerulean"]` (plus mode-specific) selectors are generated from the

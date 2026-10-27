@@ -314,7 +314,7 @@ tokens/
 ```
 
 A worked example of a complete theme with a custom typeface (Public Sans) and measured contrast
-ratios is the Cerulean theme: [`docs/themes/cerulean/DESIGN.md`](../../docs/themes/cerulean/DESIGN.md).
+ratios is the Cerulean theme: [`docs/themes/cerulean/DESIGN.md`](./docs/themes/cerulean/DESIGN.md).
 
 ### Adding a theme
 

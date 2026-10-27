@@ -1,0 +1,180 @@
+# Template distribution: source repository → generated template repository
+
+This repository is the **source/development monorepo**. It contains the `@ezhana/*` package sources
+and the template applications that are developed with workspace links.
+
+The public **template repository** (the one users click "Use this template" on) is generated from
+this repository. It keeps the monorepo layout (`apps/` + `packages/`) but does not contain any
+`@ezhana/*` source code: all shared packages are installed from npm.
+
+## Repository roles
+
+| Repository                                    | Contains                                                          | Dependency strategy               | GitHub Template |
+| --------------------------------------------- | ----------------------------------------------------------------- | --------------------------------- | --------------- |
+| this repo (`frontend-template-source`)        | `packages/*` source + `apps/*` source + changesets                | `workspace:*` for `@ezhana/*`     | No              |
+| generated template repo (`frontend-template`) | `apps/*` sources + optional `packages/` placeholder + root config | npm semver ranges for `@ezhana/*` | Yes             |
+
+Both repositories are pnpm monorepos and support running both React and Vue applications at the
+same time.
+
+## What the generated template contains
+
+```text
+frontend-template/
+├── apps/
+│   ├── react-vite/              # package name: react-vite
+│   └── vue-vite/                # package name: vue-vite
+├── packages/
+│   └── README.md                # optional placeholder; users add their own packages
+├── .github/workflows/ci.yml     # install → format → lint → build
+├── eslint.config.mjs            # imports @ezhana/eslint-config-base from npm
+├── prettier.config.mjs          # imports @ezhana/prettier-config from npm
+├── lint-staged.config.mjs
+├── pnpm-workspace.yaml          # apps/*, packages/*, catalog
+├── package.json                 # no packages source, no changesets
+├── pnpm-lock.yaml
+└── README.md
+```
+
+The apps' `package.json` files are rewritten by the generator:
+
+- `@ezhana/design-tokens`, `@ezhana/theme`, `@ezhana/eslint-config-*` and
+  `@ezhana/prettier-config` become `^<published-version>`;
+- `predev` / `prebuild` scripts that build the local token package are removed;
+- app package names become `react-vite` / `vue-vite`.
+
+The generated root `package.json` has:
+
+- npm dependencies on `@ezhana/eslint-config-base` and `@ezhana/prettier-config`;
+- `build:packages` / `build:apps` / `build` scripts (packages are built before apps);
+- no changeset scripts or publishing configuration.
+
+## Generation
+
+From the source repository:
+
+```bash
+# Generate into dist-template/frontend-template (gitignored) without a lockfile
+pnpm export:template
+
+# Generate and create pnpm-lock.yaml (requires the pinned @ezhana/* versions to exist on npm)
+pnpm export:template --install
+```
+
+The generator copies `apps/` and the `template/` skeleton, then rewrites dependencies. It validates
+that no `workspace:` dependency remains and that the optional `packages/README.md` placeholder is
+present.
+
+`template/` is the source of truth for template-only files (README, CI workflow, `packages/`
+scaffold). The generic root configs are copied from this repository.
+
+## CI automation
+
+`.github/workflows/export-template.yml` is a `workflow_dispatch` job that:
+
+1. installs this workspace,
+2. runs `pnpm export:template --install`,
+3. initializes a git repository in `dist-template/frontend-template`,
+4. force-pushes it to the repository configured by:
+   - repository variable `TEMPLATE_REPO` (for example `ezhana/frontend-template`);
+   - repository secret `TEMPLATE_REPO_TOKEN` (fine-grained token with `contents: write` on the
+     template repository).
+
+Run it **after** publishing the `@ezhana/*` versions referenced by the generated manifests. The
+template repository is generated and force-pushed; changes should be made in this source repository,
+not in the generated one.
+
+Enable GitHub's **Template repository** setting on the generated repository.
+
+## GitHub configuration
+
+### Source repository (`frontend-template-source`)
+
+1. Rename the repository to `frontend-template-source` (GitHub → Settings → General → Repository
+   name) and update the local remote:
+
+   ```bash
+   git remote set-url origin git@github.com:Ezhana/frontend-template-source.git
+   ```
+
+2. **Uncheck** _Settings → General → Template repository_. Only the generated repository should be
+   a template.
+3. Allow GitHub Actions (_Settings → Actions → General_) and keep workflow permissions read-only.
+4. Add the export configuration under _Settings → Secrets and variables → Actions_:
+   - variable `TEMPLATE_REPO`: `Ezhana/frontend-template` (owner/repo, no URL);
+   - secret `TEMPLATE_REPO_TOKEN`: a fine-grained PAT with:
+     - repository access: only `Ezhana/frontend-template`;
+     - permission: `Contents: read and write` (push);
+     - short expiry and a rotation reminder.
+5. Keep this repository as the canonical source. The generated repository is force-pushed and should
+   not be edited directly.
+
+### Template repository (`frontend-template`)
+
+1. Create the repository as a public repository (an initial README is fine; the workflow overwrites
+   it).
+2. After the first successful export, enable _Settings → General → Template repository_.
+3. Set a clear description, for example: "Generated from frontend-template-source — do not edit
+   directly." Add topics such as `template`, `monorepo`, `react`, `vue`, `vite`, `design-tokens`.
+4. Enable Actions. The generated repository has its own CI (`install → format → lint → build`) and
+   does not need npm secrets.
+5. **Do not require pull requests/reviews on `main` unless the token can bypass the rules** — the
+   export workflow force-pushes `main`. The simplest policy is an unprotected `main` plus a note
+   that the repository is generated; edits belong in the source repository.
+6. **Do not enable Renovate/Dependabot for `@ezhana/*`** in the generated repository: dependency
+   updates are published through releases in the source repository and applied by regenerating the
+   template. Renovate PRs would be overwritten by the next force-push.
+7. Configure issues/PRs to point to the source repository (repository description or an issue
+   template) because generated content is replaced on every export.
+8. Optionally tag generated commits (`template-YYYY.MM.DD`) for traceability; template consumers do
+   not need these tags.
+
+### First export
+
+Run **Actions → Export template repo → Run workflow** in the source repository after publishing the
+`@ezhana/*` versions. The job pushes `main` to `TEMPLATE_REPO`. Then verify:
+
+- the generated repository contains `apps/`, the optional `packages/README.md`, both READMEs and a
+  committed `pnpm-lock.yaml`;
+- the generated CI is green;
+- _Template repository_ is enabled;
+- the source repository is **not** a template.
+
+## Prerelease checklist
+
+1. `pnpm check` in this repository.
+2. `pnpm changeset version` + `pnpm changeset publish` for package changes (the template pins the
+   versions in the manifests; a version that is not on npm makes `--install` fail).
+3. Verify the published packages with `pnpm view @ezhana/design-tokens version` (and the config
+   packages).
+4. Run `pnpm export:template --install` (or dispatch the export workflow) and let the generated
+   template's own CI pass.
+
+The first template validation surfaced a real packaging bug: `@ezhana/eslint-config-vue@0.1.0` had
+its runtime dependencies in `devDependencies`, so a consumer install could not resolve
+`eslint-plugin-vue`. The source manifests are fixed and a patch changeset is included; publish the
+fixed versions before regenerating the template.
+
+## User packages
+
+The generated template keeps `packages/` intentionally, but only as an optional placeholder with a
+README — no example package is shipped. Users can delete the directory if they do not need shared
+packages. If they do:
+
+- create `packages/<their-package>` with a `package.json`, `src/` and a build script;
+- add it to an app with `"workspace:*"`;
+- build packages with `pnpm build:packages`;
+- add their own versioning/publishing setup (Changesets, etc.) if they publish packages.
+
+`@ezhana/*` remains npm-only in the template; user packages never depend on the source code in this
+repository.
+
+## Version policy
+
+- The generator pins `@ezhana/*` to `^<version>` from this monorepo's package manifests.
+- Run `pnpm changeset version` and `pnpm changeset publish` first, then regenerate the template.
+- The generated `pnpm-lock.yaml` is committed by the publish workflow.
+- Template CI installs with `--frozen-lockfile`, catching missing files/exports in published
+  packages.
+- For 0.x packages, `^0.2.0` accepts patch releases only; review minor releases manually if you
+  want tighter control.

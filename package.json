@@ -1,7 +1,7 @@
 {
-  "name": "frontend-template",
+  "name": "frontend-template-source",
   "private": true,
-  "description": "Frontend project templates.",
+  "description": "Source monorepo for the frontend templates, design tokens and shared tooling.",
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
@@ -15,7 +15,8 @@
     "changeset": "changeset",
     "changeset:status": "changeset status",
     "changeset:version": "changeset version",
-    "changeset:publish": "changeset publish"
+    "changeset:publish": "changeset publish",
+    "export:template": "node ./scripts/export-template.mjs"
   },
   "author": "Ezhana",
   "license": "MIT",

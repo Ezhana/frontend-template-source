@@ -1,0 +1,59 @@
+name: Export template repo
+
+# Generates the consumer-facing template repository from this development monorepo and force-pushes
+# it to the repository configured with the TEMPLATE_REPO repository variable.
+#
+# Required configuration:
+#   - repository variable TEMPLATE_REPO, e.g. "ezhana/frontend-template"
+#   - repository secret TEMPLATE_REPO_TOKEN (fine-grained token with contents: write on that repo)
+#
+# Run this after the @ezhana/* packages have been published, so the pinned version ranges in the
+# generated template resolve on npm.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    name: Export and publish template
+    runs-on: ubuntu-latest
+
+    env:
+      TEMPLATE_REPO: ${{ vars.TEMPLATE_REPO }}
+      TEMPLATE_REPO_TOKEN: ${{ secrets.TEMPLATE_REPO_TOKEN }}
+
+    steps:
+      - name: Check configuration
+        run: |
+          test -n "$TEMPLATE_REPO" || { echo "Missing repository variable TEMPLATE_REPO"; exit 1; }
+          test -n "$TEMPLATE_REPO_TOKEN" || { echo "Missing repository secret TEMPLATE_REPO_TOKEN"; exit 1; }
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24.21.0
+          cache: true
+          require-lockfile: true
+
+      - name: Install workspace
+        run: pnpm install --frozen-lockfile
+
+      - name: Export template
+        run: pnpm export:template --install
+
+      - name: Publish generated template
+        run: |
+          cd dist-template/frontend-template
+          git init -b main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: regenerate template"
+          git remote add origin "https://x-access-token:${TEMPLATE_REPO_TOKEN}@github.com/${TEMPLATE_REPO}.git"
+          git push --force origin HEAD:main
