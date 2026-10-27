@@ -104,8 +104,57 @@ Enable GitHub's **Template repository** setting on the generated repository.
    - variable `TEMPLATE_REPO`: `Ezhana/frontend-template` (owner/repo, no URL);
    - secret `TEMPLATE_REPO_TOKEN`: a fine-grained PAT with:
      - repository access: only `Ezhana/frontend-template`;
-     - permission: `Contents: read and write` (push);
+     - permissions: `Contents: read and write` **and** `Workflows: read and write`;
      - short expiry and a rotation reminder.
+
+   > `Workflows: read and write` is required because the generated template contains
+   > `.github/workflows/ci.yml`. Without it, GitHub rejects the push with
+   > "refusing to allow a personal access token to create or update workflow file".
+
+   #### Creating the fine-grained token
+   1. Create the template repository first (or at least know its `owner/repo`). If it belongs to an
+      organization, make sure you are allowed to create fine-grained tokens for that organization
+      and that the organization has approved the token (or is configured to allow it).
+   2. Open GitHub **Settings → Developer settings → Personal access tokens → Fine-grained tokens**
+      and choose **Generate new token**.
+   3. Fill in:
+      - **Token name**: e.g. `frontend-template-export`;
+      - **Expiration**: 30–90 days (use a rotation reminder);
+      - **Resource owner**: the account/org that owns `frontend-template`.
+   4. **Repository access** → _Only select repositories_ → `Ezhana/frontend-template`.
+   5. **Permissions** → _Repository permissions_:
+      - `Contents`: **Read and write** (push commits);
+      - `Workflows`: **Read and write** (push `.github/workflows/ci.yml`);
+      - `Metadata`: Read-only (selected automatically).
+        No Actions permission is needed — the token only pushes to the template repository.
+   6. Generate the token and copy it once. GitHub will not show it again.
+   7. In the **source repository** open **Settings → Secrets and variables → Actions**:
+      - **Secrets → New repository secret**: name `TEMPLATE_REPO_TOKEN`, value the token;
+      - **Variables → New repository variable**: name `TEMPLATE_REPO`,
+        value `Ezhana/frontend-template` (no URL, no `https://github.com/`).
+
+   Or with the GitHub CLI (from the source repository):
+
+   ```bash
+   gh secret set TEMPLATE_REPO_TOKEN --repo Ezhana/frontend-template-source
+   gh variable set TEMPLATE_REPO --repo Ezhana/frontend-template-source \
+     --body Ezhana/frontend-template
+   ```
+
+   If the organization uses SAML SSO, open the token on GitHub and click **Configure SSO** to
+   authorize it for the organization; otherwise the API/push returns 403.
+
+   To verify before running the workflow (do not paste the token into shell history; use an
+   environment variable or a one-off `read -s`):
+
+   ```bash
+   export GH_TOKEN=...   # your token
+   gh api repos/Ezhana/frontend-template --jq '.permissions'
+   ```
+
+   A token with push access usually reports `{"admin":false,"push":true,"pull":true}` (exact output
+   depends on your role). You can also run the export workflow once and inspect the push step.
+
 5. Keep this repository as the canonical source. The generated repository is force-pushed and should
    not be edited directly.
 
