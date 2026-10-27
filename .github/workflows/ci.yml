@@ -43,6 +43,3 @@ jobs:
 
       - name: Test
         run: pnpm test
-
-      - name: Build template
-        run: pnpm build:templates

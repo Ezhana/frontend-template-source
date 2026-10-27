@@ -6,12 +6,16 @@ on:
   push:
     paths:
       - 'tools/create-app/**'
+      - 'template/**'
+      - 'scripts/export-template.mjs'
       - 'packages/**'
       - 'pnpm-workspace.yaml'
 
   pull_request:
     paths:
       - 'tools/create-app/**'
+      - 'template/**'
+      - 'scripts/export-template.mjs'
       - 'packages/**'
       - 'pnpm-workspace.yaml'
 

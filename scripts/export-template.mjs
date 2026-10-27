@@ -2,9 +2,10 @@
 /**
  * Export the consumer-facing template repository from this development monorepo.
  *
- * The source repository keeps workspace-linked `apps/` and `packages/` sources. The exported
- * template keeps `apps/` (both frameworks), an empty-with-scaffold `packages/` directory for the
- * user's own packages, and resolves every `@ezhana/*` dependency to the published npm version.
+ * Apps are generated with the same external-scaffolder pipeline as `pnpm create:app`; this repository
+ * no longer keeps full sample apps. The exported template keeps `apps/` (both frameworks), an
+ * optional `packages/` placeholder for the user's own packages, and resolves every `@ezhana/*`
+ * dependency to the published npm version.
  *
  * Usage:
  *   node scripts/export-template.mjs [--out <dir>] [--install]
@@ -15,17 +16,19 @@
  */
 import { spawnSync } from 'node:child_process'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
-import { dirname, join, relative, sep } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+
+import { createApp } from '../tools/create-app/lib/create.mjs'
 
 const sourceRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const skeletonDir = join(sourceRoot, 'template')
 const defaultOut = join(sourceRoot, 'dist-template', 'frontend-template')
 
 const APPS = [
-  { directory: 'apps/react-vite', packageName: 'react-vite' },
-  { directory: 'apps/vue-vite', packageName: 'vue-vite' },
+  { template: 'react', directory: 'apps/react-vite' },
+  { template: 'vue', directory: 'apps/vue-vite' },
 ]
 
 const ROOT_FILES = [
@@ -39,18 +42,6 @@ const ROOT_FILES = [
   'pnpm-workspace.yaml',
   'prettier.config.mjs',
 ]
-
-const EXCLUDED_DIRECTORIES = new Set([
-  'node_modules',
-  'dist',
-  'coverage',
-  '.vite',
-  '.turbo',
-  '.next',
-  '.nuxt',
-])
-
-const EXCLUDED_FILES = new Set(['.DS_Store'])
 
 const parseArgs = () => {
   const args = process.argv.slice(2)
@@ -97,57 +88,6 @@ const readPublishedVersions = async () => {
     if (manifest.name) versions.set(manifest.name, manifest.version)
   }
   return versions
-}
-
-const copyApp = async (app, outDir) => {
-  const from = join(sourceRoot, app.directory)
-  const to = join(outDir, app.directory)
-  await cp(from, to, {
-    recursive: true,
-    filter: (source) => {
-      const rel = relative(from, source)
-      if (rel === '') return true
-      const segments = rel.split(sep)
-      if (EXCLUDED_DIRECTORIES.has(segments[0])) return false
-      if (EXCLUDED_FILES.has(segments.at(-1))) return false
-      if (segments.at(-1).endsWith('.tsbuildinfo')) return false
-      return true
-    },
-  })
-
-  const manifestPath = join(to, 'package.json')
-  const manifest = await readJson(manifestPath)
-  const versions = await readPublishedVersions()
-
-  delete manifest.scripts?.predev
-  delete manifest.scripts?.prebuild
-  manifest.name = app.packageName
-
-  for (const field of [
-    'dependencies',
-    'devDependencies',
-    'peerDependencies',
-    'optionalDependencies',
-  ]) {
-    const group = manifest[field]
-    if (!group) continue
-    for (const [name, range] of Object.entries(group)) {
-      if (name.startsWith('@ezhana/')) {
-        const version = versions.get(name)
-        if (!version) {
-          throw new Error(`Cannot resolve published version for ${name} (from ${app.directory}).`)
-        }
-        group[name] = `^${version}`
-      } else if (typeof range === 'string' && range.includes('workspace:')) {
-        throw new Error(
-          `Unexpected workspace dependency "${name}": ${range} in ${app.directory}. ` +
-            'App dependencies must point at published packages in the generated template.',
-        )
-      }
-    }
-  }
-
-  await writeJson(manifestPath, manifest)
 }
 
 const createRootManifest = async (outDir) => {
@@ -207,6 +147,10 @@ const copyRootFiles = async (outDir) => {
       // This exclusion list only exists for source-repo dependency policy; the template does not
       // need it and should stay focused on the workspaces + catalog.
       content = content.replace(/\nminimumReleaseAgeExclude:\n(?:[ ]{2}- .*\n)+/g, '\n')
+      // The source repo no longer contains apps/; the generated template does.
+      if (!content.includes("'apps/*'")) {
+        content = content.replace('packages:\n', "packages:\n  - 'apps/*'\n")
+      }
     }
     await writeFile(join(outDir, file), content)
   }
@@ -246,6 +190,29 @@ const validateOutput = async (outDir) => {
     throw new Error(`Generated template is invalid:\n- ${problems.join('\n- ')}`)
 }
 
+const formatOutput = (outDir) => {
+  const result = spawnSync(
+    'pnpm',
+    [
+      'exec',
+      'prettier',
+      '--config',
+      join(sourceRoot, 'prettier.config.mjs'),
+      '--ignore-path',
+      join(sourceRoot, '.prettierignore'),
+      '--write',
+      outDir,
+    ],
+    {
+      cwd: sourceRoot,
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+    },
+  )
+  if (result.status !== 0)
+    throw new Error('Prettier failed while formatting the generated template.')
+}
+
 const installLockfile = (outDir) => {
   const result = spawnSync('pnpm', ['install', '--lockfile-only', '--ignore-scripts'], {
     cwd: outDir,
@@ -269,15 +236,25 @@ const main = async () => {
 
   await cp(skeletonDir, resolvedOut, { recursive: true })
   await copyRootFiles(resolvedOut)
-  for (const app of APPS) await copyApp(app, resolvedOut)
+
+  for (const app of APPS) {
+    await createApp({
+      template: app.template,
+      target: join(resolvedOut, app.directory),
+      install: false,
+      verify: false,
+    })
+  }
+
   await createRootManifest(resolvedOut)
   await validateOutput(resolvedOut)
+  formatOutput(resolvedOut)
 
   if (install) installLockfile(resolvedOut)
 
   process.stdout.write(
     `Template exported to ${relative(sourceRoot, resolvedOut) || resolvedOut}\n` +
-      `  apps: ${APPS.map((app) => app.directory).join(', ')}\n` +
+      `  apps: ${APPS.map((app) => app.directory).join(', ')} (generated)\n` +
       '  packages: optional placeholder (README only; users add their own workspaces here)\n' +
       (install
         ? '  pnpm-lock.yaml generated\n'

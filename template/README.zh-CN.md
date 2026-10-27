@@ -10,14 +10,16 @@
 - 来自 npm 的共享工具配置：`@ezhana/eslint-config-*`、`@ezhana/prettier-config`
 - 来自 npm 的主题能力：`@ezhana/design-tokens` + `@ezhana/theme`
 
-两套应用可以同时保留，也可以只保留其中一个。它们共用根目录的工具链、Lint 和 CI 配置。
+本仓库由 `frontend-template-source` 生成，可通过 **Use this template** 或直接 clone 使用；不要
+直接修改生成仓库。两套应用可以同时保留，也可以只保留其中一个。它们共用根目录的工具链、Lint 和
+CI 配置。
 
 ## 环境要求
 
 - Node.js 24
 - pnpm 12
 
-## 快速开始
+## 使用方式
 
 ```bash
 pnpm install

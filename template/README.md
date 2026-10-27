@@ -11,15 +11,16 @@ packages.
 - Shared tooling from npm: `@ezhana/eslint-config-*`, `@ezhana/prettier-config`
 - Theming from npm: `@ezhana/design-tokens` + `@ezhana/theme`
 
-You can keep both applications or delete the one you do not use. Both share the same root tooling,
-linting and CI configuration.
+This repository is generated from `frontend-template-source`. Use **Use this template** or clone it
+directly; do not edit the generated repository by hand. You can keep both applications or delete the
+one you do not use. Both share the same root tooling, linting and CI configuration.
 
 ## Requirements
 
 - Node.js 24
 - pnpm 12
 
-## Getting started
+## Usage
 
 ```bash
 pnpm install

@@ -1,8 +1,9 @@
 # Frontend Template Source
 
 Source/development monorepo for the `frontend-template` repository. It provides reusable ESLint and
-Prettier configurations, the design-token and theme packages, plus Vue and React + Vite template
-sources. The consumer-facing template repository is generated from this repository.
+Prettier configurations, the design-token and theme packages, and the generator that creates React
+and Vue apps on demand. The consumer-facing template repository is generated from this repository;
+no full sample apps are committed here.
 
 ## Features
 
@@ -17,8 +18,9 @@ sources. The consumer-facing template repository is generated from this reposito
 - Multi-theme switching (`data-theme` + optional `data-color-mode`) through semantic-token overrides
 - Framework-agnostic theme runtime with persistence and system color-scheme support
 - Token contract and WCAG AA contrast tests
-- Vue + Vite + TypeScript template
-- React + Vite + TypeScript template
+- On-demand React/Vue app generation from pinned `create-vite` / `create-vue` versions
+- Theme and tooling overlay applied to generated apps
+- Generated `frontend-template` repository export
 - lint-staged with simple-git-hooks
 - GitHub Actions CI
 - Changesets for package versioning and releases
@@ -34,11 +36,7 @@ The repository pins the package manager in the root `package.json` and defines t
 
 ```text
 frontend-template-source/
-├── apps/
-│   ├── vue-vite/
-│   └── react-vite/
-│
-├── packages/
+├── packages/                 # published @ezhana/* sources
 │   ├── design-tokens/
 │   ├── theme/
 │   ├── eslint-config-base/
@@ -47,13 +45,16 @@ frontend-template-source/
 │   ├── eslint-config-react/
 │   └── prettier-config/
 │
-├── docs/
-├── external/
-├── scripts/
+├── tools/create-app/         # external scaffolder + overlay pipeline
+│   ├── recipes/
+│   ├── overlays/
+│   └── bin/create-app.mjs
 │
+├── template/                 # skeleton for the generated frontend-template
+├── scripts/                  # export + token build scripts
+├── docs/
 ├── .changeset/
-├── .github/
-│   └── workflows/
+├── .github/workflows/
 │
 ├── eslint.config.mjs
 ├── prettier.config.mjs
@@ -194,116 +195,93 @@ themeManager.subscribe((state) => console.log(state.resolvedMode))
 See [`packages/theme/README.md`](packages/theme/README.md) for the API, SSR guidance and the
 no-flash inline `<head>` script.
 
-## Templates
+## Usage
 
-### Vue + Vite
+### Create an app from the official scaffolders
 
-```text
-apps/vue-vite
-```
-
-Stack:
-
-- Vue 3
-- Vite
-- TypeScript
-- ESLint
-- Prettier
-- `@ezhana/design-tokens` + `@ezhana/theme` (theme and color-mode switcher)
-
-Run locally:
-
-```bash
-pnpm --filter @ezhana/template-vue-vite dev
-```
-
-Build:
-
-```bash
-pnpm --filter @ezhana/template-vue-vite build
-```
-
-### React + Vite
-
-```text
-apps/react-vite
-```
-
-Stack:
-
-- React
-- Vite
-- TypeScript
-- ESLint
-- Prettier
-- `@ezhana/design-tokens` + `@ezhana/theme` (theme and color-mode switcher)
-
-Run locally:
-
-```bash
-pnpm --filter @ezhana/template-react-vite dev
-```
-
-Build:
-
-```bash
-pnpm --filter @ezhana/template-react-vite build
-```
-
-## Getting Started
-
-Clone the repository and install dependencies:
+Requires Node.js 24, pnpm 12 and network access (the pinned external scaffolders are downloaded
+with `pnpm dlx`):
 
 ```bash
 pnpm install
+pnpm create:app react my-react-app
+pnpm create:app vue my-vue-app
 ```
 
-The design token CSS is generated, not committed. Rebuild it explicitly with:
+The generator then:
+
+1. scaffolds with the pinned `create-vite` / `create-vue` version;
+2. removes the generated ESLint/Prettier/Oxlint configuration and dependency additions;
+3. applies the `@ezhana/*` ESLint/Prettier config, theme runtime, theme switcher and anti-flash script;
+4. installs dependencies once, formats, lints and builds;
+5. moves the app into place only after verification succeeds.
+
+Generated app commands:
 
 ```bash
-pnpm build:tokens
-```
-
-Both template apps also run that build automatically from their `predev` / `prebuild` hooks.
-
-Run the complete validation:
-
-```bash
-pnpm check
-```
-
-This performs:
-
-```text
-format:check
-lint
-test
-build:templates
-```
-
-Run linting:
-
-```bash
+cd my-react-app
+pnpm dev
+pnpm build
 pnpm lint
-```
-
-Automatically fix lint issues:
-
-```bash
-pnpm lint:fix
-```
-
-Check formatting:
-
-```bash
 pnpm format:check
 ```
 
-Format the repository:
+Options: `--no-install`, `--no-verify`, `--keep-temp`. See
+[`docs/create-app.md`](docs/create-app.md).
+
+### Use the generated template repository
+
+The generated `frontend-template` repository has:
+
+- `apps/react-vite` and `apps/vue-vite` — generated React/Vue apps;
+- `packages/` — optional placeholder for your own workspace packages (delete it if unused);
+- `README.md` (English) and `README.zh-CN.md` (中文);
+- shared linting, formatting, commit hooks and CI from npm.
 
 ```bash
-pnpm format
+pnpm install
+pnpm dev:react      # or: pnpm dev:vue
+pnpm build
+pnpm lint
+pnpm check
 ```
+
+To add your own package, create `packages/<name>`, reference it with `"workspace:*"` from an app,
+and run `pnpm build:packages` before `pnpm build`. See the template's `packages/README.md`.
+
+### Maintain this source repository
+
+```bash
+pnpm install
+pnpm check                    # format:check + lint + tests
+pnpm build:tokens             # regenerate token dist/ for local inspection
+
+pnpm create:app react /tmp/check-react   # inspect the generated app
+pnpm create:app vue /tmp/check-vue
+
+pnpm export:template --install           # generate dist-template/frontend-template
+```
+
+Publish `@ezhana/*` package changes before exporting; then run **Actions → Export template repo**
+(or push the generated directory manually). See
+[`docs/template-distribution.md`](docs/template-distribution.md) for GitHub configuration.
+
+### Design tokens and theme runtime
+
+```ts
+import '@ezhana/design-tokens/css/tokens.css'
+import { themes, modes, defaultTheme } from '@ezhana/design-tokens'
+import { createThemeManager } from '@ezhana/theme'
+
+export const themeManager = createThemeManager({
+  themes: [...themes],
+  modes: [...modes],
+  defaultTheme,
+})
+```
+
+See [`docs/usage.md`](docs/usage.md) for the end-to-end theme flow and
+[`packages/theme/README.md`](packages/theme/README.md) for the runtime API.
 
 ## Theming
 
@@ -371,26 +349,12 @@ The template apps use `@ezhana/theme`, which:
 An inline classic script in each `index.html` resolves the stored preference before first paint, so
 the correct theme is applied without a flash of the wrong theme.
 
-## Creating an App
-
-Apps can also be generated from the official framework scaffolders (`create-vite` / `create-vue`)
-and then normalized with the Ezhana configuration and theme overlay:
-
-```bash
-pnpm create:app react my-react-app
-pnpm create:app vue my-vue-app
-```
-
-The generator pins the external scaffold versions, removes generated ESLint/Prettier
-configuration, applies the `@ezhana/*` configs and theme integration, then installs, lints and builds
-the result. See [`docs/create-app.md`](docs/create-app.md) for the lifecycle and the overlay
-maintenance rules.
-
 ## Template Distribution
 
 This repository is the source/development monorepo. The public template repository is generated from
-it: apps keep the `apps/` + `packages/` monorepo layout, while every `@ezhana/*` dependency is
-installed from npm instead of being linked from `packages/`.
+it: the React and Vue apps are generated by `tools/create-app` and assembled with the `template/`
+skeleton, while every `@ezhana/*` dependency is installed from npm instead of being linked from
+`packages/`. The template keeps the `apps/` + optional `packages/` monorepo layout.
 
 ```bash
 pnpm export:template --install          # generate dist-template/frontend-template
@@ -470,10 +434,10 @@ GitHub Actions validates:
 format:check
 lint
 test
-build:templates
+React/Vue generation matrix (create-app.yml)
 ```
 
-The local equivalent is:
+The local equivalent of the source checks is:
 
 ```bash
 pnpm check
@@ -507,7 +471,7 @@ Publish packages:
 pnpm changeset:publish
 ```
 
-The `apps/` templates and the root workspace are private and are not published as npm packages.
+The generated template apps and the root workspace are private and are not published as npm packages.
 
 ## Package Version Management
 

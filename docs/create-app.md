@@ -64,8 +64,8 @@ The overlays are small and shared by generated apps:
   ESLint/Prettier configs.
 
 When `@ezhana/*` APIs change, update the overlay files and regenerate an app in CI. The source
-`apps/react-vite` and `apps/vue-vite` remain as transitional visual/integration fixtures; once this
-pipeline is stable they can be removed and the template export can reuse the generator.
+repository no longer keeps sample apps: `apps/react-vite` / `apps/vue-vite` exist only in the
+generated `frontend-template` repository, and are produced by this pipeline.
 
 ## CI
 
@@ -75,7 +75,6 @@ recipe change and is covered by the same matrix.
 
 ## Relationship to `frontend-template`
 
-The current template export copies the committed `apps/`. A follow-up step can make
-`scripts/export-template.mjs` call this generator for both frameworks, apply the monorepo
-`template/` skeleton, and export the resulting apps. This keeps one source of truth for the overlay
-and avoids maintaining full sample apps.
+`scripts/export-template.mjs` calls this generator for both frameworks, applies the monorepo
+`template/` skeleton, generates the root lockfile and exports the result. This keeps one source of
+truth for the overlay and avoids maintaining full sample apps.
