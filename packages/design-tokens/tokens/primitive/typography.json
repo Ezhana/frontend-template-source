@@ -1,0 +1,36 @@
+{
+  "primitive": {
+    "font": {
+      "family": {
+        "$type": "fontFamily",
+        "$description": "Font stacks. Theme overrides may replace the body and heading stacks.",
+        "sans": { "$value": "system-ui, 'Segoe UI', Roboto, sans-serif" },
+        "heading": { "$value": "system-ui, 'Segoe UI', Roboto, sans-serif" },
+        "mono": { "$value": "ui-monospace, Consolas, monospace" }
+      },
+      "size": {
+        "$type": "dimension",
+        "xs": { "$value": "0.75rem" },
+        "sm": { "$value": "0.875rem" },
+        "md": { "$value": "1rem" },
+        "lg": { "$value": "1.125rem" },
+        "xl": { "$value": "1.25rem" },
+        "2xl": { "$value": "1.5rem" },
+        "3xl": { "$value": "2rem" },
+        "4xl": { "$value": "3.5rem" }
+      },
+      "weight": {
+        "$type": "fontWeight",
+        "regular": { "$value": 400 },
+        "medium": { "$value": 500 },
+        "semibold": { "$value": 600 }
+      },
+      "lineHeight": {
+        "$type": "number",
+        "tight": { "$value": 1.1 },
+        "snug": { "$value": 1.18 },
+        "normal": { "$value": 1.45 }
+      }
+    }
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "$description": "Cerulean theme: cerulean-blue accent, Public Sans typeface, moderate (level 2) controls.",
+  "$extensions": {
+    "ezhana": {
+      "label": "Cerulean"
+    }
+  },
+  "base": {
+    "font": {
+      "family": {
+        "sans": {
+          "$value": "\"Public Sans Variable\", \"Public Sans\", system-ui, 'Segoe UI', Roboto, sans-serif",
+          "$type": "fontFamily"
+        },
+        "heading": {
+          "$value": "\"Public Sans Variable\", \"Public Sans\", system-ui, 'Segoe UI', Roboto, sans-serif",
+          "$type": "fontFamily"
+        }
+      }
+    },
+    "radius": {
+      "control": {
+        "$value": "0.625rem",
+        "$type": "dimension",
+        "$description": "Level 2 (moderate) roundedness: clearly softened controls, not pills."
+      }
+    }
+  },
+  "light": {
+    "color": {
+      "accent": { "$value": "{primitive.color.cerulean.600}", "$type": "color" },
+      "accent-hover": { "$value": "{primitive.color.cerulean.700}", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.0}", "$type": "color" },
+      "accent-subtle": { "$value": "#007ba71a", "$type": "color" },
+      "accent-border": { "$value": "#007ba780", "$type": "color" },
+      "focus-ring": { "$value": "{primitive.color.cerulean.600}", "$type": "color" }
+    }
+  },
+  "dark": {
+    "color": {
+      "accent": { "$value": "{primitive.color.cerulean.300}", "$type": "color" },
+      "accent-hover": { "$value": "{primitive.color.cerulean.200}", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.950}", "$type": "color" },
+      "accent-subtle": { "$value": "#7ac6e226", "$type": "color" },
+      "accent-border": { "$value": "#7ac6e280", "$type": "color" },
+      "focus-ring": { "$value": "{primitive.color.cerulean.300}", "$type": "color" }
+    }
+  }
+}

@@ -1,0 +1,107 @@
+{
+  "primitive": {
+    "color": {
+      "$type": "color",
+      "$description": "Primitive color palette. Never consumed directly by product code; semantic tokens reference these values.",
+      "neutral": {
+        "$description": "Cool grey ramp used for surfaces, text and borders.",
+        "0": { "$value": "#ffffff" },
+        "50": { "$value": "#fafafa" },
+        "100": { "$value": "#f4f4f5" },
+        "200": { "$value": "#e5e4e7" },
+        "300": { "$value": "#d6d4db" },
+        "400": { "$value": "#a8a3b0" },
+        "500": { "$value": "#78707f" },
+        "600": { "$value": "#5f5869" },
+        "700": { "$value": "#453f4f" },
+        "800": { "$value": "#26222e" },
+        "900": { "$value": "#16171d" },
+        "950": { "$value": "#0b0b0f" }
+      },
+      "violet": {
+        "$description": "Default theme hue.",
+        "50": { "$value": "#f7efff" },
+        "100": { "$value": "#eedcff" },
+        "200": { "$value": "#dfbcff" },
+        "300": { "$value": "#cd98ff" },
+        "400": { "$value": "#c084fc" },
+        "500": { "$value": "#b160f8" },
+        "600": { "$value": "#9b2ceb" },
+        "700": { "$value": "#821fca" },
+        "800": { "$value": "#6717a3" },
+        "900": { "$value": "#4c107a" },
+        "950": { "$value": "#2f0a4d" }
+      },
+      "blue": {
+        "$description": "Secondary theme hue.",
+        "50": { "$value": "#eff6ff" },
+        "100": { "$value": "#dbeafe" },
+        "200": { "$value": "#bfdbfe" },
+        "300": { "$value": "#93c5fd" },
+        "400": { "$value": "#60a5fa" },
+        "500": { "$value": "#3b82f6" },
+        "600": { "$value": "#2563eb" },
+        "700": { "$value": "#1d4ed8" },
+        "800": { "$value": "#1e40af" },
+        "900": { "$value": "#1e3a8a" },
+        "950": { "$value": "#172554" }
+      },
+      "cerulean": {
+        "$description": "Cerulean theme hue: calm, technical, trustworthy blue.",
+        "50": { "$value": "#eef8fc" },
+        "100": { "$value": "#d6eef7" },
+        "200": { "$value": "#b0deee" },
+        "300": { "$value": "#7ac6e2" },
+        "400": { "$value": "#3aa8cc" },
+        "500": { "$value": "#0b8cb4" },
+        "600": { "$value": "#007ba7" },
+        "700": { "$value": "#00688f" },
+        "800": { "$value": "#005574" },
+        "900": { "$value": "#00425b" },
+        "950": { "$value": "#002b3c" }
+      },
+      "red": {
+        "$description": "Danger palette.",
+        "50": { "$value": "#fef2f2" },
+        "100": { "$value": "#fee2e2" },
+        "200": { "$value": "#fecaca" },
+        "300": { "$value": "#fca5a5" },
+        "400": { "$value": "#f87171" },
+        "500": { "$value": "#ef4444" },
+        "600": { "$value": "#dc2626" },
+        "700": { "$value": "#b91c1c" },
+        "800": { "$value": "#991b1b" },
+        "900": { "$value": "#7f1d1d" },
+        "950": { "$value": "#450a0a" }
+      },
+      "green": {
+        "$description": "Success palette.",
+        "50": { "$value": "#f0fdf4" },
+        "100": { "$value": "#dcfce7" },
+        "200": { "$value": "#bbf7d0" },
+        "300": { "$value": "#86efac" },
+        "400": { "$value": "#4ade80" },
+        "500": { "$value": "#22c55e" },
+        "600": { "$value": "#16a34a" },
+        "700": { "$value": "#15803d" },
+        "800": { "$value": "#166534" },
+        "900": { "$value": "#14532d" },
+        "950": { "$value": "#052e16" }
+      },
+      "amber": {
+        "$description": "Warning palette.",
+        "50": { "$value": "#fffbeb" },
+        "100": { "$value": "#fef3c7" },
+        "200": { "$value": "#fde68a" },
+        "300": { "$value": "#fcd34d" },
+        "400": { "$value": "#fbbf24" },
+        "500": { "$value": "#f59e0b" },
+        "600": { "$value": "#d97706" },
+        "700": { "$value": "#b45309" },
+        "800": { "$value": "#92400e" },
+        "900": { "$value": "#78350f" },
+        "950": { "$value": "#451a03" }
+      }
+    }
+  }
+}

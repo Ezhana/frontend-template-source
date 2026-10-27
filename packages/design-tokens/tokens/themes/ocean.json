@@ -1,0 +1,39 @@
+{
+  "$description": "Ocean theme: indigo-blue accent, pill-shaped controls.",
+  "$extensions": {
+    "ezhana": {
+      "label": "Ocean"
+    }
+  },
+  "base": {
+    "font": {
+      "family": {
+        "sans": { "$value": "{primitive.font.family.sans}", "$type": "fontFamily" },
+        "heading": { "$value": "{primitive.font.family.heading}", "$type": "fontFamily" }
+      }
+    },
+    "radius": {
+      "control": { "$value": "9999px", "$type": "dimension" }
+    }
+  },
+  "light": {
+    "color": {
+      "accent": { "$value": "{primitive.color.blue.600}", "$type": "color" },
+      "accent-hover": { "$value": "{primitive.color.blue.700}", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.0}", "$type": "color" },
+      "accent-subtle": { "$value": "#2563eb1a", "$type": "color" },
+      "accent-border": { "$value": "#2563eb80", "$type": "color" },
+      "focus-ring": { "$value": "{primitive.color.blue.600}", "$type": "color" }
+    }
+  },
+  "dark": {
+    "color": {
+      "accent": { "$value": "{primitive.color.blue.400}", "$type": "color" },
+      "accent-hover": { "$value": "{primitive.color.blue.300}", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.950}", "$type": "color" },
+      "accent-subtle": { "$value": "#60a5fa26", "$type": "color" },
+      "accent-border": { "$value": "#60a5fa80", "$type": "color" },
+      "focus-ring": { "$value": "{primitive.color.blue.400}", "$type": "color" }
+    }
+  }
+}

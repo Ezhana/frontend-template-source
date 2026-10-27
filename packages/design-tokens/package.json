@@ -1,0 +1,47 @@
+{
+  "name": "@ezhana/design-tokens",
+  "version": "0.1.0",
+  "description": "Layered design tokens compiled to CSS custom properties for the template themes.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/js/index.d.ts",
+      "default": "./dist/js/index.js"
+    },
+    "./css": "./dist/css/tokens.css",
+    "./css/tokens.css": "./dist/css/tokens.css",
+    "./json": "./dist/json/themes.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "pretest": "pnpm build",
+    "test": "node --test ./test/*.test.mjs",
+    "prepack": "pnpm build"
+  },
+  "keywords": [
+    "design-tokens",
+    "style-dictionary",
+    "css-variables",
+    "theming",
+    "dtcg"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "style-dictionary": "5.7.0"
+  }
+}

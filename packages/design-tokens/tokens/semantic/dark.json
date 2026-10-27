@@ -1,0 +1,85 @@
+{
+  "$description": "Dark color mode.",
+  "$extensions": {
+    "ezhana": {
+      "label": "Dark",
+      "colorScheme": "dark"
+    }
+  },
+  "color": {
+    "$type": "color",
+    "bg": {
+      "$value": "{primitive.color.neutral.900}",
+      "$description": "Page background."
+    },
+    "bg-subtle": {
+      "$value": "{primitive.color.neutral.800}",
+      "$description": "Secondary surface: code blocks, inactive controls."
+    },
+    "fg": {
+      "$value": "{primitive.color.neutral.300}",
+      "$description": "Default foreground text."
+    },
+    "fg-muted": {
+      "$value": "{primitive.color.neutral.400}",
+      "$description": "Secondary / de-emphasized text."
+    },
+    "fg-strong": {
+      "$value": "{primitive.color.neutral.50}",
+      "$description": "Headings and high-emphasis text."
+    },
+    "border": {
+      "$value": "{primitive.color.neutral.700}",
+      "$description": "Hairline borders and dividers."
+    },
+    "accent": {
+      "$value": "{primitive.color.violet.400}",
+      "$type": "color",
+      "$description": "Theme accent used for text, icons and focus."
+    },
+    "accent-hover": {
+      "$value": "{primitive.color.violet.300}",
+      "$type": "color"
+    },
+    "on-accent": {
+      "$value": "{primitive.color.neutral.950}",
+      "$type": "color",
+      "$description": "Text/icon color on top of a solid accent surface."
+    },
+    "accent-subtle": {
+      "$value": "#c084fc26",
+      "$type": "color",
+      "$description": "Tinted accent surface."
+    },
+    "accent-border": {
+      "$value": "#c084fc80",
+      "$type": "color"
+    },
+    "focus-ring": {
+      "$value": "{primitive.color.violet.400}",
+      "$type": "color"
+    },
+    "danger": {
+      "$value": "{primitive.color.red.400}"
+    },
+    "on-danger": {
+      "$value": "{primitive.color.neutral.950}"
+    },
+    "success": {
+      "$value": "{primitive.color.green.400}"
+    },
+    "warning": {
+      "$value": "{primitive.color.amber.300}"
+    }
+  },
+  "shadow": {
+    "sm": {
+      "$type": "string",
+      "$value": "0 1px 2px rgb(0 0 0 / 0.3)"
+    },
+    "md": {
+      "$type": "string",
+      "$value": "0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -2px rgb(0 0 0 / 0.25)"
+    }
+  }
+}

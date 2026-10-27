@@ -5,6 +5,27 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>vue-vite</title>
+    <!-- Apply the stored theme before first paint so a dark-mode visitor never sees a light flash. -->
+    <script>
+      ;(function () {
+        var root = document.documentElement
+        var stored = null
+        try {
+          stored = JSON.parse(localStorage.getItem('ezhana-theme') || 'null')
+        } catch (error) {
+          stored = null
+        }
+        root.setAttribute(
+          'data-theme',
+          (stored && typeof stored.theme === 'string' && stored.theme) || 'default',
+        )
+        if (stored && (stored.mode === 'light' || stored.mode === 'dark')) {
+          root.setAttribute('data-color-mode', stored.mode)
+        } else {
+          root.removeAttribute('data-color-mode')
+        }
+      })()
+    </script>
   </head>
   <body>
     <div id="app"></div>

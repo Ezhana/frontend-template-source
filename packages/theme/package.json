@@ -1,0 +1,35 @@
+{
+  "name": "@ezhana/theme",
+  "version": "0.1.0",
+  "description": "Framework-agnostic theme state manager: theme, color mode, system preference and persistence.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test ./test/*.test.mjs"
+  },
+  "keywords": [
+    "theme",
+    "dark-mode",
+    "color-scheme",
+    "design-tokens"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
