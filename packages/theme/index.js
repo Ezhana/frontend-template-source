@@ -7,6 +7,8 @@
  * - the color mode is optional and written to `data-color-mode` only when the user chooses an
  *   explicit mode; in `system` mode the attribute is removed and the stylesheet follows
  *   `prefers-color-scheme` on its own;
+ * - themes may support different subsets of the configured modes: `resolvedMode` is clamped to a
+ *   mode the active theme supports, while the user preference is kept as-is;
  * - the preference is persisted, validated against the generated theme/mode metadata and synced
  *   across tabs.
  *
@@ -36,7 +38,8 @@ const SYSTEM_MODE_QUERY = '(prefers-color-scheme: dark)'
  * @typedef {object} ThemeStateShape
  * @property {string} theme Validated theme identity (`data-theme`).
  * @property {string} mode User preference: an explicit color mode or `system`.
- * @property {string} resolvedMode Effective color mode (explicit mode or the OS preference).
+ * @property {string} resolvedMode Effective color mode for the active theme (explicit preference or
+ *   the OS preference, clamped to a mode the active theme supports).
  * @property {string} systemMode Color mode the operating system currently prefers.
  */
 
@@ -88,6 +91,9 @@ const SYSTEM_MODE_QUERY = '(prefers-color-scheme: dark)'
  * @typedef {object} ThemeManagerOptionsShape
  * @property {readonly string[]} themes Required, unique, non-empty. First item is the default.
  * @property {readonly string[]} [modes] Defaults to `['light', 'dark']`.
+ * @property {Readonly<Record<string, readonly string[]>>} [themeModes] Modes each theme supports.
+ *   Defaults to every theme supporting all `modes`. Must cover exactly the configured themes, and
+ *   every value must be a non-empty, unique subset of `modes` without the reserved `system` value.
  * @property {string} [defaultTheme] Defaults to `themes[0]`.
  * @property {string} [defaultMode] Defaults to `system`.
  * @property {string} [storageKey] Defaults to {@link DEFAULT_STORAGE_KEY}.
@@ -115,6 +121,12 @@ const SYSTEM_MODE_QUERY = '(prefers-color-scheme: dark)'
  * explicit `light` / `dark` preferences and removed in `system` mode, where the stylesheet follows
  * the operating-system preference through `prefers-color-scheme`.
  *
+ * Themes may support different subsets of the configured modes (see `themeModes`). `resolvedMode` is
+ * always a mode the active theme supports: the preference (or the OS preference in `system` mode)
+ * when supported, otherwise the first mode declared for that theme. Explicit preferences are only
+ * clamped for presentation, so `data-color-mode` never names an unsupported mode; the preference
+ * itself is persisted unchanged and can apply again after switching to a theme that supports it.
+ *
  * @param {ThemeManagerOptionsShape} options
  * @returns {ThemeManagerShape}
  */
@@ -125,6 +137,7 @@ export function createThemeManager(options) {
 
   const themes = normalizeThemes(options.themes)
   const modes = normalizeModes(options.modes)
+  const themeModes = normalizeThemeModes(options.themeModes, themes, modes)
   const defaultTheme = normalizeDefaultTheme(options.defaultTheme, themes)
   const defaultMode = normalizeDefaultMode(options.defaultMode, modes)
   const storageKey = normalizeStringOption(options.storageKey, DEFAULT_STORAGE_KEY, 'storageKey')
@@ -156,11 +169,25 @@ export function createThemeManager(options) {
   const systemModeFallback =
     defaultMode === SYSTEM_MODE ? (modes.includes('light') ? 'light' : modes[0]) : defaultMode
 
+  /**
+   * Clamp a mode preference to a mode the active theme actually supports.
+   *
+   * @param {string} themeId Active theme identity.
+   * @param {string} modePreference Explicit mode preference or `system`.
+   * @param {string} osMode Current OS preference, already mapped into the configured modes.
+   * @returns {string}
+   */
+  function resolveModeFor(themeId, modePreference, osMode) {
+    const supported = themeModes[themeId]
+    const candidate = modePreference === SYSTEM_MODE ? osMode : modePreference
+    return supported.includes(candidate) ? candidate : supported[0]
+  }
+
   const initialPreferences = readInitialPreferences()
   let theme = initialPreferences.theme
   let mode = initialPreferences.mode
   let systemMode = detectSystemMode()
-  let resolvedMode = mode === SYSTEM_MODE ? systemMode : mode
+  let resolvedMode = resolveModeFor(theme, mode, systemMode)
   let state = createState()
   let destroyed = false
   const listeners = new Set()
@@ -278,7 +305,7 @@ export function createThemeManager(options) {
     const nextSystemMode = mapMatchesToSystemMode(readMatchesFromChangeEvent(event))
     if (nextSystemMode === systemMode) return
     systemMode = nextSystemMode
-    if (mode === SYSTEM_MODE) resolvedMode = systemMode
+    resolvedMode = resolveModeFor(theme, mode, systemMode)
     state = createState()
     notify()
   }
@@ -291,7 +318,7 @@ export function createThemeManager(options) {
     if (preferences.theme === theme && preferences.mode === mode) return
     theme = preferences.theme
     mode = preferences.mode
-    resolvedMode = mode === SYSTEM_MODE ? systemMode : mode
+    resolvedMode = resolveModeFor(theme, mode, systemMode)
     state = createState()
     applyAttributes()
     notify()
@@ -352,6 +379,7 @@ export function createThemeManager(options) {
     }
     if (nextTheme === theme) return
     theme = nextTheme
+    resolvedMode = resolveModeFor(theme, mode, systemMode)
     state = createState()
     persist()
     applyAttributes()
@@ -369,7 +397,7 @@ export function createThemeManager(options) {
     }
     if (nextMode === mode) return
     mode = nextMode
-    resolvedMode = mode === SYSTEM_MODE ? systemMode : mode
+    resolvedMode = resolveModeFor(theme, mode, systemMode)
     state = createState()
     persist()
     applyAttributes()
@@ -462,6 +490,100 @@ function normalizeModes(value) {
     modes.push(mode)
   }
   return Object.freeze(modes)
+}
+
+/**
+ * Normalize the per-theme supported mode map.
+ *
+ * @param {unknown} value
+ * @param {readonly string[]} themes
+ * @param {readonly string[]} modes
+ * @returns {Readonly<Record<string, readonly string[]>>}
+ */
+function normalizeThemeModes(value, themes, modes) {
+  if (value === undefined) {
+    const themeModes = {}
+    for (const theme of themes) themeModes[theme] = modes
+    return Object.freeze(themeModes)
+  }
+  if (!isPlainObject(value)) {
+    throw new TypeError(
+      'createThemeManager(options): `themeModes` must be a plain object mapping every configured theme to its supported modes.',
+    )
+  }
+  const keys = Object.keys(value)
+  for (const theme of themes) {
+    if (!Object.prototype.hasOwnProperty.call(value, theme)) {
+      throw new TypeError(
+        `createThemeManager(options): \`themeModes\` is missing the configured theme "${theme}".`,
+      )
+    }
+  }
+  for (const key of keys) {
+    if (!themes.includes(key)) {
+      throw new TypeError(
+        `createThemeManager(options): \`themeModes\` contains the unknown theme "${key}". Expected only: ${themes.join(
+          ', ',
+        )}.`,
+      )
+    }
+  }
+  const themeModes = {}
+  for (const theme of themes) {
+    themeModes[theme] = normalizeThemeModeList(value[theme], theme, modes)
+  }
+  return Object.freeze(themeModes)
+}
+
+/**
+ * @param {unknown} value
+ * @param {string} theme
+ * @param {readonly string[]} modes
+ * @returns {readonly string[]}
+ */
+function normalizeThemeModeList(value, theme, modes) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new TypeError(
+      `createThemeManager(options): \`themeModes["${theme}"]\` must be a non-empty array of supported modes.`,
+    )
+  }
+  const supported = []
+  for (const [index, mode] of value.entries()) {
+    if (typeof mode !== 'string' || mode.length === 0) {
+      throw new TypeError(
+        `createThemeManager(options): \`themeModes["${theme}"][${index}]\` must be a non-empty string.`,
+      )
+    }
+    if (mode === SYSTEM_MODE) {
+      throw new TypeError(
+        `createThemeManager(options): \`themeModes["${theme}"]\` must not include the reserved "system" preference.`,
+      )
+    }
+    if (!modes.includes(mode)) {
+      throw new TypeError(
+        `createThemeManager(options): \`themeModes["${theme}"]\` includes "${mode}", which is not one of the configured modes: ${modes.join(
+          ', ',
+        )}.`,
+      )
+    }
+    if (supported.includes(mode)) {
+      throw new TypeError(
+        `createThemeManager(options): \`themeModes["${theme}"]\` must not contain duplicates ("${mode}" appears more than once).`,
+      )
+    }
+    supported.push(mode)
+  }
+  return Object.freeze(supported)
+}
+
+/**
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isPlainObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === null || prototype === Object.prototype
 }
 
 function normalizeDefaultTheme(value, themes) {
@@ -603,7 +725,7 @@ function defaultEventTarget() {
  * @typedef {object} ThemeDefinitionShape
  * @property {string} id Theme identity written to `data-theme`.
  * @property {string} label Human-readable label for switcher UIs.
- * @property {readonly string[]} modes Color modes the theme supports.
+ * @property {readonly string[]} modes Color modes the theme supports; lists may differ between themes.
  */
 
 /**
@@ -611,7 +733,10 @@ function defaultEventTarget() {
  * @property {readonly string[]} themes Theme identities, registry order, frozen.
  * @property {Readonly<Record<string, string>>} themeLabels Labels keyed by theme id, frozen.
  * @property {string} defaultTheme Default theme identity.
- * @property {readonly string[]} modes Color modes shared by every registered theme, frozen.
+ * @property {readonly string[]} modes Union of the modes declared by the registered themes in
+ *   first-seen order, frozen.
+ * @property {Readonly<Record<string, readonly string[]>>} themeModes Modes supported by each theme,
+ *   keyed by theme id and preserving the theme's declared order, frozen.
  */
 
 /** Theme ids end up in `data-theme` and in CSS attribute selectors, so they follow the contract. */
@@ -621,7 +746,11 @@ const THEME_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
  * Combine theme definitions into the metadata the theme manager consumes.
  *
  * A definition is what a theme package exports (`{ id, label, modes }`), plus the default theme
- * from `@ezhana/design-tokens`. The registry is pure data: it performs no DOM work, imports no CSS
+ * from `@ezhana/design-tokens`. Definitions may declare different mode lists (for example a
+ * dark-only theme next to light+dark themes): `modes` becomes the union in first-seen order and
+ * `themeModes` records each theme's own list, which the manager uses to clamp `resolvedMode`.
+ *
+ * The registry is pure data: it performs no DOM work, imports no CSS
  * and never depends on a specific theme package, so it works with the official themes, with
  * third-party themes and with definitions written by hand.
  *
@@ -638,7 +767,8 @@ export function defineThemeRegistry(definitions, options = {}) {
 
   const themes = []
   const themeLabels = {}
-  let modes = null
+  const themeModes = {}
+  const modes = []
 
   for (const [index, definition] of definitions.entries()) {
     if (definition === null || typeof definition !== 'object') {
@@ -667,18 +797,13 @@ export function defineThemeRegistry(definitions, options = {}) {
     }
 
     const definitionModes = normalizeDefinitionModes(definition.modes, id)
-    if (modes === null) {
-      modes = definitionModes
-    } else if (!hasSameModes(modes, definitionModes)) {
-      throw new TypeError(
-        `defineThemeRegistry(definitions): the theme "${id}" supports ${definitionModes.join(
-          ', ',
-        )} but ${modes.join(', ')} was registered first; every theme must support the same color modes.`,
-      )
+    for (const mode of definitionModes) {
+      if (!modes.includes(mode)) modes.push(mode)
     }
 
     themes.push(id)
     themeLabels[id] = label
+    themeModes[id] = Object.freeze(definitionModes)
   }
 
   const defaultTheme = options.defaultTheme ?? themes[0]
@@ -694,7 +819,8 @@ export function defineThemeRegistry(definitions, options = {}) {
     themes: Object.freeze(themes),
     themeLabels: Object.freeze(themeLabels),
     defaultTheme,
-    modes: Object.freeze(modes ?? []),
+    modes: Object.freeze(modes),
+    themeModes: Object.freeze(themeModes),
   })
 }
 
@@ -730,15 +856,4 @@ function normalizeDefinitionModes(value, id) {
     modes.push(mode)
   }
   return modes
-}
-
-/**
- * @param {readonly string[]} left
- * @param {readonly string[]} right
- */
-function hasSameModes(left, right) {
-  if (left.length !== right.length) return false
-  const sortedLeft = [...left].sort()
-  const sortedRight = [...right].sort()
-  return sortedLeft.every((mode, index) => mode === sortedRight[index])
 }

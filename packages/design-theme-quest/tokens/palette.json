@@ -1,0 +1,44 @@
+{
+  "theme": {
+    "color": {
+      "$type": "color",
+      "$description": "QuestUI theme-private palette. Resolved at build time and never emitted as CSS custom properties. Values come from the QuestUI design brief; the accessible text variants are documented in docs/DESIGN.md.",
+      "quest": {
+        "gold": {
+          "$description": "Primary gold: actions, highlights, glow borders.",
+          "300": { "$value": "#daa520" },
+          "500": { "$value": "#ca8a04" },
+          "600": { "$value": "#b8780a" }
+        },
+        "parchment": {
+          "$description": "Warm text colors. Never pure white.",
+          "100": { "$value": "#f5e6d3" },
+          "300": { "$value": "#bfa98a" }
+        },
+        "crimson": {
+          "$description": "Deep red: destructive actions, damage and error states.",
+          "300": { "$value": "#f87171" },
+          "500": { "$value": "#b91c1c" },
+          "600": { "$value": "#991b1b" },
+          "700": { "$value": "#7f1d1d" }
+        },
+        "royal": {
+          "$description": "Royal purple: rare items, lore and magic. The 300 step is the accessible text tint.",
+          "300": { "$value": "#c084fc" },
+          "600": { "$value": "#581c87" }
+        },
+        "brown": {
+          "$description": "Layered brown surfaces. Never pure black.",
+          "700": { "$value": "#5c3d2e" },
+          "800": { "$value": "#3d2517" },
+          "900": { "$value": "#2c1a10" },
+          "950": { "$value": "#1a0f0a" }
+        },
+        "green": {
+          "$description": "Quest complete / health.",
+          "500": { "$value": "#22c55e" }
+        }
+      }
+    }
+  }
+}

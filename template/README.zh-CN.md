@@ -59,7 +59,8 @@ pnpm --filter ./apps/my-app build
 构建令牌。
 
 - `@ezhana/design-tokens` 提供核心令牌、语义契约和默认主题。
-- `@ezhana/design-theme-ocean` 和 `@ezhana/design-theme-cerulean` 是各自独立发布的主题包。
+- `@ezhana/design-theme-ocean`、`@ezhana/design-theme-cerulean` 和 `@ezhana/design-theme-quest`
+  是各自独立发布的主题包。QuestUI 仅提供暗色模式，因此注册表和运行时支持主题声明颜色模式的子集。
 - `@ezhana/theme` 管理主题与颜色模式状态。
 - 颜色模式默认跟随操作系统（`prefers-color-scheme`）。
 - `data-theme` 选择主题；只有显式选择颜色模式时才写 `data-color-mode`。
@@ -79,7 +80,9 @@ export type AppTheme = (typeof themeRegistry.themes)[number]
 ```
 
 添加主题：在应用中安装对应主题包、在入口文件中引入其样式，并把它的 `theme` 导出加入
-`defineThemeRegistry([...])`。主题包提供 `./style`（核心样式 + 主题字体（如有）+ 覆盖，一次引入即可）、
+`defineThemeRegistry([...])`。如果主题支持的颜色模式少于应用（例如仅暗色的主题），还需向
+`createThemeManager` 传入 `themeModes: themeRegistry.themeModes`，以便把解析后的模式收敛到主题支持的模式。
+主题包提供 `./style`（核心样式 + 主题字体（如有）+ 覆盖，一次引入即可）、
 `./theme.css`（仅覆盖）和 `./standalone.css`（核心 + 覆盖，适合无 bundler 场景）。
 
 令牌契约、主题模型与运行时 API 见 npm 包文档：
@@ -88,6 +91,7 @@ export type AppTheme = (typeof themeRegistry.themes)[number]
 - [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
 - [`@ezhana/design-theme-cerulean`](https://www.npmjs.com/package/@ezhana/design-theme-cerulean)
 - [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
+- [`@ezhana/design-theme-quest`](https://www.npmjs.com/package/@ezhana/design-theme-quest)
 
 ## CI
 

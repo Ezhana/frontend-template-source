@@ -16,6 +16,14 @@
       "$value": "{primitive.color.neutral.100}",
       "$description": "Secondary surface: code blocks, inactive controls."
     },
+    "surface": {
+      "$value": "{primitive.color.neutral.50}",
+      "$description": "Default raised surface: cards, panels and sheets."
+    },
+    "surface-elevated": {
+      "$value": "{primitive.color.neutral.0}",
+      "$description": "Highest surface layer: modals, popovers and menus."
+    },
     "fg": {
       "$value": "{primitive.color.neutral.700}",
       "$description": "Default foreground text."
@@ -31,6 +39,10 @@
     "border": {
       "$value": "{primitive.color.neutral.200}",
       "$description": "Hairline borders and dividers."
+    },
+    "border-subtle": {
+      "$value": "{primitive.color.neutral.100}",
+      "$description": "Low-contrast borders on tinted or raised surfaces."
     },
     "accent": {
       "$value": "{primitive.color.violet.600}",
@@ -59,8 +71,32 @@
       "$value": "{primitive.color.violet.600}",
       "$type": "color"
     },
+    "info": {
+      "$value": "{primitive.color.violet.700}",
+      "$description": "Informational text and icons."
+    },
+    "info-solid": {
+      "$value": "{primitive.color.violet.600}",
+      "$description": "Solid informational surface; pair with on-info."
+    },
+    "on-info": {
+      "$value": "{primitive.color.neutral.0}",
+      "$description": "Text/icon color on top of an info-solid surface."
+    },
+    "info-subtle": {
+      "$value": "#821fca1a",
+      "$description": "Tinted informational surface."
+    },
     "danger": {
       "$value": "{primitive.color.red.700}"
+    },
+    "danger-solid": {
+      "$value": "{primitive.color.red.700}",
+      "$description": "Solid destructive surface; pair with on-danger."
+    },
+    "danger-subtle": {
+      "$value": "#b91c1c1a",
+      "$description": "Tinted destructive surface."
     },
     "on-danger": {
       "$value": "{primitive.color.neutral.0}"
@@ -68,8 +104,16 @@
     "success": {
       "$value": "{primitive.color.green.800}"
     },
+    "success-subtle": {
+      "$value": "#1665341a",
+      "$description": "Tinted success surface."
+    },
     "warning": {
       "$value": "{primitive.color.amber.800}"
+    },
+    "warning-subtle": {
+      "$value": "#92400e1a",
+      "$description": "Tinted warning surface."
     }
   },
   "shadow": {
@@ -80,6 +124,19 @@
     "md": {
       "$type": "string",
       "$value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)"
+    },
+    "lg": {
+      "$type": "string",
+      "$value": "0 24px 48px -12px rgb(0 0 0 / 0.18)"
+    },
+    "xl": {
+      "$type": "string",
+      "$value": "0 32px 64px -16px rgb(0 0 0 / 0.24)"
+    },
+    "glow": {
+      "$type": "string",
+      "$value": "0 0 20px rgb(155 44 235 / 0.4)",
+      "$description": "Accent-tinted glow used for focus and featured surfaces."
     }
   }
 }

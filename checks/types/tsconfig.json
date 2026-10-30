@@ -13,6 +13,7 @@
       "@ezhana/theme": ["../../packages/theme/index.d.ts"],
       "@ezhana/design-theme-cerulean": ["../../packages/design-theme-cerulean/dist/js/index.d.ts"],
       "@ezhana/design-theme-ocean": ["../../packages/design-theme-ocean/dist/js/index.d.ts"],
+      "@ezhana/design-theme-quest": ["../../packages/design-theme-quest/dist/js/index.d.ts"],
       "@ezhana/theme-builder": ["../../packages/theme-builder/index.d.ts"]
     }
   },

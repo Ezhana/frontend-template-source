@@ -68,10 +68,15 @@ const CONTRAST_PAIRS = [
   ['color.fg-strong', 'color.bg-subtle'],
   ['color.accent', 'color.bg'],
   ['color.on-accent', 'color.accent'],
-  ['color.on-danger', 'color.danger'],
+  ['color.on-danger', 'color.danger-solid'],
   ['color.danger', 'color.bg'],
   ['color.success', 'color.bg'],
   ['color.warning', 'color.bg'],
+  ['color.info', 'color.bg'],
+  ['color.on-info', 'color.info-solid'],
+  ['color.fg', 'color.surface'],
+  ['color.fg-muted', 'color.surface'],
+  ['color.fg-strong', 'color.surface-elevated'],
 ]
 
 /** Minimum WCAG 2.2 AA contrast ratio for text. */

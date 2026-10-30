@@ -224,15 +224,16 @@ Run **Actions → Export template repo → Run workflow** in the source reposito
 1. `pnpm check` in this repository.
 2. Run `pnpm changeset version` + `pnpm changeset publish` for package changes. Publish in
    dependency order: `@ezhana/design-tokens` first, then the official theme packages
-   (`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`) and `@ezhana/theme`, then
-   `create-ezhana-app` (the template pins the published versions; a version that is not on npm makes
-   `--install` fail). The generator's `prepack` hook refreshes `versions.json` before packing. From
+   (`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`, `@ezhana/design-theme-quest`) and
+   `@ezhana/theme`, then `create-ezhana-app` (the template pins the published versions; a version
+   that is not on npm makes `--install` fail). The generator's `prepack` hook refreshes `versions.json` before packing. From
    GitHub Actions, publish with provenance (`pnpm publish --provenance`, or trusted publishing, which
    attaches it automatically); local publishes omit provenance.
 3. Run `pnpm sync:create-app` locally to keep the committed `versions.json` in sync (CI verifies it).
 4. Verify the published packages with `pnpm view @ezhana/design-tokens version`,
    `pnpm view @ezhana/design-theme-cerulean version`, `pnpm view @ezhana/design-theme-ocean version`,
-   `pnpm view create-ezhana-app version` (and the config packages).
+   `pnpm view @ezhana/design-theme-quest version`, `pnpm view create-ezhana-app version` (and the
+   config packages).
 5. Run `pnpm export:template --install` (or dispatch the export workflow) and let the generated
    template's own CI pass.
 

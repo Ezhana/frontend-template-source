@@ -107,6 +107,17 @@ const collect = (manager) => {
   return { states, unsubscribe }
 }
 
+const setupMixedModes = (overrides = {}) =>
+  setup({
+    ...overrides,
+    options: {
+      themes: ['default', 'quest'],
+      modes: ['light', 'dark'],
+      themeModes: { default: ['light', 'dark'], quest: ['dark'] },
+      ...overrides.options,
+    },
+  })
+
 /* -------------------------------------------------------------------------- */
 /* Constants and initial state                                                 */
 /* -------------------------------------------------------------------------- */
@@ -304,6 +315,105 @@ test('maps a system preference into configured modes defensively', () => {
 })
 
 /* -------------------------------------------------------------------------- */
+/* Themes with different color modes                                           */
+/* -------------------------------------------------------------------------- */
+
+test('clamps resolvedMode to the active theme on a system-light start', () => {
+  const { manager, root, mql } = setupMixedModes()
+  assert.equal(mql.matches, false)
+  assert.equal(manager.getState().resolvedMode, 'light')
+
+  manager.setTheme('quest')
+  assert.equal(manager.getState().theme, 'quest')
+  assert.equal(manager.getState().mode, SYSTEM_MODE)
+  assert.equal(manager.getState().systemMode, 'light')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+  assert.equal(root.getAttribute('data-color-mode'), null)
+})
+
+test('clamps an explicit preference in the mode attribute but persists the preference', () => {
+  const { manager, root, storage } = setupMixedModes()
+  manager.setTheme('quest')
+  manager.setMode('light')
+
+  assert.equal(manager.getState().mode, 'light')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+  assert.equal(root.getAttribute('data-color-mode'), 'dark')
+  assert.deepEqual(JSON.parse(storage.data.get('ezhana-theme')), {
+    theme: 'quest',
+    mode: 'light',
+  })
+})
+
+test('switching back to a full-mode theme resolves the stored preference again', () => {
+  const { manager, root } = setupMixedModes()
+  manager.setTheme('quest')
+  manager.setMode('light')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+  assert.equal(root.getAttribute('data-color-mode'), 'dark')
+
+  manager.setTheme('default')
+  assert.equal(manager.getState().resolvedMode, 'light')
+  assert.equal(root.getAttribute('data-color-mode'), 'light')
+})
+
+test('OS changes keep resolvedMode clamped to the active theme', () => {
+  const { manager, mql } = setupMixedModes()
+  manager.setTheme('quest')
+  manager.setMode('light')
+  const { states } = collect(manager)
+
+  mql.emit(true)
+  assert.equal(manager.getState().systemMode, 'dark')
+  assert.equal(manager.getState().mode, 'light')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+  assert.equal(states.at(-1).resolvedMode, 'dark')
+
+  manager.setTheme('default')
+  assert.equal(manager.getState().resolvedMode, 'light')
+})
+
+test('system mode follows the OS but stays clamped for a fixed-mode theme', () => {
+  const { manager, root, mql } = setupMixedModes()
+  manager.setTheme('quest')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+
+  mql.emit(true)
+  assert.equal(manager.getState().systemMode, 'dark')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+
+  mql.emit(false)
+  assert.equal(manager.getState().systemMode, 'light')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+  assert.equal(root.getAttribute('data-color-mode'), null)
+})
+
+test('clamps a stored preference on start-up', () => {
+  const storage = createStorage({
+    'ezhana-theme': JSON.stringify({ theme: 'quest', mode: 'light' }),
+  })
+  const { manager, root } = setupMixedModes({ storage })
+
+  assert.equal(root.getAttribute('data-theme'), 'quest')
+  assert.equal(root.getAttribute('data-color-mode'), 'dark')
+  assert.equal(manager.getState().mode, 'light')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+})
+
+test('clamps preferences received from another tab', () => {
+  const { manager, root, eventTarget } = setupMixedModes()
+  eventTarget.emit('storage', {
+    key: 'ezhana-theme',
+    newValue: JSON.stringify({ theme: 'quest', mode: 'light' }),
+  })
+
+  assert.equal(manager.getState().theme, 'quest')
+  assert.equal(manager.getState().mode, 'light')
+  assert.equal(manager.getState().resolvedMode, 'dark')
+  assert.equal(root.getAttribute('data-color-mode'), 'dark')
+})
+
+/* -------------------------------------------------------------------------- */
 /* Persistence and cross-tab sync                                              */
 /* -------------------------------------------------------------------------- */
 
@@ -442,6 +552,40 @@ test('validates the root, themes, modes and defaults', () => {
     TypeError,
     'root must implement removeAttribute as well',
   )
+})
+
+test('validates the themeModes map', () => {
+  const root = createRoot()
+  const base = {
+    themes: ['default', 'quest'],
+    modes: ['light', 'dark'],
+    root,
+    storage: null,
+    matchMedia: null,
+    eventTarget: null,
+  }
+  const invalidThemeModes = [
+    null,
+    'default',
+    ['light', 'dark'],
+    { default: ['light', 'dark'] }, // missing "quest"
+    { default: ['light', 'dark'], quest: ['dark'], unknown: ['dark'] },
+    { default: [], quest: ['dark'] },
+    { default: 'light', quest: ['dark'] },
+    { default: ['light', 'light'], quest: ['dark'] },
+    { default: ['light', 'system'], quest: ['dark'] },
+    { default: ['light', 'sepia'], quest: ['dark'] },
+    { default: ['light', ''], quest: ['dark'] },
+  ]
+  for (const themeModes of invalidThemeModes) {
+    assert.throws(() => createThemeManager({ ...base, themeModes }), TypeError)
+  }
+
+  const manager = createThemeManager({
+    ...base,
+    themeModes: { default: ['light', 'dark'], quest: ['dark'] },
+  })
+  assert.equal(manager.getState().resolvedMode, 'light')
 })
 
 test('root is required for SSR-style usage and can be injected', () => {

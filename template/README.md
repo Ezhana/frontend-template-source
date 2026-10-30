@@ -64,8 +64,9 @@ Generated apps consume published design tokens, theme packages and the theme run
 stylesheets are imported in each app entry file; no local token build step is required.
 
 - `@ezhana/design-tokens` ships the core token scale, the semantic contract and the default theme.
-- `@ezhana/design-theme-ocean` and `@ezhana/design-theme-cerulean` are standalone theme packages, one
-  package per theme.
+- `@ezhana/design-theme-ocean`, `@ezhana/design-theme-cerulean` and `@ezhana/design-theme-quest` are
+  standalone theme packages, one package per theme. QuestUI is dark-only, so the registry/runtime
+  support themes that declare a subset of the app's color modes.
 - `@ezhana/theme` manages the theme and color-mode state.
 - The color mode follows the operating system by default (`prefers-color-scheme`).
 - `data-theme` selects the theme; `data-color-mode` is written only for an explicit color mode.
@@ -85,7 +86,9 @@ export type AppTheme = (typeof themeRegistry.themes)[number]
 ```
 
 To add a theme, install its package in the app, import its stylesheet in the entry file and add its
-`theme` export to `defineThemeRegistry([...])`. Theme packages export `./style` (core stylesheet,
+`theme` export to `defineThemeRegistry([...])`. If the theme supports fewer color modes than the
+app (for example a dark-only theme), also pass `themeModes: themeRegistry.themeModes` to
+`createThemeManager` so the resolved mode is clamped to a supported one. Theme packages export `./style` (core stylesheet,
 the theme's fonts if any and its overrides in one import), `./theme.css` (overrides only) and
 `./standalone.css` (core plus overrides, for setups without a bundler).
 
@@ -95,6 +98,7 @@ See the npm package documentation for the token contract, theme model and runtim
 - [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
 - [`@ezhana/design-theme-cerulean`](https://www.npmjs.com/package/@ezhana/design-theme-cerulean)
 - [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
+- [`@ezhana/design-theme-quest`](https://www.npmjs.com/package/@ezhana/design-theme-quest)
 
 ## CI
 

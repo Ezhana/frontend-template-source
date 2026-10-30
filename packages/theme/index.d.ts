@@ -29,7 +29,11 @@ export interface ThemeState<Theme extends string = string, Mode extends string =
   readonly theme: Theme
   /** User preference: one of the configured modes or `system`. */
   readonly mode: ModePreference<Mode>
-  /** Effective color mode (explicit mode or the OS preference). */
+  /**
+   * Effective color mode for the active theme: the preference (or the OS preference
+   * in `system` mode) when the theme supports it, otherwise the first mode the
+   * theme declares. Always one of the active theme's supported modes.
+   */
   readonly resolvedMode: Mode
   /** Color mode the operating system currently prefers, mapped into `Mode`. */
   readonly systemMode: Mode
@@ -83,6 +87,14 @@ export interface ThemeEventTarget {
   removeEventListener(type: 'storage', listener: (event: ThemeStorageEvent) => void): void
 }
 
+/**
+ * Supported color modes per theme id, as returned by
+ * {@link defineThemeRegistry} and accepted by {@link createThemeManager}.
+ */
+export type ThemeModeMap<Theme extends string = string, Mode extends string = string> = Readonly<
+  Record<Theme, readonly Mode[]>
+>
+
 /** Options accepted by {@link createThemeManager}. */
 export interface ThemeManagerOptions<Theme extends string = string, Mode extends string = string> {
   /** Required, unique, non-empty themes. `themes[0]` is the default unless `defaultTheme` is given. */
@@ -93,6 +105,17 @@ export interface ThemeManagerOptions<Theme extends string = string, Mode extends
    * contain the reserved `'system'` value.
    */
   modes?: readonly Mode[]
+  /**
+   * Modes each theme supports, as returned by {@link defineThemeRegistry}.
+   * Defaults to every theme supporting all `modes`. Must cover exactly the
+   * configured `themes`; each value must be a non-empty, unique subset of
+   * `modes` without the reserved `'system'` value.
+   *
+   * `resolvedMode` is clamped to a mode the active theme supports, so a
+   * dark-only theme never renders `data-color-mode="light"` (or any mode it
+   * does not implement) even when the saved preference is `light`.
+   */
+  themeModes?: ThemeModeMap<Theme, Mode>
   /** Default theme. Must be one of `themes`; defaults to `themes[0]`. */
   defaultTheme?: Theme
   /** Default mode preference: one of `modes` or `'system'` (the default). */
@@ -173,7 +196,10 @@ export interface ThemeDefinition<Id extends string = string, Mode extends string
   readonly id: Id
   /** Human-readable label for switcher UIs. */
   readonly label: string
-  /** Color modes the theme supports; every registered theme must declare the same list. */
+  /**
+   * Color modes the theme supports. Lists may differ between themes:
+   * a theme may be fixed to a single mode (for example a dark-only theme).
+   */
   readonly modes: readonly Mode[]
 }
 
@@ -185,8 +211,13 @@ export interface ThemeRegistry<Ids extends string = string, Modes extends string
   readonly themeLabels: Readonly<Record<Ids, string>>
   /** Default theme identity. */
   readonly defaultTheme: Ids
-  /** Color modes shared by every registered theme. */
+  /** Union of the modes declared by the registered themes, in first-seen order. */
   readonly modes: readonly Modes[]
+  /**
+   * Modes supported by each registered theme, keyed by theme id and preserving
+   * each theme's declared order.
+   */
+  readonly themeModes: ThemeModeMap<Ids, Modes>
 }
 
 /**
@@ -202,8 +233,9 @@ export interface ThemeRegistry<Ids extends string = string, Modes extends string
  * ```
  *
  * Throws `TypeError` when definitions are empty, when an id does not match the theme id pattern,
- * when ids repeat, when labels are missing, when the declared color modes differ, or when
- * `options.defaultTheme` is not registered.
+ * when ids repeat, when labels are missing, when a mode list is empty/invalid, or when
+ * `options.defaultTheme` is not registered. Definitions may declare different mode lists; the
+ * returned `modes` is their union and `themeModes` keeps each theme's own list.
  */
 export declare function defineThemeRegistry<
   const Definitions extends readonly ThemeDefinition[],

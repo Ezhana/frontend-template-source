@@ -5,6 +5,7 @@ import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { buildTheme, contrastRatio, defineTheme } from '../index.js'
+import { filterKnownContrastPairs } from '../lib/validate.js'
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const fixtureDir = join(packageRoot, 'test', 'fixtures', 'theme')
@@ -448,10 +449,67 @@ test('defineTheme rejects invalid configurations', () => {
   )
 })
 
+test('defineTheme validates, defaults and freezes the declared color modes', () => {
+  const defaults = defineTheme({ id: 'ocean', label: 'Ocean', overrides: 'tokens/theme.json' })
+  assert.deepEqual(defaults.modes, [])
+  assert.ok(Object.isFrozen(defaults.modes))
+
+  const darkOnly = defineTheme({
+    id: 'ocean',
+    label: 'Ocean',
+    overrides: 'tokens/theme.json',
+    modes: ['dark'],
+  })
+  assert.deepEqual(darkOnly.modes, ['dark'])
+  assert.ok(Object.isFrozen(darkOnly.modes))
+  assert.ok(Object.isFrozen(darkOnly))
+
+  assert.throws(
+    () => defineTheme({ id: 'ocean', label: 'Ocean', overrides: 'x', modes: 'dark' }),
+    /modes/,
+  )
+  assert.throws(
+    () => defineTheme({ id: 'ocean', label: 'Ocean', overrides: 'x', modes: ['dark', ''] }),
+    /modes\[1\]/,
+  )
+  assert.throws(
+    () => defineTheme({ id: 'ocean', label: 'Ocean', overrides: 'x', modes: ['dark', 'dark'] }),
+    /duplicates/,
+  )
+  assert.throws(
+    () => defineTheme({ id: 'ocean', label: 'Ocean', overrides: 'x', mode: ['dark'] }),
+    /unknown option `mode`/,
+  )
+})
+
 test('contrastRatio implements WCAG 2.2', () => {
   assert.equal(contrastRatio('#000000', '#ffffff').toFixed(2), '21.00')
   assert.equal(contrastRatio('#ffffff', '#ffffff').toFixed(2), '1.00')
   assert.ok(contrastRatio('#007ba7', '#ffffff') >= 4.5)
+})
+
+test('built-in contrast pairs are filtered against the installed core contract', () => {
+  const oldContract = {
+    semanticTokens: {
+      base: ['font.family.sans', 'color.fg'],
+      modes: { light: ['color.bg', 'color.accent'], dark: ['color.bg', 'color.accent'] },
+    },
+  }
+  const known = filterKnownContrastPairs(
+    [
+      ['color.fg', 'color.bg'],
+      ['color.fg', 'color.accent'],
+      ['color.info', 'color.bg'],
+      ['color.on-info', 'color.info-solid'],
+    ],
+    oldContract,
+  )
+  // Pairs whose tokens exist in the contract stay; newer roles are skipped so a newer builder can
+  // still build themes against an older v1 core.
+  assert.deepEqual(known, [
+    ['color.fg', 'color.bg'],
+    ['color.fg', 'color.accent'],
+  ])
 })
 
 /* -------------------------------------------------------------------------- */
@@ -538,6 +596,138 @@ test('every emitted declaration equals the resolved JSON value for that mode', a
 })
 
 /* -------------------------------------------------------------------------- */
+/* Fixed-mode (color-mode subset) themes                                       */
+/* -------------------------------------------------------------------------- */
+
+/** Fixture override file with one section removed and optionally mutated. */
+const fixtureOverrideFile = async (removeMode, mutate) => {
+  const themeJson = JSON.parse(await read(join(fixtureDir, 'tokens', 'theme.json')))
+  delete themeJson[removeMode]
+  mutate?.(themeJson)
+  const dir = await createTempDir()
+  await writeTree(dir, { 'theme.json': JSON.stringify(themeJson) })
+  return join(dir, 'theme.json')
+}
+
+/** Map of CSS custom property name -> resolved value for one mode. */
+const resolvedValues = (json, mode) => {
+  const map = new Map()
+  for (const [path, token] of Object.entries(json.resolved[mode])) {
+    map.set(cssVariableName(path), String(token.value))
+  }
+  return map
+}
+
+test('a fixed-mode theme emits one load-order-independent rule with color-scheme', async () => {
+  const overrides = await fixtureOverrideFile('light')
+  const { css, metadata, types, json } = await buildFixture({ modes: ['dark'], overrides })
+
+  assert.deepEqual(json.modes, ['dark'])
+  assert.equal(json.defaultMode, 'dark')
+  assert.deepEqual(Object.keys(json.resolved), ['dark'])
+  assert.deepEqual(Object.keys(json.overrides), ['dark'])
+  assert.match(metadata, /export const modes = Object\.freeze\(\["dark"\]\)/)
+  assert.match(types, /export type ThemeMode = "dark"/)
+
+  const selector = [
+    ':root[data-theme="fixture"]',
+    ':root[data-theme="fixture"]:not([data-color-mode])',
+    ':root[data-theme="fixture"][data-color-mode]',
+  ].join(', ')
+  assert.ok(css.includes(`${selector} {`), 'Missing the fixed-mode selector list')
+  assert.match(css, /^ {4}color-scheme: dark;$/m)
+
+  // No attribute-based (explicit) or system-preference mode selection, and a single rule overall.
+  assert.doesNotMatch(css, /\[data-theme="fixture"\]\[data-color-mode=/)
+  assert.doesNotMatch(css, /@media \(prefers-color-scheme: dark\)/)
+  const rules = parseRules(css)
+  assert.equal(rules.length, 1)
+  assert.equal(rules[0].selector, selector)
+
+  // Load-order independence: both attribute states must be covered by a 0,3,0 selector. The plain
+  // 0,2,0 arm alone would tie core's dark system block when an explicit data-color-mode is present.
+  const arms = rules[0].selector.split(',').map((arm) => arm.trim())
+  const specificity = (arm) => {
+    const ids = (arm.match(/#[\w-]+/g) ?? []).length
+    const classes = (arm.match(/:root|\[[^\]]+\]|:not\(\[[^\]]+\]\)/g) ?? []).length
+    return [ids, classes, 0]
+  }
+  const absentArm = ':root[data-theme="fixture"]:not([data-color-mode])'
+  const presentArm = ':root[data-theme="fixture"][data-color-mode]'
+  assert.ok(arms.includes(absentArm), 'Missing the no-attribute fixed-mode arm')
+  assert.ok(arms.includes(presentArm), 'Missing the explicit-attribute fixed-mode arm')
+  for (const arm of [absentArm, presentArm]) {
+    const [, classes] = specificity(arm)
+    assert.ok(classes >= 3, `${arm} must have specificity >= 0,3,0 (got 0,${classes},0)`)
+  }
+
+  // Every declaration on the rule equals the resolved dark value.
+  const darkValues = resolvedValues(json, 'dark')
+  for (const [name, value] of Object.entries(rules[0].declarations)) {
+    assert.equal(value, darkValues.get(name), `CSS ${name} disagrees with resolved dark value`)
+  }
+
+  // Required base and declared-mode contract tokens are all emitted.
+  const contract = JSON.parse(
+    await read(join(packageRoot, '..', 'design-tokens', 'dist', 'json', 'contract.json')),
+  )
+  for (const path of [...contract.required.base, ...contract.required.mode]) {
+    assert.ok(
+      cssVariableName(path) in rules[0].declarations,
+      `Missing required token ${path} in the fixed-mode rule`,
+    )
+  }
+})
+
+test('fixed-mode themes enforce contrast against their declared mode', async () => {
+  const overrides = await fixtureOverrideFile('light', (themeJson) => {
+    // A failing accent/bg pair: #333333 on the core dark background.
+    themeJson.dark.color.accent = { $value: '#333333', $type: 'color' }
+  })
+
+  await assert.rejects(
+    buildFixture({ modes: ['dark'], overrides }),
+    /fails the WCAG contrast check:[\s\S]*dark: color\.accent \(#333333\) on color\.bg/,
+  )
+})
+
+test('rejects an override section for a contract mode the theme does not declare', async () => {
+  await assert.rejects(
+    buildFixture({ modes: ['dark'], overrides: 'tokens/theme.json' }),
+    /defines the "light" section, but the theme does not declare that color mode/,
+  )
+})
+
+test('rejects a declared color mode that is not in the core contract', async () => {
+  await assert.rejects(
+    buildFixture({ modes: ['dim'], overrides: 'tokens/theme.json' }),
+    /declares the color mode "dim"[\s\S]*Supported modes: light, dark/,
+  )
+})
+
+test('a theme that declares every contract mode keeps the classic CSS shape', async () => {
+  const { css, json, metadata } = await buildFixture({ modes: ['light', 'dark'] })
+
+  assert.deepEqual(json.modes, ['light', 'dark'])
+  assert.equal(json.defaultMode, 'light')
+  assert.match(metadata, /export const modes = Object\.freeze\(\["light","dark"\]\)/)
+  assert.match(css, /^ {2}:root\[data-theme="fixture"\] \{$/m)
+  assert.match(css, /^ {2}:root\[data-theme="fixture"\]\[data-color-mode="dark"\] \{$/m)
+  assert.match(css, /@media \(prefers-color-scheme: dark\)/)
+})
+
+test('preserves declared mode order and keeps the contract default mode', async () => {
+  const { css, json, metadata } = await buildFixture({ modes: ['dark', 'light'] })
+
+  assert.deepEqual(json.modes, ['dark', 'light'])
+  assert.equal(json.defaultMode, 'light')
+  assert.match(metadata, /export const modes = Object\.freeze\(\["dark","light"\]\)/)
+  // The default mode values still go on the unconditional base rule; dark becomes explicit.
+  assert.match(css, /^ {2}:root\[data-theme="fixture"\] \{$/m)
+  assert.match(css, /^ {2}:root\[data-theme="fixture"\]\[data-color-mode="dark"\] \{$/m)
+})
+
+/* -------------------------------------------------------------------------- */
 /* Build environment                                                           */
 /* -------------------------------------------------------------------------- */
 
@@ -604,12 +794,20 @@ test('default contrast pairs cover the pairs the core package publishes', async 
 
   for (const pair of [
     ['color.on-accent', 'color.accent'],
-    ['color.on-danger', 'color.danger'],
+    ['color.on-danger', 'color.danger-solid'],
     ['color.fg-strong', 'color.bg-subtle'],
     ['color.accent', 'color.bg'],
+    ['color.info', 'color.bg'],
+    ['color.on-info', 'color.info-solid'],
+    ['color.fg', 'color.surface'],
+    ['color.fg-muted', 'color.surface'],
+    ['color.fg-strong', 'color.surface-elevated'],
   ]) {
     assert.ok(defaults.has(key(pair)), `Missing default contrast pair ${key(pair)}`)
   }
+
+  // The accessible destructive combination checks the solid surface, not the text color.
+  assert.ok(!defaults.has(key(['color.on-danger', 'color.danger'])))
 
   // The build consumes the pairs published in the core contract as well.
   const contract = JSON.parse(

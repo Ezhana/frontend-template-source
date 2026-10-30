@@ -11,6 +11,8 @@ package: validated, resolved, typed and documented by generated metadata.
 - Computes WCAG AA contrast for the tokens a theme can change that carry text or interaction.
 - Resolves theme-private tokens at build time; they never become CSS custom properties.
 - Emits `:root[data-theme]`-prefixed CSS, so a theme never depends on stylesheet load order.
+- Supports color-mode subsets: a theme may declare only the modes it implements, including a
+  fixed-mode (for example dark-only) theme.
 - Emits typed metadata for `defineThemeRegistry` from [`@ezhana/theme`](../theme/README.md).
 
 ## Installation
@@ -32,7 +34,7 @@ my-theme/
 ├── theme.config.mjs
 ├── tokens/
 │   ├── palette.json     # theme-private tokens, rooted at `theme.`
-│   └── theme.json       # semantic overrides: base + one section per color mode
+│   └── theme.json       # semantic overrides: base + one section per declared color mode
 ├── scripts/build.mjs
 └── dist/                # generated
 ```
@@ -46,8 +48,9 @@ export default defineTheme({
   label: 'ACME', // switcher label
   description: 'ACME brand theme.',
   tokens: ['tokens/palette.json'], // theme-private DTCG sources
-  overrides: 'tokens/theme.json', // DTCG sections: base + one per color mode
+  overrides: 'tokens/theme.json', // DTCG sections: base + one per declared color mode
   fonts: ['@fontsource-variable/inter'], // optional: imported by the generated style entry
+  modes: ['light', 'dark'], // optional: color modes this theme supports (default: all)
 })
 ```
 
@@ -104,8 +107,9 @@ properties**, so they cannot be consumed by product CSS and do not extend the co
 
 ### Semantic overrides (`tokens/theme.json`)
 
-Same DTCG format as the core package, split into `base` (mode-independent) and one section per color
-mode:
+Same DTCG format as the core package, split into `base` (mode-independent) and one section per
+**declared** color mode (see [`modes`](#fixed-mode-themes-color-mode-subset); by default every core
+mode):
 
 ```json
 {
@@ -141,8 +145,9 @@ mode:
 }
 ```
 
-Every color-mode section must contain the whole required set; the build fails with the missing token
-name when one is absent.
+Every declared color-mode section must contain the whole required set; the build fails with the
+missing token name when one is absent. A section for a contract mode the theme does not declare is
+rejected as well, so `modes` and the override file cannot drift apart.
 
 Overrides may reference:
 
@@ -161,7 +166,7 @@ understand.
 | Section                   | Required overrides                                                                                                        |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `base` (mode-independent) | `font.family.sans`, `font.family.heading`, `radius.control`                                                               |
-| every color mode          | `color.accent`, `color.accent-hover`, `color.on-accent`, `color.accent-subtle`, `color.accent-border`, `color.focus-ring` |
+| every declared color mode | `color.accent`, `color.accent-hover`, `color.on-accent`, `color.accent-subtle`, `color.accent-border`, `color.focus-ring` |
 
 Only this set is required. A theme may override more semantic tokens; because themes are
 independent packages, different themes do not have to override the same additional tokens — the
@@ -172,16 +177,16 @@ build only rejects overrides that are not semantic tokens of that section.
 `buildTheme()` writes a fixed layout to `<theme package>/dist`, so a theme package does not configure
 output paths (the recommended `exports` map below depends on them):
 
-| Artifact                  | Contents                                                                              |
-| ------------------------- | ------------------------------------------------------------------------------------- |
-| `dist/css/theme.css`      | overrides only, resolved values, `:root[data-theme="<id>"]` selectors                 |
-| `dist/css/standalone.css` | core `tokens.css` concatenated with the theme overrides                               |
-| `dist/style.js`           | imports the core stylesheet, the configured font entries and `./css/theme.css`        |
-| `dist/js/index.js`        | `themeId`, `themeLabel`, `modes`, `theme` (a `ThemeDefinition`)                       |
-| `dist/js/index.d.ts`      | literal types for the above                                                           |
-| `dist/json/theme.json`    | resolved override values and resolved semantic values per mode, for tooling and tests |
+| Artifact                  | Contents                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
+| `dist/css/theme.css`      | overrides only, resolved values, `:root[data-theme="<id>"]` selectors                        |
+| `dist/css/standalone.css` | core `tokens.css` concatenated with the theme overrides                                      |
+| `dist/style.js`           | imports the core stylesheet, the configured font entries and `./css/theme.css`               |
+| `dist/js/index.js`        | `themeId`, `themeLabel`, `modes` (the theme's declared modes), `theme` (a `ThemeDefinition`) |
+| `dist/js/index.d.ts`      | literal types for the above                                                                  |
+| `dist/json/theme.json`    | resolved override values and resolved semantic values per mode, for tooling and tests        |
 
-Recommended `exports` (the two official theme packages do exactly this):
+Recommended `exports` (the official theme packages do exactly this):
 
 ```json
 {
@@ -201,7 +206,7 @@ Recommended `exports` (the two official theme packages do exactly this):
 - `./theme.css` is for apps that load the core stylesheet themselves or ship several themes.
 - `./standalone.css` is for HTML-only pages, CDN links and environments without a bundler.
 
-### CSS shape
+### CSS shape (full-mode themes)
 
 ```css
 @layer design-tokens;
@@ -230,21 +235,81 @@ Recommended `exports` (the two official theme packages do exactly this):
 Selectors are prefixed with `:root` (specificity 0,2,0 / 0,3,0) so they beat every core rule
 regardless of import order — a theme package is never allowed to depend on being imported last.
 
+### Fixed-mode themes (color-mode subset)
+
+`modes` narrows a theme to the color modes it actually implements. The common case is a single
+mode, for example a dark-only fantasy theme:
+
+```js
+export default defineTheme({
+  id: 'quest',
+  label: 'Quest',
+  overrides: 'tokens/theme.json', // `base` + `dark` only
+  modes: ['dark'],
+})
+```
+
+A fixed-mode theme is applied unconditionally: it ignores `data-color-mode` and
+`prefers-color-scheme`, so it cannot flash the wrong palette or depend on the application's mode
+preference. The generated stylesheet uses one rule whose selector list carries the plain
+`:root[data-theme]` selector plus 0,3,0 variants for both the absent and the explicit
+`data-color-mode` attribute states:
+
+```css
+@layer design-tokens;
+
+@layer design-tokens {
+  /* Theme "quest": mode-independent overrides + fixed dark color values. */
+  :root[data-theme='quest'],
+  :root[data-theme='quest']:not([data-color-mode]),
+  :root[data-theme='quest'][data-color-mode] {
+    --color-accent: #c084fc;
+    color-scheme: dark;
+    /* ... base + dark values ... */
+  }
+}
+```
+
+- Both 0,3,0 arms are required for load-order independence: `:not([data-color-mode])` beats the core
+  `:root:not([data-color-mode])` system-preference block when the attribute is absent, and
+  `[data-color-mode]` beats core's `[data-color-mode="dark"]` arm (also 0,2,0) when any explicit mode
+  is present. The plain 0,2,0 selector keeps the theme's usual specificity.
+- `color-scheme: <mode colorScheme>` styles native form controls and scrollbars for the fixed mode.
+- There is no `[data-theme][data-color-mode=...]` theme rule and no `@media (prefers-color-scheme)`
+  theme block at all.
+- Metadata and `dist/json/theme.json` publish only the declared modes (`modes: ['dark']`), and
+  `defaultMode` is that mode. `@ezhana/theme`'s registry exposes each theme's modes as `themeModes`,
+  so a switcher can disable the unsupported mode options.
+
+A subset with more than one mode keeps the full-mode shape: the contract's default mode (when
+declared) — otherwise the first declared mode — goes on the base rule, and the remaining declared
+modes get their explicit and system-preference blocks. Declared order is preserved everywhere
+(metadata, JSON, CSS).
+
 ## Contrast requirements
 
 `buildTheme()` fails when a pair is below WCAG 2.2 AA (4.5:1) for the resolved values (core
 defaults merged with the theme's overrides). Default pairs:
 
 ```text
-color.on-accent / color.accent      color.accent / color.bg        color.accent-hover / color.bg
-color.fg / color.bg                 color.fg-muted / color.bg       color.fg-strong / color.bg
-color.fg-strong / color.bg-subtle   color.on-danger / color.danger
-color.danger / color.bg             color.success / color.bg        color.warning / color.bg
+color.on-accent / color.accent        color.accent / color.bg         color.accent-hover / color.bg
+color.fg / color.bg                   color.fg-muted / color.bg       color.fg-strong / color.bg
+color.fg-strong / color.bg-subtle     color.on-danger / color.danger-solid
+color.danger / color.bg               color.success / color.bg        color.warning / color.bg
+color.info / color.bg                 color.on-info / color.info-solid
+color.fg / color.surface              color.fg-muted / color.surface  color.fg-strong / color.surface-elevated
 ```
+
+`on-danger` is checked against the `danger-solid` surface, not the `danger` text color: a danger
+text token must stay readable on `bg`, while the solid destructive surface carries the label. The
+builder filters its own default pairs against the tokens the installed core contract publishes, so
+a newer builder can still build themes against an older v1 core; a `contrast.pairs` list supplied by
+the theme is never filtered and fails loudly for an unknown token.
 
 The core package publishes the pairs it validates itself in `contract.contrast.pairs`, and the
 builder validates those plus the theme-specific pairs above — a theme cannot slip a failing
-`on-danger`/`danger` combination through one tool while the other rejects it.
+`on-danger`/`danger-solid` or `on-info`/`info-solid` combination through one tool while the other
+rejects it. The merge keeps duplicate pairs out, so listing a pair in both places is harmless.
 
 Override them per theme when the theme rethemes more of the semantic layer:
 
@@ -260,15 +325,16 @@ explanation instead of a silently wrong ratio.
 
 ## Configuration reference
 
-| Field         | Type               | Default      | Meaning                                                    |
-| ------------- | ------------------ | ------------ | ---------------------------------------------------------- |
-| `id`          | `string`           | — (required) | Theme identity, lowercase kebab-case, used in `data-theme` |
-| `label`       | `string`           | — (required) | Human-readable label for switcher UIs                      |
-| `description` | `string`           | —            | One line, copied into `dist/json/theme.json`               |
-| `tokens`      | `string[]`         | `[]`         | Theme-private DTCG files, relative to the config file      |
-| `overrides`   | `string`           | — (required) | DTCG override file, relative to the config file            |
-| `fonts`       | `string[]`         | `[]`         | CSS entry points imported by `dist/style.js`               |
-| `contrast`    | `{ pairs?, min? }` | `4.5` AA     | Contrast requirements                                      |
+| Field         | Type               | Default      | Meaning                                                                       |
+| ------------- | ------------------ | ------------ | ----------------------------------------------------------------------------- |
+| `id`          | `string`           | — (required) | Theme identity, lowercase kebab-case, used in `data-theme`                    |
+| `label`       | `string`           | — (required) | Human-readable label for switcher UIs                                         |
+| `description` | `string`           | —            | One line, copied into `dist/json/theme.json`                                  |
+| `tokens`      | `string[]`         | `[]`         | Theme-private DTCG files, relative to the config file                         |
+| `overrides`   | `string`           | — (required) | DTCG override file, relative to the config file                               |
+| `fonts`       | `string[]`         | `[]`         | CSS entry points imported by `dist/style.js`                                  |
+| `contrast`    | `{ pairs?, min? }` | `4.5` AA     | Contrast requirements                                                         |
+| `modes`       | `string[]`         | `[]` (all)   | Declared color modes; `[]` = every contract mode, one mode = fixed-mode theme |
 
 Invalid configuration throws `TypeError` at import time — including unknown option names, so a
 `font` typo fails instead of silently shipping without a font. Build failures stop at the first
@@ -294,5 +360,8 @@ that prefer a binary.
   variable font, measured contrast table in [`docs/DESIGN.md`](../design-theme-cerulean/docs/DESIGN.md).
 - [`@ezhana/design-theme-ocean`](../design-theme-ocean/README.md) — pill-shaped controls, no custom
   font.
+- [`@ezhana/design-theme-quest`](../design-theme-quest/README.md) — a fixed-mode (dark-only) theme
+  with a custom palette, three font families and tokenized component recipes. It is the reference for
+  `modes` and fixed-mode output.
 
 Their `test/theme.test.mjs` suites are the reference contract tests for a theme package.

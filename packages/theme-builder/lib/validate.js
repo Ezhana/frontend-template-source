@@ -24,10 +24,36 @@ export const DEFAULT_CONTRAST_PAIRS = Object.freeze([
   Object.freeze(['color.fg-strong', 'color.bg']),
   Object.freeze(['color.fg-strong', 'color.bg-subtle']),
   Object.freeze(['color.danger', 'color.bg']),
-  Object.freeze(['color.on-danger', 'color.danger']),
+  Object.freeze(['color.on-danger', 'color.danger-solid']),
   Object.freeze(['color.success', 'color.bg']),
   Object.freeze(['color.warning', 'color.bg']),
+  // Surfaces and status colors a theme can retheme; the core package publishes the same pairs.
+  Object.freeze(['color.info', 'color.bg']),
+  Object.freeze(['color.on-info', 'color.info-solid']),
+  Object.freeze(['color.fg', 'color.surface']),
+  Object.freeze(['color.fg-muted', 'color.surface']),
+  Object.freeze(['color.fg-strong', 'color.surface-elevated']),
 ])
+
+/**
+ * Keep only the contrast pairs whose two tokens exist in the installed core contract.
+ *
+ * The builder's default pair list also names roles added in newer core releases. Filtering the
+ * *builder defaults* against the contract keeps a newer builder able to build themes against an
+ * older v1 core (the pairs it cannot know are skipped); user-supplied `contrast.pairs` are never
+ * filtered and still fail loudly when they name a missing token.
+ *
+ * @param {readonly (readonly [string, string])[]} pairs
+ * @param {{ semanticTokens?: { base?: readonly string[], modes?: Record<string, readonly string[]> } }} contract
+ * @returns {(readonly [string, string])[]}
+ */
+export const filterKnownContrastPairs = (pairs, contract) => {
+  const known = new Set([
+    ...(contract.semanticTokens?.base ?? []),
+    ...Object.values(contract.semanticTokens?.modes ?? {}).flat(),
+  ])
+  return pairs.filter((pair) => known.has(pair[0]) && known.has(pair[1]))
+}
 
 /**
  * Merge contrast pair lists, keeping the first occurrence. The core package publishes the pairs it
@@ -82,8 +108,8 @@ export const contrastRatio = (foreground, background) => {
  * @typedef {object} ValidatedTheme
  * @property {string[]} basePaths Base-section override paths, in contract order.
  * @property {Map<string, string[]>} modePaths Mode-section override paths, in contract order.
- * @property {string[]} modeIds Every color mode from the contract.
- * @property {string} defaultMode
+ * @property {string[]} modeIds Every color mode the theme declares, in declared order.
+ * @property {string} defaultMode The declared mode the unconditional `:root` rule carries.
  */
 
 /**
@@ -93,12 +119,23 @@ export const contrastRatio = (foreground, background) => {
  * @param {object} input.localTokens Merged theme-private token tree
  * @param {Record<string, object>} input.overrides Parsed override sections
  * @param {Set<string>} input.primitivePaths
+ * @param {string[]} input.modes Color modes this theme declares (a subset of the contract).
  * @returns {ValidatedTheme}
  */
-export const validateTheme = ({ config, contract, localTokens, overrides, primitivePaths }) => {
+export const validateTheme = ({
+  config,
+  contract,
+  localTokens,
+  overrides,
+  primitivePaths,
+  modes,
+}) => {
   const { id } = config
-  const modeIds = contract.modes.map((mode) => mode.id)
-  const defaultMode = contract.defaultMode
+  const contractModeIds = contract.modes.map((mode) => mode.id)
+  const modeIds = [...modes]
+  // A fixed-mode (subset) theme falls back to its first declared mode when the contract's default
+  // mode is not part of the subset.
+  const defaultMode = modeIds.includes(contract.defaultMode) ? contract.defaultMode : modeIds[0]
   const themeNamespace = contract.themeNamespace
   const semanticBase = new Set(contract.semanticTokens.base)
   const semanticMode = new Map(
@@ -146,20 +183,27 @@ export const validateTheme = ({ config, contract, localTokens, overrides, primit
 
   /* Override sections ----------------------------------------------------- */
 
+  const contractModeIdSet = new Set(contractModeIds)
   const knownSections = new Set(['base', ...modeIds])
   for (const section of Object.keys(overrides)) {
-    if (!knownSections.has(section)) {
+    if (knownSections.has(section)) continue
+    if (contractModeIdSet.has(section)) {
       throw new Error(
-        `Theme "${id}" defines the section "${section}", which is not a color mode. ` +
-          `Expected "base" and one section per color mode: ${modeIds.join(', ')}.`,
+        `Theme "${id}" defines the "${section}" section, but the theme does not declare that ` +
+          `color mode. Declared modes: ${modeIds.join(', ')}. Either remove the "${section}" ` +
+          'section or add it to `modes` in theme.config.mjs.',
       )
     }
+    throw new Error(
+      `Theme "${id}" defines the section "${section}", which is not a color mode. ` +
+        `Expected "base" and one section per declared color mode: ${modeIds.join(', ')}.`,
+    )
   }
   for (const mode of modeIds) {
     if (!overrides[mode]) {
       throw new Error(
         `Theme "${id}" is missing the "${mode}" section. ` +
-          'Every theme must override the contract tokens in every color mode.',
+          'Every declared color mode needs an override section with the contract tokens.',
       )
     }
   }

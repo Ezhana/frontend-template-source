@@ -130,16 +130,146 @@ the default theme's violet accent, spacing, radii, borders, type and motion. A b
 cerulean blue or ocean blue lives in the theme package that uses it — see
 [ADR 0003](../../docs/adr/0003-themes-as-packages.md).
 
+## Token reference
+
+Semantic tokens are the public API and are emitted as CSS custom properties for every color mode.
+The tables below list the token name (as used in `dist/json/core.json` and the theme contract), the
+CSS variable product code consumes, and the role the token describes. Values are the default
+theme's; themes may override any of them.
+
+### Surfaces, borders and text
+
+| Token                    | CSS variable               | Role                                                  |
+| ------------------------ | -------------------------- | ----------------------------------------------------- |
+| `color.bg`               | `--color-bg`               | Page background, the base layer of a mode.            |
+| `color.bg-subtle`        | `--color-bg-subtle`        | Inset surface: code blocks, wells, inactive controls. |
+| `color.surface`          | `--color-surface`          | Raised surface: cards, panels and sheets.             |
+| `color.surface-elevated` | `--color-surface-elevated` | Topmost surface: modals, popovers and menus.          |
+| `color.border`           | `--color-border`           | Hairline borders and dividers.                        |
+| `color.border-subtle`    | `--color-border-subtle`    | Low-contrast divider on raised or tinted surfaces.    |
+| `color.fg`               | `--color-fg`               | Default body text.                                    |
+| `color.fg-muted`         | `--color-fg-muted`         | Secondary / de-emphasized text.                       |
+| `color.fg-strong`        | `--color-fg-strong`        | Headings and high-emphasis text.                      |
+
+The three surface levels let a layout stack cards on the page and dialogs on cards without inventing
+ad-hoc colors. Each mode decides how the stack is tinted; the same semantic names work in light and
+dark mode.
+
+### Accent and informational roles
+
+| Token                 | CSS variable            | Role                                                 |
+| --------------------- | ----------------------- | ---------------------------------------------------- |
+| `color.accent`        | `--color-accent`        | Accent text, icons and links.                        |
+| `color.accent-hover`  | `--color-accent-hover`  | Accent hover state.                                  |
+| `color.on-accent`     | `--color-on-accent`     | Content on a solid accent fill.                      |
+| `color.accent-subtle` | `--color-accent-subtle` | Tinted accent surface.                               |
+| `color.accent-border` | `--color-accent-border` | Accent-tinted border for highlighted controls.       |
+| `color.focus-ring`    | `--color-focus-ring`    | Focus outline.                                       |
+| `color.info`          | `--color-info`          | Informational text and icons.                        |
+| `color.info-solid`    | `--color-info-solid`    | Solid informational fill; pair with `color.on-info`. |
+| `color.on-info`       | `--color-on-info`       | Content on a solid informational fill.               |
+| `color.info-subtle`   | `--color-info-subtle`   | Tinted informational surface.                        |
+
+`info` is deliberately a separate role from `accent`, so a theme can give informational UI its own
+hue while keeping the accent for interactive emphasis. The default theme maps both to the violet
+ramp.
+
+### Status roles
+
+| Token                  | CSS variable             | Role                                                 |
+| ---------------------- | ------------------------ | ---------------------------------------------------- |
+| `color.danger`         | `--color-danger`         | Danger text and icons; AA against `color.bg`.        |
+| `color.danger-solid`   | `--color-danger-solid`   | Solid destructive fill; pair with `color.on-danger`. |
+| `color.danger-subtle`  | `--color-danger-subtle`  | Tinted destructive surface.                          |
+| `color.on-danger`      | `--color-on-danger`      | Content on a solid destructive fill.                 |
+| `color.success`        | `--color-success`        | Success text and icons.                              |
+| `color.success-subtle` | `--color-success-subtle` | Tinted success surface.                              |
+| `color.warning`        | `--color-warning`        | Warning text and icons.                              |
+| `color.warning-subtle` | `--color-warning-subtle` | Tinted warning surface.                              |
+
+Danger is split into a text role and a fill role: `color.danger` is the accessible danger **text**
+color on the page, while `color.danger-solid` is the destructive **fill** that `color.on-danger` is
+validated against. Themes can retheme each independently, such as a dark-only theme whose danger text
+is light but whose destructive button stays saturated.
+
+### Typography
+
+| Token                 | CSS variable            | Value                                       |
+| --------------------- | ----------------------- | ------------------------------------------- |
+| `font.family.sans`    | `--font-family-sans`    | Body font stack (theme contract).           |
+| `font.family.heading` | `--font-family-heading` | Display font stack (theme contract).        |
+| `font.family.mono`    | `--font-family-mono`    | Code and numeric font stack.                |
+| `font.size.display`   | `--font-size-display`   | `clamp(2.5rem, 1.9rem + 2.4vw, 4rem)`       |
+| `font.size.h1`        | `--font-size-h1`        | `clamp(2.25rem, 1.5rem + 2.2vw, 3.5rem)`    |
+| `font.size.h2`        | `--font-size-h2`        | `clamp(1.25rem, 1rem + 0.5vw, 1.5rem)`      |
+| `font.size.h3`        | `--font-size-h3`        | `1.25rem`                                   |
+| `font.size.h4`        | `--font-size-h4`        | `1rem`                                      |
+| `font.size.body-lg`   | `--font-size-body-lg`   | `clamp(1.125rem, 0.95rem + 0.4vw, 1.25rem)` |
+| `font.size.body`      | `--font-size-body`      | `clamp(1rem, 0.5rem + 0.78vw, 1.125rem)`    |
+| `font.size.control`   | `--font-size-control`   | `1rem` (fixed control label size)           |
+| `font.size.small`     | `--font-size-small`     | `0.875rem`                                  |
+| `font.size.caption`   | `--font-size-caption`   | `0.75rem`                                   |
+| `font.size.code`      | `--font-size-code`      | `0.9375rem`                                 |
+
+Weights: `font.weight.body` = 400, `font.weight.medium` = 500, `font.weight.strong` = 600,
+`font.weight.bold` = 700 (`--font-weight-*`).
+
+Line heights (`--font-line-height-*`): `display` 1.15, `h1` 1.2, `h2` 1.25, `h3` 1.3, `h4` 1.35,
+`body` 1.45, `small` 1.45, `caption` 1.4, `code` 1.35, `heading` 1.18, `tight` 1.1.
+
+Label tracking: `font.letterSpacing.label` = `0.05em` (`--font-letter-spacing-label`), used for
+small-caps labels and eyebrow text.
+
+### Radii
+
+| Token            | CSS variable       | Value                       |
+| ---------------- | ------------------ | --------------------------- |
+| `radius.control` | `--radius-control` | `0.375rem` (theme contract) |
+| `radius.small`   | `--radius-small`   | `0.25rem`                   |
+| `radius.surface` | `--radius-surface` | `0.75rem`                   |
+| `radius.modal`   | `--radius-modal`   | `0.5rem`                    |
+| `radius.panel`   | `--radius-panel`   | `0.75rem`                   |
+| `radius.pill`    | `--radius-pill`    | `9999px`                    |
+
+### Elevation
+
+| Token         | CSS variable    | Light mode                                                            | Dark mode                                                             |
+| ------------- | --------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `shadow.sm`   | `--shadow-sm`   | `0 1px 2px rgb(0 0 0 / 0.06)`                                         | `0 1px 2px rgb(0 0 0 / 0.3)`                                          |
+| `shadow.md`   | `--shadow-md`   | `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)` | `0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -2px rgb(0 0 0 / 0.25)` |
+| `shadow.lg`   | `--shadow-lg`   | `0 24px 48px -12px rgb(0 0 0 / 0.18)`                                 | `0 24px 48px -12px rgb(0 0 0 / 0.5)`                                  |
+| `shadow.xl`   | `--shadow-xl`   | `0 32px 64px -16px rgb(0 0 0 / 0.24)`                                 | `0 32px 64px -16px rgb(0 0 0 / 0.6)`                                  |
+| `shadow.glow` | `--shadow-glow` | `0 0 20px rgb(155 44 235 / 0.4)`                                      | `0 0 20px rgb(192 132 252 / 0.4)`                                     |
+
+`glow` is the only accent-tinted elevation and is meant for featured or focused surfaces. The
+`lg`/`xl` steps carry dialogs and popovers in both modes.
+
+### Layout, borders and motion
+
+| Token                    | CSS variable               | Value                        |
+| ------------------------ | -------------------------- | ---------------------------- |
+| `border.width.default`   | `--border-width-default`   | `1px`                        |
+| `border.width.strong`    | `--border-width-strong`    | `2px`                        |
+| `size.content`           | `--size-content`           | `70.375rem`                  |
+| `motion.duration.fast`   | `--motion-duration-fast`   | `150ms`                      |
+| `motion.duration.normal` | `--motion-duration-normal` | `300ms`                      |
+| `motion.easing.standard` | `--motion-easing-standard` | `cubic-bezier(0.2, 0, 0, 1)` |
+
+The generated `semanticTokenNames` array and `dist/json/contract.json` list the complete,
+authoritative semantic token set for each mode.
+
 ## Theme contract
 
-Every theme must override the following semantic tokens. Anything else is inherited from the default
+Every theme must override the following semantic tokens in every color mode it declares. A theme may
+declare a subset of the core modes through `modes` in its `theme.config.mjs` (see
+[`@ezhana/theme-builder`](../theme-builder/README.md)); anything else is inherited from the default
 semantic values, which keeps themes small and lets new semantic tokens appear everywhere without
 touching every theme.
 
 | Section                   | Required overrides                                                                                                        |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `base` (mode-independent) | `font.family.sans`, `font.family.heading`, `radius.control`                                                               |
-| every color mode          | `color.accent`, `color.accent-hover`, `color.on-accent`, `color.accent-subtle`, `color.accent-border`, `color.focus-ring` |
+| every declared color mode | `color.accent`, `color.accent-hover`, `color.on-accent`, `color.accent-subtle`, `color.accent-border`, `color.focus-ring` |
 
 The contract is published for tooling as `@ezhana/design-tokens/contract`
 (`dist/json/contract.json`) and is versioned: `@ezhana/theme-builder` refuses a contract version it
@@ -159,6 +289,10 @@ does not understand.
   },
   "semanticTokens": { "base": ["…"], "modes": { "light": ["…"], "dark": ["…"] } },
   "primitiveTokens": ["primitive.color.neutral.0", "…"],
+  "contrast": {
+    "min": 4.5,
+    "pairs": [["color.fg", "color.bg"], "…"]
+  },
   "themeNamespace": "theme",
   "themeIdPattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
 }
@@ -167,6 +301,35 @@ does not understand.
 Only the **required** set is enforced. Because themes are independent packages, a theme may override
 additional semantic tokens without other themes having to match — the previous "every theme must
 override exactly the same set" rule cannot be enforced across package boundaries and is dropped.
+
+### Contrast guarantees
+
+The default theme guarantees WCAG 2.2 AA (≥ 4.5:1) for the following foreground/background pairs in
+every color mode. The list is published as `contract.contrast.pairs` so theme builders validate the
+same pairs instead of maintaining their own copy.
+
+| Foreground        | Background               | Role                                       |
+| ----------------- | ------------------------ | ------------------------------------------ |
+| `color.fg`        | `color.bg`               | Body text on the page.                     |
+| `color.fg-muted`  | `color.bg`               | Secondary text on the page.                |
+| `color.fg-strong` | `color.bg`               | Strong text on the page.                   |
+| `color.fg-strong` | `color.bg-subtle`        | Strong text on inset surfaces.             |
+| `color.fg`        | `color.surface`          | Body text on cards and panels.             |
+| `color.fg-muted`  | `color.surface`          | Secondary text on cards and panels.        |
+| `color.fg-strong` | `color.surface-elevated` | Strong text in modals, popovers and menus. |
+| `color.accent`    | `color.bg`               | Accent text and links.                     |
+| `color.on-accent` | `color.accent`           | Content on a solid accent fill.            |
+| `color.on-danger` | `color.danger-solid`     | Content on a solid destructive fill.       |
+| `color.danger`    | `color.bg`               | Danger text on the page.                   |
+| `color.success`   | `color.bg`               | Success text on the page.                  |
+| `color.warning`   | `color.bg`               | Warning text on the page.                  |
+| `color.info`      | `color.bg`               | Informational text on the page.            |
+| `color.on-info`   | `color.info-solid`       | Content on a solid informational fill.     |
+
+`color.on-danger` is checked against `color.danger-solid`, the destructive **fill** it is meant to sit
+on — not `color.danger`, which is the danger **text** role validated against `color.bg`. This keeps
+both roles independently themable: a dark-only theme can use light danger text on the page and a
+saturated destructive button without breaking the AA guarantee.
 
 ## Generated artifacts
 
@@ -295,7 +458,7 @@ tokens/
 ├── primitive/              # context-free values, never themed
 │   ├── color.json          #   neutral, violet, red, green, amber ramps
 │   ├── dimension.json      #   space, radius, border width, content width, motion
-│   └── typography.json     #   font stacks, size scale, weights, line heights
+│   └── typography.json     #   font stacks, size scale, weights, line heights, label tracking
 └── semantic/
     ├── base.json           # mode-independent semantic defaults
     ├── light.json          # default theme, light mode (color + shadow)
@@ -335,7 +498,7 @@ A theme is a separate, independently versioned package built with
 my-theme/
 ├── theme.config.mjs        # id, label, tokens, overrides, fonts
 ├── tokens/palette.json     # theme-private palette, under `theme.*`
-├── tokens/theme.json       # semantic overrides: base + one section per color mode
+├── tokens/theme.json       # semantic overrides: base + one section per declared color mode
 └── scripts/build.mjs       # await buildTheme(new URL('../theme.config.mjs', import.meta.url))
 ```
 
@@ -403,7 +566,9 @@ Rules:
 - that every `var()` reference is declared, no `{token}` placeholder leaked and no custom property is
   declared twice in a block;
 - the CSS selector strategy for explicit and system color modes, and `color-scheme`;
-- **WCAG AA contrast (≥ 4.5:1)** for every foreground/background pair of the default theme.
+- **WCAG AA contrast (≥ 4.5:1)** for every foreground/background pair published in
+  `contract.contrast.pairs` (the default theme's roles are listed under
+  [Contrast guarantees](#contrast-guarantees)), in every color mode.
 
 Theme packages run their own suites with the same contrast assertion for the tokens they override.
 

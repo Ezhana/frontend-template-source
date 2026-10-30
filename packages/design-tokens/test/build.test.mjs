@@ -85,10 +85,15 @@ const CONTRAST_PAIRS = [
   ['color.fg-strong', 'color.bg-subtle'],
   ['color.accent', 'color.bg'],
   ['color.on-accent', 'color.accent'],
-  ['color.on-danger', 'color.danger'],
+  ['color.on-danger', 'color.danger-solid'],
   ['color.danger', 'color.bg'],
   ['color.success', 'color.bg'],
   ['color.warning', 'color.bg'],
+  ['color.info', 'color.bg'],
+  ['color.on-info', 'color.info-solid'],
+  ['color.fg', 'color.surface'],
+  ['color.fg-muted', 'color.surface'],
+  ['color.fg-strong', 'color.surface-elevated'],
 ]
 
 /* Layer model ---------------------------------------------------------------- */
@@ -274,6 +279,105 @@ test('contract token sets match the resolved core JSON', () => {
 })
 
 /* Resolved values ------------------------------------------------------------ */
+
+test('new semantic token groups resolve in every color mode', () => {
+  // Mode-specific additions: layered surfaces, info/solid-danger roles, status tints and the
+  // richer elevation scale. [value, $type] as resolved into dist/json/core.json.
+  const MODE_TOKENS = {
+    light: {
+      'color.surface': ['#fafafa', 'color'],
+      'color.surface-elevated': ['#ffffff', 'color'],
+      'color.border-subtle': ['#f4f4f5', 'color'],
+      'color.info': ['#821fca', 'color'],
+      'color.info-solid': ['#9b2ceb', 'color'],
+      'color.on-info': ['#ffffff', 'color'],
+      'color.info-subtle': ['#821fca1a', 'color'],
+      'color.danger-solid': ['#b91c1c', 'color'],
+      'color.danger-subtle': ['#b91c1c1a', 'color'],
+      'color.success-subtle': ['#1665341a', 'color'],
+      'color.warning-subtle': ['#92400e1a', 'color'],
+      'shadow.lg': ['0 24px 48px -12px rgb(0 0 0 / 0.18)', 'string'],
+      'shadow.xl': ['0 32px 64px -16px rgb(0 0 0 / 0.24)', 'string'],
+      'shadow.glow': ['0 0 20px rgb(155 44 235 / 0.4)', 'string'],
+    },
+    dark: {
+      'color.surface': ['#26222e', 'color'],
+      'color.surface-elevated': ['#453f4f', 'color'],
+      'color.border-subtle': ['#26222e', 'color'],
+      'color.info': ['#cd98ff', 'color'],
+      'color.info-solid': ['#c084fc', 'color'],
+      'color.on-info': ['#0b0b0f', 'color'],
+      'color.info-subtle': ['#cd98ff26', 'color'],
+      'color.danger-solid': ['#f87171', 'color'],
+      'color.danger-subtle': ['#f8717126', 'color'],
+      'color.success-subtle': ['#4ade8026', 'color'],
+      'color.warning-subtle': ['#fcd34d26', 'color'],
+      'shadow.lg': ['0 24px 48px -12px rgb(0 0 0 / 0.5)', 'string'],
+      'shadow.xl': ['0 32px 64px -16px rgb(0 0 0 / 0.6)', 'string'],
+      'shadow.glow': ['0 0 20px rgb(192 132 252 / 0.4)', 'string'],
+    },
+  }
+
+  // Mode-independent additions: type scale, line-height scale, label tracking and radii.
+  const BASE_TOKENS = {
+    'font.size.display': ['clamp(2.5rem, 1.9rem + 2.4vw, 4rem)', 'dimension'],
+    'font.size.h3': ['1.25rem', 'dimension'],
+    'font.size.h4': ['1rem', 'dimension'],
+    'font.size.body-lg': ['clamp(1.125rem, 0.95rem + 0.4vw, 1.25rem)', 'dimension'],
+    'font.size.caption': ['0.75rem', 'dimension'],
+    'font.weight.bold': [700, 'fontWeight'],
+    'font.lineHeight.display': [1.15, 'number'],
+    'font.lineHeight.h1': [1.2, 'number'],
+    'font.lineHeight.h2': [1.25, 'number'],
+    'font.lineHeight.h3': [1.3, 'number'],
+    'font.lineHeight.h4': [1.35, 'number'],
+    'font.lineHeight.small': [1.45, 'number'],
+    'font.lineHeight.caption': [1.4, 'number'],
+    'font.lineHeight.code': [1.35, 'number'],
+    'font.letterSpacing.label': ['0.05em', 'dimension'],
+    'radius.modal': ['0.5rem', 'dimension'],
+    'radius.panel': ['0.75rem', 'dimension'],
+  }
+
+  for (const mode of modes) {
+    assert.ok(MODE_TOKENS[mode], `Missing expected new-token values for color mode ${mode}`)
+    for (const [path, [value, type]] of Object.entries(MODE_TOKENS[mode])) {
+      assert.deepEqual(
+        semantic[mode][path],
+        { value, type },
+        `Unexpected resolved value for ${path} in ${mode}`,
+      )
+    }
+    for (const [path, [value, type]] of Object.entries(BASE_TOKENS)) {
+      assert.deepEqual(
+        semantic[mode][path],
+        { value, type },
+        `Unexpected resolved value for ${path} in ${mode}`,
+      )
+    }
+  }
+
+  // The new tokens also reach the stylesheet as semantic custom properties.
+  for (const name of [
+    '--color-surface',
+    '--color-surface-elevated',
+    '--color-border-subtle',
+    '--color-info',
+    '--color-info-solid',
+    '--color-on-info',
+    '--color-danger-solid',
+    '--shadow-lg',
+    '--shadow-xl',
+    '--shadow-glow',
+    '--font-size-display',
+    '--font-letter-spacing-label',
+    '--font-line-height-display',
+    '--radius-modal',
+    '--radius-panel',
+  ]) {
+    assert.ok(css.includes(`${name}:`), `Missing semantic CSS variable ${name}`)
+  }
+})
 
 test('resolved JSON has opaque colors for parsing and tooling', () => {
   for (const mode of modes) {

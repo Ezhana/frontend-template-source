@@ -22,6 +22,7 @@ import {
 import { cssVariableName, expandFlatTokens, mergeTrees, readJson, stripRootMeta } from './tokens.js'
 import {
   DEFAULT_CONTRAST_PAIRS,
+  filterKnownContrastPairs,
   mergeContrastPairs,
   validateContrast,
   validateTheme,
@@ -202,6 +203,20 @@ export const buildTheme = async (configOrFile, options = {}) => {
 
   const { contract, values, cssPath } = await loadCoreTokens(cwd)
 
+  // A theme may support a subset of the contract's color modes (for example a dark-only theme).
+  // `modes: []` means "every contract mode", which keeps full-mode themes unchanged.
+  const contractModeIds = contract.modes.map((mode) => mode.id)
+  const themeModes = config.modes.length > 0 ? [...config.modes] : contractModeIds
+  for (const mode of themeModes) {
+    if (!contractModeIds.includes(mode)) {
+      throw new Error(
+        `Theme "${config.id}" declares the color mode "${mode}", which is not supported by the ` +
+          '@ezhana/design-tokens contract. Supported modes: ' +
+          `${contractModeIds.join(', ')}. Fix "modes" in theme.config.mjs.`,
+      )
+    }
+  }
+
   const idPattern = new RegExp(contract.themeIdPattern)
   if (!idPattern.test(config.id)) {
     throw new Error(
@@ -228,6 +243,7 @@ export const buildTheme = async (configOrFile, options = {}) => {
     localTokens,
     overrides,
     primitivePaths,
+    modes: themeModes,
   })
 
   const resolvedOverrides = {}
@@ -255,10 +271,16 @@ export const buildTheme = async (configOrFile, options = {}) => {
     }
   }
 
+  // Built-in defaults are filtered to the tokens the installed core contract knows, so a newer
+  // builder remains compatible with an older v1 core. A theme-supplied contrast.pairs list is used
+  // as-is and still fails when it names a token the contract does not have.
   const contrastPairs =
     config.contrast.pairs.length > 0
       ? config.contrast.pairs
-      : mergeContrastPairs(contract.contrast?.pairs ?? [], DEFAULT_CONTRAST_PAIRS)
+      : mergeContrastPairs(
+          filterKnownContrastPairs(contract.contrast?.pairs ?? [], contract),
+          filterKnownContrastPairs(DEFAULT_CONTRAST_PAIRS, contract),
+        )
   validateContrast({
     id: config.id,
     resolved,
@@ -278,16 +300,27 @@ export const buildTheme = async (configOrFile, options = {}) => {
     ...new Set(validated.modeIds.flatMap((mode) => validated.modePaths.get(mode))),
   ]
 
+  const colorSchemes = colorSchemeByMode(contract)
+  const baseDeclarations = declarationsFor(
+    [...validated.basePaths, ...validated.modePaths.get(validated.defaultMode)],
+    resolved[validated.defaultMode],
+  )
+  // A fixed-mode theme declares just one color mode, so it also pins the native color scheme on its
+  // single rule: form controls and scrollbars then match the theme even when the OS prefers the
+  // other scheme. Full-mode and multi-mode themes keep selecting it with data-color-mode instead.
+  const fixedMode = validated.modeIds.length === 1
+  if (fixedMode) {
+    const colorScheme = colorSchemes[validated.modeIds[0]]
+    if (colorScheme !== undefined) baseDeclarations.push(['color-scheme', colorScheme])
+  }
+
   const cssOptions = {
     config,
     packageName,
     modeIds: validated.modeIds,
     defaultMode: validated.defaultMode,
-    colorSchemes: colorSchemeByMode(contract),
-    baseDeclarations: declarationsFor(
-      [...validated.basePaths, ...validated.modePaths.get(validated.defaultMode)],
-      resolved[validated.defaultMode],
-    ),
+    colorSchemes,
+    baseDeclarations,
     modeDeclarations: new Map(
       validated.modeIds
         .filter((mode) => mode !== validated.defaultMode)

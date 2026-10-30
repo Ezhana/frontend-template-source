@@ -7,8 +7,10 @@ import { defineThemeRegistry } from '@ezhana/theme'
  * Theme registry for this app.
  *
  * Every theme package exports a frozen `ThemeDefinition`. `defineThemeRegistry` validates the set
- * (unique ids, non-empty labels, identical color modes) and freezes the result. The registry is the
- * single source of truth for the theme switcher and the theme manager.
+ * (unique ids, non-empty labels, valid mode lists) and freezes the result. Themes may support a
+ * subset of the app's color modes; pass `themeModes: themeRegistry.themeModes` to the theme manager
+ * when you add such a theme. The registry is the single source of truth for the theme switcher and
+ * the theme manager.
  *
  * To add a theme: install its package and add its `theme` export to this array.
  */

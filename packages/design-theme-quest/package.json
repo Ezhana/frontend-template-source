@@ -1,0 +1,69 @@
+{
+  "name": "@ezhana/design-theme-quest",
+  "version": "0.0.0",
+  "description": "Official QuestUI theme for @ezhana/design-tokens: gold, parchment and royal purple on deep brown, Cinzel + Spectral, dark-only fantasy RPG surfaces.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/js/index.d.ts",
+      "default": "./dist/js/index.js"
+    },
+    "./style": "./dist/style.js",
+    "./theme.css": "./dist/css/theme.css",
+    "./standalone.css": "./dist/css/standalone.css",
+    "./json": "./dist/json/theme.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "tokens",
+    "theme.config.mjs",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "**/*.css",
+    "./dist/style.js"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "pretest": "pnpm build",
+    "test": "node --test ./test/*.test.mjs",
+    "prepack": "pnpm build"
+  },
+  "keywords": [
+    "design-tokens",
+    "theme",
+    "quest",
+    "questui",
+    "fantasy",
+    "rpg",
+    "cinzel",
+    "spectral",
+    "fira-code",
+    "css-variables"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/design-theme-quest"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "@ezhana/design-tokens": "workspace:^",
+    "@fontsource-variable/fira-code": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/spectral": "^5.3.0"
+  },
+  "devDependencies": {
+    "@ezhana/theme-builder": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

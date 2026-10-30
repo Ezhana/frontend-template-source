@@ -17,6 +17,7 @@ import {
 } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { theme as quest } from '@ezhana/design-theme-quest'
 import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
 import {
   buildTheme,
@@ -27,28 +28,34 @@ import {
 } from '@ezhana/theme-builder'
 
 /* Theme packages expose a ThemeDefinition with a literal id. */
-const definitions: readonly ThemeDefinition[] = [defaultThemeDefinition, ocean, cerulean]
+const definitions: readonly ThemeDefinition[] = [defaultThemeDefinition, ocean, cerulean, quest]
 export const ceruleanId: 'cerulean' = cerulean.id
 export const oceanId: 'ocean' = ocean.id
+export const questId: 'quest' = quest.id
 export const modeNames: readonly Mode[] = cerulean.modes
+
+/* A fixed-mode theme declares the subset it supports; the shape stays a ThemeDefinition. */
+export const questModes: readonly Mode[] = quest.modes
 export const definitionLabels: readonly string[] = definitions.map((definition) => definition.label)
 
 /* The registry narrows ids and modes to literal unions. */
-export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
+export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean, quest])
 export type AppTheme = (typeof registry.themes)[number]
 
 export const defaultThemeIsValid: AppTheme = registry.defaultTheme
-const selected: AppTheme = 'cerulean'
+const selected: AppTheme = 'quest'
 // @ts-expect-error - an unregistered theme id must not type-check.
 const unknownTheme: AppTheme = 'nope'
 
 export const registryLabels: Readonly<Record<AppTheme, string>> = registry.themeLabels
 export const registryModes: readonly Mode[] = registry.modes
+export const registryThemeModes: Readonly<Record<AppTheme, readonly Mode[]>> = registry.themeModes
 
 /* The manager accepts the registry output as-is (no casts, no `as`). */
 export const themeManager = createThemeManager<AppTheme, Mode>({
   themes: [...registry.themes],
   modes: [...registry.modes],
+  themeModes: registry.themeModes,
   defaultTheme: registry.defaultTheme,
 })
 

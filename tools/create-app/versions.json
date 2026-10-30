@@ -2,6 +2,7 @@
   "packages": {
     "@ezhana/design-theme-cerulean": "0.1.0",
     "@ezhana/design-theme-ocean": "0.1.0",
+    "@ezhana/design-theme-quest": "0.0.0",
     "@ezhana/design-tokens": "1.0.0",
     "@ezhana/eslint-config-base": "0.1.0",
     "@ezhana/eslint-config-react": "0.1.1",

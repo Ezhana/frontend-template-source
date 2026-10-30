@@ -25,12 +25,19 @@ export interface ThemeConfig {
   readonly description?: string
   /** Theme-private DTCG files. Every token must live under `theme.*`. */
   readonly tokens?: readonly string[]
-  /** DTCG file with a `base` section and one section per color mode. */
+  /** DTCG file with a `base` section and one section per declared color mode. */
   readonly overrides: string
   /** Font CSS entry points imported by the generated `style` entry. */
   readonly fonts?: readonly string[]
   /** Contrast requirements. */
   readonly contrast?: ThemeContrastOptions
+  /**
+   * Color modes this theme supports, in declared order. Defaults to `[]`, meaning every color mode
+   * of the `@ezhana/design-tokens` contract. Declaring a subset produces a theme that only works in
+   * those modes; a single mode (for example `['dark']`) makes the theme fixed-mode: it always
+   * applies that mode and ignores `data-color-mode`.
+   */
+  readonly modes?: readonly string[]
 }
 
 /** Validated theme configuration returned by {@link defineTheme}. */
@@ -45,7 +52,8 @@ export interface ResolvedThemeConfig {
     readonly pairs: readonly (readonly [string, string])[]
     readonly min: number
   }
-  readonly outputDir: string
+  /** Declared color modes, frozen; empty means "all contract modes". */
+  readonly modes: readonly string[]
 }
 
 /** Artifacts written by {@link buildTheme}, keyed by kind. */
@@ -56,7 +64,7 @@ export interface ThemeBuildOutputs {
   readonly standaloneCss: string
   /** `dist/style.js` — self-sufficient bundler entry: core CSS, fonts, overrides. */
   readonly style: string
-  /** `dist/js/index.js` — `theme`, `themeId`, `themeLabel`, `modes`. */
+  /** `dist/js/index.js` — `theme`, `themeId`, `themeLabel`, `modes` (declared modes). */
   readonly metadata: string
   /** `dist/js/index.d.ts` — literal types for the metadata. */
   readonly types: string
@@ -79,13 +87,17 @@ export interface ThemeBuildResult {
  * Declare a theme and get back a validated, frozen configuration.
  *
  * Throws `TypeError` for a missing label, an id that is not lowercase kebab-case, or malformed
- * `tokens` / `fonts` / `contrast` / `outputDir` values.
+ * `tokens` / `fonts` / `contrast` / `modes` values (including duplicate modes).
  */
 export declare function defineTheme(config: ThemeConfig): ResolvedThemeConfig
 
 /**
  * Build a theme package: read the sources, validate them against the `@ezhana/design-tokens`
  * contract, resolve every value and write the artifacts.
+ *
+ * A theme that declares a subset of the contract's color modes only validates and emits those
+ * modes; with a single declared mode the generated stylesheet is fixed-mode (one rule, no
+ * `data-color-mode`/`prefers-color-scheme` selection, plus a `color-scheme` declaration).
  *
  * @param configOrFile A config object, or a path/URL to `theme.config.mjs`.
  * @param options `cwd` is the theme package directory used when a config object is passed.

@@ -19,6 +19,7 @@ const CONFIG_KEYS = new Set([
   'overrides',
   'fonts',
   'contrast',
+  'modes',
 ])
 
 const normalizeString = (value, name, { optional = false } = {}) => {
@@ -44,6 +45,26 @@ const normalizeStringArray = (value, name) => {
     return entry
   })
   return Object.freeze(entries)
+}
+
+/**
+ * A theme may support only a subset of the contract's color modes (for example a dark-only
+ * fantasy theme). The declared order is preserved because it decides the theme's default mode
+ * when the contract's default mode is not part of the subset.
+ */
+const normalizeModes = (value) => {
+  const modes = normalizeStringArray(value, 'modes')
+  const seen = new Set()
+  for (const mode of modes) {
+    if (seen.has(mode)) {
+      throw new TypeError(
+        `defineTheme(config): \`modes\` must not contain duplicates; "${mode}" is declared ` +
+          'more than once.',
+      )
+    }
+    seen.add(mode)
+  }
+  return modes
 }
 
 const normalizeContrast = (value) => {
@@ -84,13 +105,15 @@ const normalizeContrast = (value) => {
  * @property {string} overrides DTCG file with `base` and one section per color mode.
  * @property {readonly string[]} [fonts] Font CSS entry points imported by the style entry.
  * @property {{ pairs?: readonly (readonly [string, string])[], min?: number }} [contrast]
+ * @property {readonly string[]} [modes] Color modes the theme supports, in order. Defaults to
+ *   every color mode of the core contract; a single mode makes the theme a fixed-mode theme.
  */
 
 /**
  * Declare a theme in `theme.config.mjs` and get back a validated, frozen config.
  *
  * @param {ThemeConfig} config
- * @returns {Readonly<Required<Pick<ThemeConfig, 'id' | 'label' | 'tokens' | 'overrides' | 'fonts' | 'contrast'>> & { description?: string }>}
+ * @returns {Readonly<Required<Pick<ThemeConfig, 'id' | 'label' | 'tokens' | 'overrides' | 'fonts' | 'contrast' | 'modes'>> & { description?: string }>}
  */
 export const defineTheme = (config) => {
   if (!isPlainObject(config)) {
@@ -122,5 +145,6 @@ export const defineTheme = (config) => {
     overrides: normalizeString(config.overrides, 'overrides'),
     fonts: normalizeStringArray(config.fonts, 'fonts'),
     contrast: normalizeContrast(config.contrast),
+    modes: normalizeModes(config.modes),
   })
 }

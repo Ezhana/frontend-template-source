@@ -36,6 +36,11 @@ test('merges theme definitions into registry metadata', () => {
   })
   assert.equal(registry.defaultTheme, 'default')
   assert.deepEqual(registry.modes, ['light', 'dark'])
+  assert.deepEqual(registry.themeModes, {
+    default: ['light', 'dark'],
+    ocean: ['light', 'dark'],
+    cerulean: ['light', 'dark'],
+  })
 })
 
 test('the registry is frozen and keeps the declaration order', () => {
@@ -45,6 +50,7 @@ test('the registry is frozen and keeps the declaration order', () => {
   assert.ok(Object.isFrozen(registry.themes))
   assert.ok(Object.isFrozen(registry.themeLabels))
   assert.ok(Object.isFrozen(registry.modes))
+  assert.ok(Object.isFrozen(registry.themeModes))
   assert.deepEqual(registry.themes, ['cerulean', 'default'])
   assert.equal(registry.defaultTheme, 'cerulean')
 })
@@ -137,15 +143,26 @@ test('rejects definitions without modes and with duplicate modes', () => {
   )
 })
 
-test('rejects themes that disagree on color modes', () => {
-  assert.throws(
-    () =>
-      defineThemeRegistry([
-        { id: 'default', label: 'Default', modes: ['light', 'dark'] },
-        { id: 'ocean', label: 'Ocean', modes: ['light'] },
-      ]),
-    { name: 'TypeError', message: /same color modes/ },
-  )
+test('accepts themes with different supported color modes', () => {
+  const registry = defineThemeRegistry([
+    { id: 'default', label: 'Default', modes: ['light', 'dark'] },
+    { id: 'quest', label: 'Quest', modes: ['dark'] },
+    { id: 'abyss', label: 'Abyss', modes: ['dim', 'dark'] },
+  ])
+
+  assert.deepEqual(registry.themes, ['default', 'quest', 'abyss'])
+  // `modes` is the union of every declared list in first-seen order.
+  assert.deepEqual(registry.modes, ['light', 'dark', 'dim'])
+  assert.deepEqual(registry.themeModes, {
+    default: ['light', 'dark'],
+    quest: ['dark'],
+    abyss: ['dim', 'dark'],
+  })
+  assert.ok(Object.isFrozen(registry.themeModes))
+  assert.ok(Object.isFrozen(registry.themeModes.default))
+  assert.ok(Object.isFrozen(registry.themeModes.quest))
+  assert.ok(Object.isFrozen(registry.themeModes.abyss))
+  assert.ok(Object.isFrozen(registry.modes))
 })
 
 test('rejects the reserved system mode', () => {

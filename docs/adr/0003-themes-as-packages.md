@@ -224,7 +224,9 @@ export const themeManager = createThemeManager<AppTheme, Mode>({
 
 `defineThemeRegistry` validates unique ids, non-empty labels, identical `modes` across definitions
 and returns a frozen `{ themes, themeLabels, defaultTheme, modes }`. Apps that do not want the
-runtime can ignore the package entirely and write `data-theme` themselves.
+runtime can ignore the package entirely and write `data-theme` themselves. (The identical-modes rule
+was superseded by the [amendment](#amendment-mode-subset-themes-and-expanded-semantic-roles-2026-10-30)
+below.)
 
 ## Consequences
 
@@ -266,3 +268,53 @@ runtime can ignore the package entirely and write `data-theme` themselves.
    removes; the official themes now demonstrate the pattern instead).
 5. **A single `@ezhana/themes` package containing all official themes** (rejected: it recreates the
    coupling and forces every app to install/depend on every official theme).
+
+## Amendment: mode-subset themes and expanded semantic roles (2026-10-30)
+
+The QuestUI fantasy theme (`@ezhana/design-theme-quest`) exposed two limits of the original decision.
+The brief defines a single warm, dark palette — inventing a light-mode palette would be a different
+design system — and its component specifications need semantic roles the core layer did not expose.
+Both were fixed at the source rather than patched in the theme package.
+
+### 1. Themes may support a subset of color modes
+
+- `theme.config.mjs` accepts an optional `modes` list. Omitted/empty means "every contract color
+  mode"; otherwise the theme declares the subset it supports and provides an override section for
+  each declared mode only.
+- A single declared mode produces a **fixed-mode** stylesheet: one rule whose selector list is
+  `:root[data-theme="<id>"]`, `:root[data-theme="<id>"]:not([data-color-mode])` and
+  `:root[data-theme="<id>"][data-color-mode]`, carrying the contract overrides and the mode values
+  plus `color-scheme: <mode>`. There are no `data-color-mode` or `prefers-color-scheme` theme blocks.
+  The two 0,3,0 variants cover both attribute states, keeping the specificity above core's mode and
+  system-preference rules and preserving load-order independence (section 5).
+- `defineThemeRegistry` no longer rejects differing mode lists. It returns `themeModes`
+  (`Record<id, modes[]>` in each theme's declared order) and `modes` as the union in first-seen order.
+- `createThemeManager` accepts `themeModes`. `resolvedMode` is clamped to a mode the active theme
+  supports: a `light` preference (or a light OS preference in `system` mode) resolves to `dark` while
+  QuestUI is active, and applies again after switching back to a full-mode theme. `data-color-mode`
+  is only written for explicit preferences and only ever contains a supported mode.
+- Full-mode themes are unaffected; their generated artifacts remain byte-identical.
+
+### 2. The semantic layer gained general-purpose roles and scales
+
+`@ezhana/design-tokens` now exposes layered surfaces (`color.surface`, `color.surface-elevated`,
+`color.border-subtle`), status tints (`color.*-subtle`), the `info` / `info-solid` / `on-info` and
+`danger-solid` roles, the complete display→caption type scale with per-role line heights and
+`font.letterSpacing.label`, `font.weight.bold`, `radius.modal` / `radius.panel`, and
+`shadow.lg` / `shadow.xl` / `shadow.glow`. Every token has default values in every color mode, so
+existing themes and the default theme are unaffected.
+
+The destructive contrast pair is now `color.on-danger` / `color.danger-solid`: `color.danger` is the
+accessible danger _text_ role and `color.danger-solid` is the solid destructive surface. The
+contract publishes additional info, surface and elevation contrast pairs. Contract `version` stays
+`1` because the change is additive for consumers; the corrected pair semantics are documented in
+the package changelog.
+
+### Consequences of the amendment
+
+- A third-party theme can be dark-only (or light-only) without duplicating a palette for a mode it
+  does not design, and apps can register it next to mode-complete themes.
+- Component-adjacent roles (surfaces, tints, status solids, elevation) no longer force themes to
+  inject raw CSS or abuse unrelated tokens.
+- The switcher must consult `registry.themeModes` when enabling mode options for the selected theme;
+  the manager still keeps working if it does not, by clamping `resolvedMode`.
