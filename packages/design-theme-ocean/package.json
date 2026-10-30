@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/design-theme-ocean",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Official Ocean theme for @ezhana/design-tokens: indigo-blue accent, pill-shaped controls.",
   "type": "module",
   "exports": {

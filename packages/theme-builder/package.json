@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/theme-builder",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Compile and validate @ezhana/design-tokens theme packages.",
   "type": "module",
   "exports": {

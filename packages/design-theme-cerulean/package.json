@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/design-theme-cerulean",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Official Cerulean theme for @ezhana/design-tokens: cerulean-blue accent, Public Sans, moderate (level 2) controls.",
   "type": "module",
   "exports": {

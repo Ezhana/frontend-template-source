@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/design-tokens",
-  "version": "0.2.1",
+  "version": "1.0.0",
   "description": "Core design tokens: primitive scale, semantic contract and default theme compiled to CSS custom properties.",
   "type": "module",
   "exports": {
