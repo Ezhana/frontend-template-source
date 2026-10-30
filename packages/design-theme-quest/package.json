@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/design-theme-quest",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Official QuestUI theme for @ezhana/design-tokens: gold, parchment and royal purple on deep brown, Cinzel + Spectral, dark-only fantasy RPG surfaces.",
   "type": "module",
   "exports": {

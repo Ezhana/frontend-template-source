@@ -2,15 +2,15 @@
   "packages": {
     "@ezhana/design-theme-cerulean": "0.1.0",
     "@ezhana/design-theme-ocean": "0.1.0",
-    "@ezhana/design-theme-quest": "0.0.0",
-    "@ezhana/design-tokens": "1.0.0",
+    "@ezhana/design-theme-quest": "0.1.0",
+    "@ezhana/design-tokens": "1.1.0",
     "@ezhana/eslint-config-base": "0.1.0",
     "@ezhana/eslint-config-react": "0.1.1",
     "@ezhana/eslint-config-typescript": "0.1.0",
     "@ezhana/eslint-config-vue": "0.1.1",
     "@ezhana/prettier-config": "0.1.0",
-    "@ezhana/theme": "0.3.0",
-    "@ezhana/theme-builder": "0.1.0"
+    "@ezhana/theme": "0.4.0",
+    "@ezhana/theme-builder": "0.2.0"
   },
   "catalog": {
     "eslint": "10.10.0",
