@@ -1,6 +1,6 @@
 {
   "name": "create-ezhana-app",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Scaffold a React or Vue app inside an Ezhana frontend-template workspace.",
   "type": "module",
   "bin": {
