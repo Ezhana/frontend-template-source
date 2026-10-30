@@ -1,0 +1,62 @@
+{
+  "name": "@ezhana/design-theme-cerulean",
+  "version": "0.0.0",
+  "description": "Official Cerulean theme for @ezhana/design-tokens: cerulean-blue accent, Public Sans, moderate (level 2) controls.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/js/index.d.ts",
+      "default": "./dist/js/index.js"
+    },
+    "./style": "./dist/style.js",
+    "./theme.css": "./dist/css/theme.css",
+    "./standalone.css": "./dist/css/standalone.css",
+    "./json": "./dist/json/theme.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "tokens",
+    "theme.config.mjs",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "**/*.css",
+    "./dist/style.js"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "pretest": "pnpm build",
+    "test": "node --test ./test/*.test.mjs",
+    "prepack": "pnpm build"
+  },
+  "keywords": [
+    "design-tokens",
+    "theme",
+    "cerulean",
+    "public-sans",
+    "css-variables"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/design-theme-cerulean"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "@ezhana/design-tokens": "workspace:^",
+    "@fontsource-variable/public-sans": "^5.3.0"
+  },
+  "devDependencies": {
+    "@ezhana/theme-builder": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

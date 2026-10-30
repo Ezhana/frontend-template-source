@@ -1,5 +1,6 @@
-import '@fontsource-variable/public-sans'
 import '@ezhana/design-tokens/css/tokens.css'
+import '@ezhana/design-theme-ocean/style'
+import '@ezhana/design-theme-cerulean/style'
 import './assets/main.css'
 import './theme/theme.css'
 import { createApp } from 'vue'

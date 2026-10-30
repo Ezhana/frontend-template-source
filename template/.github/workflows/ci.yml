@@ -78,5 +78,6 @@ jobs:
         run: |
           test -f apps/generated-app/eslint.config.mjs
           test -f apps/generated-app/prettier.config.mjs
+          test -f apps/generated-app/src/theme/registry.ts
           test -f apps/generated-app/src/theme/useTheme.ts
           test ! -f apps/generated-app/.oxlintrc.json

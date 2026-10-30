@@ -1,10 +1,5 @@
 {
-  "$description": "Cerulean theme: cerulean-blue accent, Public Sans typeface, moderate (level 2) controls.",
-  "$extensions": {
-    "ezhana": {
-      "label": "Cerulean"
-    }
-  },
+  "$description": "Cerulean semantic overrides: Public Sans, moderate (level 2) controls and the cerulean accent.",
   "base": {
     "font": {
       "family": {
@@ -28,22 +23,22 @@
   },
   "light": {
     "color": {
-      "accent": { "$value": "{primitive.color.cerulean.600}", "$type": "color" },
-      "accent-hover": { "$value": "{primitive.color.cerulean.700}", "$type": "color" },
+      "accent": { "$value": "{theme.color.cerulean.600}", "$type": "color" },
+      "accent-hover": { "$value": "{theme.color.cerulean.700}", "$type": "color" },
       "on-accent": { "$value": "{primitive.color.neutral.0}", "$type": "color" },
       "accent-subtle": { "$value": "#007ba71a", "$type": "color" },
       "accent-border": { "$value": "#007ba780", "$type": "color" },
-      "focus-ring": { "$value": "{primitive.color.cerulean.600}", "$type": "color" }
+      "focus-ring": { "$value": "{theme.color.cerulean.600}", "$type": "color" }
     }
   },
   "dark": {
     "color": {
-      "accent": { "$value": "{primitive.color.cerulean.300}", "$type": "color" },
-      "accent-hover": { "$value": "{primitive.color.cerulean.200}", "$type": "color" },
+      "accent": { "$value": "{theme.color.cerulean.300}", "$type": "color" },
+      "accent-hover": { "$value": "{theme.color.cerulean.200}", "$type": "color" },
       "on-accent": { "$value": "{primitive.color.neutral.950}", "$type": "color" },
       "accent-subtle": { "$value": "#7ac6e226", "$type": "color" },
       "accent-border": { "$value": "#7ac6e280", "$type": "color" },
-      "focus-ring": { "$value": "{primitive.color.cerulean.300}", "$type": "color" }
+      "focus-ring": { "$value": "{theme.color.cerulean.300}", "$type": "color" }
     }
   }
 }

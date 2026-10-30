@@ -30,9 +30,10 @@ workspace root; `--target <path>` generates somewhere else.
 | `--list`       | list available templates                                           |
 
 Templates are pinned in [`recipes/index.mjs`](./recipes/index.mjs) (`create-vite@9.3.3`,
-`create-vue@3.24.0`). The `@ezhana/*` versions written into generated apps live in
-[`versions.json`](./versions.json), which is regenerated from this repository's package manifests by
-`pnpm sync:create-app` (also run automatically before publishing).
+`create-vue@3.24.0`). The `@ezhana/*` versions written into generated apps — core design tokens, the
+theme runtime and the official theme packages — live in [`versions.json`](./versions.json), which is
+regenerated from this repository's package manifests by `pnpm sync:create-app` (also run
+automatically before publishing).
 
 Requires Node.js 24 and pnpm 12, and network access for the first run (the official scaffolders and
 the app dependencies are downloaded).

@@ -39,5 +39,11 @@
   },
   "scripts": {
     "prepack": "node ../../scripts/sync-create-app-versions.mjs"
+  },
+  "devDependencies": {
+    "@ezhana/design-theme-cerulean": "workspace:*",
+    "@ezhana/design-theme-ocean": "workspace:*",
+    "@ezhana/design-tokens": "workspace:*",
+    "@ezhana/theme": "workspace:*"
   }
 }

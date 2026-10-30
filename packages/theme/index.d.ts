@@ -160,3 +160,55 @@ export declare function createThemeManager<
   Theme extends string = string,
   Mode extends string = string,
 >(options: ThemeManagerOptions<Theme, Mode>): ThemeManager<Theme, Mode>
+
+/**
+ * A theme definition, as exported by every theme package (`@ezhana/design-theme-*`) and by
+ * `@ezhana/design-tokens` for the default theme.
+ *
+ * The type is structural on purpose: themes are separate packages, so the runtime cannot import a
+ * shared declaration from them, and this package must not depend on a concrete theme.
+ */
+export interface ThemeDefinition<Id extends string = string, Mode extends string = string> {
+  /** Theme identity written to `data-theme` and used in the theme stylesheet selectors. */
+  readonly id: Id
+  /** Human-readable label for switcher UIs. */
+  readonly label: string
+  /** Color modes the theme supports; every registered theme must declare the same list. */
+  readonly modes: readonly Mode[]
+}
+
+/** Validated, frozen theme metadata returned by {@link defineThemeRegistry}. */
+export interface ThemeRegistry<Ids extends string = string, Modes extends string = string> {
+  /** Theme identities in registry order. */
+  readonly themes: readonly Ids[]
+  /** Display labels keyed by theme id. */
+  readonly themeLabels: Readonly<Record<Ids, string>>
+  /** Default theme identity. */
+  readonly defaultTheme: Ids
+  /** Color modes shared by every registered theme. */
+  readonly modes: readonly Modes[]
+}
+
+/**
+ * Combine theme definitions into the metadata {@link createThemeManager} consumes.
+ *
+ * ```ts
+ * import { defaultThemeDefinition } from '@ezhana/design-tokens'
+ * import { theme as cerulean } from '@ezhana/design-theme-cerulean'
+ * import { defineThemeRegistry } from '@ezhana/theme'
+ *
+ * const registry = defineThemeRegistry([defaultThemeDefinition, cerulean])
+ * type AppTheme = (typeof registry.themes)[number] // 'default' | 'cerulean'
+ * ```
+ *
+ * Throws `TypeError` when definitions are empty, when an id does not match the theme id pattern,
+ * when ids repeat, when labels are missing, when the declared color modes differ, or when
+ * `options.defaultTheme` is not registered.
+ */
+export declare function defineThemeRegistry<
+  const Definitions extends readonly ThemeDefinition[],
+  Modes extends string = Definitions[number]['modes'][number],
+>(
+  definitions: Definitions,
+  options?: { readonly defaultTheme?: Definitions[number]['id'] },
+): ThemeRegistry<Definitions[number]['id'], Modes>

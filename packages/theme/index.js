@@ -594,3 +594,151 @@ function defaultEventTarget() {
     ? window
     : null
 }
+
+/* ------------------------------------------------------------------ */
+/* Theme registry                                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * @typedef {object} ThemeDefinitionShape
+ * @property {string} id Theme identity written to `data-theme`.
+ * @property {string} label Human-readable label for switcher UIs.
+ * @property {readonly string[]} modes Color modes the theme supports.
+ */
+
+/**
+ * @typedef {object} ThemeRegistryShape
+ * @property {readonly string[]} themes Theme identities, registry order, frozen.
+ * @property {Readonly<Record<string, string>>} themeLabels Labels keyed by theme id, frozen.
+ * @property {string} defaultTheme Default theme identity.
+ * @property {readonly string[]} modes Color modes shared by every registered theme, frozen.
+ */
+
+/** Theme ids end up in `data-theme` and in CSS attribute selectors, so they follow the contract. */
+const THEME_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
+
+/**
+ * Combine theme definitions into the metadata the theme manager consumes.
+ *
+ * A definition is what a theme package exports (`{ id, label, modes }`), plus the default theme
+ * from `@ezhana/design-tokens`. The registry is pure data: it performs no DOM work, imports no CSS
+ * and never depends on a specific theme package, so it works with the official themes, with
+ * third-party themes and with definitions written by hand.
+ *
+ * @param {readonly ThemeDefinitionShape[]} definitions
+ * @param {{ readonly defaultTheme?: string }} [options]
+ * @returns {ThemeRegistryShape}
+ */
+export function defineThemeRegistry(definitions, options = {}) {
+  if (!Array.isArray(definitions) || definitions.length === 0) {
+    throw new TypeError(
+      'defineThemeRegistry(definitions): `definitions` must be a non-empty array of theme definitions.',
+    )
+  }
+
+  const themes = []
+  const themeLabels = {}
+  let modes = null
+
+  for (const [index, definition] of definitions.entries()) {
+    if (definition === null || typeof definition !== 'object') {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): \`definitions[${index}]\` must be an object with \`id\`, \`label\` and \`modes\`.`,
+      )
+    }
+
+    const { id, label } = definition
+    if (typeof id !== 'string' || !THEME_ID_PATTERN.test(id)) {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): \`definitions[${index}].id\` must be a theme id matching ${String(
+          THEME_ID_PATTERN,
+        )}, received ${JSON.stringify(id)}.`,
+      )
+    }
+    if (themes.includes(id)) {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): the theme "${id}" is registered more than once.`,
+      )
+    }
+    if (typeof label !== 'string' || label.trim().length === 0) {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): \`definitions[${index}].label\` must be a non-empty string.`,
+      )
+    }
+
+    const definitionModes = normalizeDefinitionModes(definition.modes, id)
+    if (modes === null) {
+      modes = definitionModes
+    } else if (!hasSameModes(modes, definitionModes)) {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): the theme "${id}" supports ${definitionModes.join(
+          ', ',
+        )} but ${modes.join(', ')} was registered first; every theme must support the same color modes.`,
+      )
+    }
+
+    themes.push(id)
+    themeLabels[id] = label
+  }
+
+  const defaultTheme = options.defaultTheme ?? themes[0]
+  if (!themes.includes(defaultTheme)) {
+    throw new TypeError(
+      `defineThemeRegistry(definitions): \`defaultTheme\` must be one of the registered themes: ${themes.join(
+        ', ',
+      )}.`,
+    )
+  }
+
+  return Object.freeze({
+    themes: Object.freeze(themes),
+    themeLabels: Object.freeze(themeLabels),
+    defaultTheme,
+    modes: Object.freeze(modes ?? []),
+  })
+}
+
+/**
+ * @param {unknown} value
+ * @param {string} id
+ * @returns {string[]}
+ */
+function normalizeDefinitionModes(value, id) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new TypeError(
+      `defineThemeRegistry(definitions): the theme "${id}" must declare a non-empty \`modes\` array.`,
+    )
+  }
+  const modes = []
+  for (const mode of value) {
+    if (typeof mode !== 'string' || mode.length === 0) {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): the theme "${id}" declares a mode that is not a non-empty string.`,
+      )
+    }
+    if (mode === SYSTEM_MODE) {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): the theme "${id}" declares the reserved mode "${SYSTEM_MODE}". ` +
+          '`system` is a preference, not a color mode; list the concrete modes only.',
+      )
+    }
+    if (modes.includes(mode)) {
+      throw new TypeError(
+        `defineThemeRegistry(definitions): the theme "${id}" declares the mode "${mode}" more than once.`,
+      )
+    }
+    modes.push(mode)
+  }
+  return modes
+}
+
+/**
+ * @param {readonly string[]} left
+ * @param {readonly string[]} right
+ */
+function hasSameModes(left, right) {
+  if (left.length !== right.length) return false
+  const sortedLeft = [...left].sort()
+  const sortedRight = [...right].sort()
+  return sortedLeft.every((mode, index) => mode === sortedRight[index])
+}

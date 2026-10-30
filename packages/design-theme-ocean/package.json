@@ -1,0 +1,60 @@
+{
+  "name": "@ezhana/design-theme-ocean",
+  "version": "0.0.0",
+  "description": "Official Ocean theme for @ezhana/design-tokens: indigo-blue accent, pill-shaped controls.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/js/index.d.ts",
+      "default": "./dist/js/index.js"
+    },
+    "./style": "./dist/style.js",
+    "./theme.css": "./dist/css/theme.css",
+    "./standalone.css": "./dist/css/standalone.css",
+    "./json": "./dist/json/theme.json",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "docs",
+    "tokens",
+    "theme.config.mjs",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "**/*.css",
+    "./dist/style.js"
+  ],
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "pretest": "pnpm build",
+    "test": "node --test ./test/*.test.mjs",
+    "prepack": "pnpm build"
+  },
+  "keywords": [
+    "design-tokens",
+    "theme",
+    "ocean",
+    "css-variables"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/design-theme-ocean"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "@ezhana/design-tokens": "workspace:^"
+  },
+  "devDependencies": {
+    "@ezhana/theme-builder": "workspace:*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

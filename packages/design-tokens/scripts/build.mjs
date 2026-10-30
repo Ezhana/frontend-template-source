@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Build the design token artifacts with Style Dictionary.
+ * Build the core design token artifacts with Style Dictionary.
  *
  * Outputs (dist/):
- *   css/tokens.css      primitive + semantic CSS custom properties, with theme overrides
- *   json/themes.json    resolved semantic values for every theme × color-mode combination
- *   js/index.js         generated theme metadata (themes, modes, labels, token names)
+ *   css/tokens.css      primitive + semantic CSS custom properties for the default theme
+ *   json/core.json      resolved primitive + semantic values per color mode
+ *   json/contract.json  machine-readable theme contract consumed by @ezhana/theme-builder
+ *   js/index.js         generated metadata (default theme, modes, labels, token names)
  *   js/index.d.ts       literal types for the generated metadata
  *
  * Layer model:
@@ -13,14 +14,15 @@
  *   semantic    intent tokens (`--color-*`, `--font-*`, ...); the public API for product code
  *   component   (optional, separate package) component-scoped tokens built on semantic tokens
  *
- * Themes are not a token layer: they are per-theme (theme identity × color-mode) overrides of semantic
- * tokens. The default theme lives in tokens/semantic; additional themes live in tokens/themes.
+ * Themes are not part of this package. A theme is a separate package that overrides semantic
+ * tokens selected by `:root[data-theme="<id>"]`, compiled with `@ezhana/theme-builder` from this
+ * package's contract. The default theme is the baseline in tokens/semantic and is emitted on
+ * `:root`, so an app that installs only this package is complete.
  *
- * The pipeline is intentionally strict: broken references, missing theme overrides, mismatched
- * semantic token sets, duplicate overrides or invalid theme metadata all fail the build with an
- * actionable error.
+ * The pipeline is intentionally strict: broken references, mismatched semantic token sets,
+ * duplicate declarations or invalid mode metadata fail the build with an actionable error.
  */
-import { readdir, readFile, mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -30,15 +32,20 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const tokensDir = join(packageRoot, 'tokens')
 const distDir = join(packageRoot, 'dist')
 
+const PACKAGE_NAME = '@ezhana/design-tokens'
 const PRIMITIVE_ROOT = 'primitive'
 const BASE_FILE = 'base'
-const THEMES_DIR = 'themes'
 const PREFERRED_MODE_ORDER = ['light', 'dark']
 const TRANSFORMS = ['attribute/cti', 'name/kebab']
+
+/** Version of the contract file consumed by `@ezhana/theme-builder`. Bump on breaking changes. */
+const CONTRACT_VERSION = 1
 
 /**
  * The theme contract: the semantic tokens every theme must override. Values that are not listed
  * here inherit the default theme from tokens/semantic, which keeps themes small and predictable.
+ * Themes are independent packages, so only this required set is enforced — extra overrides are
+ * allowed for themes that want to retheme more of the semantic layer.
  */
 const REQUIRED_THEME_BASE = ['font.family.sans', 'font.family.heading', 'radius.control']
 const REQUIRED_THEME_MODE = [
@@ -49,6 +56,32 @@ const REQUIRED_THEME_MODE = [
   'color.accent-border',
   'color.focus-ring',
 ]
+
+/**
+ * Foreground/background pairs the default theme guarantees at WCAG AA. They are published in the
+ * contract so theme builders validate the same pairs instead of maintaining their own copy.
+ */
+const CONTRAST_PAIRS = [
+  ['color.fg', 'color.bg'],
+  ['color.fg-muted', 'color.bg'],
+  ['color.fg-strong', 'color.bg'],
+  ['color.fg-strong', 'color.bg-subtle'],
+  ['color.accent', 'color.bg'],
+  ['color.on-accent', 'color.accent'],
+  ['color.on-danger', 'color.danger'],
+  ['color.danger', 'color.bg'],
+  ['color.success', 'color.bg'],
+  ['color.warning', 'color.bg'],
+]
+
+/** Minimum WCAG 2.2 AA contrast ratio for text. */
+const CONTRAST_MIN = 4.5
+
+/** Theme-only token namespace. Theme-private material never becomes a CSS custom property. */
+const THEME_NAMESPACE = 'theme'
+
+/** Theme ids are used in `data-theme` and in CSS selectors, so keep them URL/CSS-safe. */
+const THEME_ID_PATTERN = '^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$'
 
 const output = (message) => process.stdout.write(`${message}\n`)
 
@@ -86,28 +119,17 @@ const mergeTrees = (trees, label = 'tokens') => {
   const merge = (target, source) => {
     for (const [key, value] of Object.entries(source)) {
       if (isToken(value)) {
-        if (isToken(target[key])) {
+        if (target[key] !== undefined) {
           throw new Error(`Duplicate ${label} "${key}" found while merging token sources.`)
         }
         target[key] = value
       } else if (isPlainObject(value)) {
-        target[key] = merge(isPlainObject(target[key]) ? target[key] : {}, value)
-      } else {
-        target[key] = value
-      }
-    }
-    return target
-  }
-  return trees.reduce((result, tree) => merge(result, tree), {})
-}
-
-/** Merge token trees where later token leaves intentionally override earlier ones (themes). */
-const mergeOverrides = (trees) => {
-  const merge = (target, source) => {
-    for (const [key, value] of Object.entries(source)) {
-      if (isToken(value)) {
-        target[key] = value
-      } else if (isPlainObject(value)) {
+        if (isToken(target[key])) {
+          throw new Error(
+            `${label} "${key}" is declared both as a token and as a group; a token cannot also ` +
+              'contain other tokens.',
+          )
+        }
         target[key] = merge(isPlainObject(target[key]) ? target[key] : {}, value)
       } else {
         target[key] = value
@@ -176,8 +198,7 @@ const loadTokenSources = async () => {
     throw new Error(`Missing mode-independent semantic tokens: tokens/semantic/${BASE_FILE}.json`)
   }
 
-  const semanticBaseRaw = await readJson(join(semanticDir, `${BASE_FILE}.json`))
-  const semanticBase = stripRootMeta(semanticBaseRaw)
+  const semanticBase = stripRootMeta(await readJson(join(semanticDir, `${BASE_FILE}.json`)))
 
   const modes = await Promise.all(
     semanticFiles
@@ -205,42 +226,14 @@ const loadTokenSources = async () => {
 
   if (modes.length === 0) throw new Error('No color mode token files found in tokens/semantic.')
 
-  const themesDir = join(tokensDir, THEMES_DIR)
-  const themeFiles = (await readdir(themesDir)).filter((file) => file.endsWith('.json')).sort()
-  const themes = await Promise.all(
-    themeFiles.map(async (file) => {
-      const raw = await readJson(join(themesDir, file))
-      const id = file.replace(/\.json$/, '')
-      const sections = stripRootMeta(raw)
-      const theme = {
-        id,
-        label: raw.$extensions?.ezhana?.label ?? titleCase(id),
-        base: sections[BASE_FILE] ?? {},
-        modes: {},
-      }
-      for (const [mode, modeTree] of Object.entries(sections)) {
-        if (mode === BASE_FILE) continue
-        theme.modes[mode] = modeTree
-      }
-      return theme
-    }),
-  )
-
-  // The "default" theme is the fallback theme: it lives directly in tokens/semantic and is
-  // always first in generated metadata so switcher UIs present it first.
-  const availableThemes = [
-    { id: 'default', label: 'Default' },
-    ...themes.sort((a, b) => a.id.localeCompare(b.id)),
-  ]
+  const defaultTheme = 'default'
 
   return {
     primitiveFiles,
     primitiveTokens,
     semanticBase,
     modes,
-    themes,
-    availableThemes,
-    defaultTheme: 'default',
+    defaultTheme,
     defaultMode: modes.some((mode) => mode.id === 'light') ? 'light' : modes[0].id,
   }
 }
@@ -249,11 +242,10 @@ const loadTokenSources = async () => {
 /* Contract validation                                                         */
 /* -------------------------------------------------------------------------- */
 
-const validateSources = ({ primitiveTokens, semanticBase, modes, themes }) => {
+const validateSources = ({ primitiveTokens, semanticBase, modes }) => {
   const primitivePaths = new Set(tokenPaths(primitiveTokens))
   const basePaths = new Set(tokenPaths(semanticBase))
   const modePathSets = new Map(modes.map((mode) => [mode.id, new Set(tokenPaths(mode.tokens))]))
-  const modeIdSet = new Set(modes.map((mode) => mode.id))
 
   // Semantic modes must expose exactly the same contract.
   const referenceMode = modes[0]
@@ -289,124 +281,27 @@ const validateSources = ({ primitiveTokens, semanticBase, modes, themes }) => {
   validateReferences(semanticBase, 'tokens/semantic/base.json')
   for (const mode of modes) validateReferences(mode.tokens, `tokens/semantic/${mode.id}.json`)
 
-  const allowedThemeSections = new Set([BASE_FILE, ...modeIdSet])
-  const themeBasePathSets = new Map()
-  const themeModePathSets = new Map()
-  let referenceBaseSet = null
-  let referenceModeSets = null
-
-  for (const theme of themes) {
-    const label = `tokens/${THEMES_DIR}/${theme.id}.json`
-    if (theme.id === 'default') {
+  // The required theme contract must exist in the semantic layer, otherwise a theme could not
+  // satisfy it and the published contract file would be wrong.
+  for (const path of REQUIRED_THEME_BASE) {
+    if (!basePaths.has(path)) {
       throw new Error(
-        `${label} must not be called "default": the default theme lives in tokens/semantic.`,
+        `Required theme token "${path}" is missing from tokens/semantic/base.json. ` +
+          'Add it to the semantic layer or remove it from the theme contract.',
       )
     }
-
-    for (const section of Object.keys(theme.modes)) {
-      if (!allowedThemeSections.has(section)) {
+  }
+  for (const mode of modes) {
+    for (const path of REQUIRED_THEME_MODE) {
+      if (!modePathSets.get(mode.id).has(path)) {
         throw new Error(
-          `${label} defines section "${section}", which is not a configured color mode. ` +
-            `Expected base + ${[...modeIdSet].join(', ')}.`,
+          `Required theme token "${path}" is missing from tokens/semantic/${mode.id}.json.`,
         )
       }
     }
-    for (const mode of modes) {
-      if (!theme.modes[mode.id]) {
-        throw new Error(
-          `${label} is missing overrides for color mode "${mode.id}". ` +
-            `Add a "${mode.id}" block with the theme contract tokens.`,
-        )
-      }
-    }
-
-    validateReferences(theme.base, label)
-    for (const mode of modes) validateReferences(theme.modes[mode.id], label)
-
-    const baseThemePaths = new Set(tokenPaths(theme.base))
-    const modeThemePaths = new Map(
-      modes.map((mode) => [mode.id, new Set(tokenPaths(theme.modes[mode.id]))]),
-    )
-
-    for (const required of REQUIRED_THEME_BASE) {
-      if (!baseThemePaths.has(required)) {
-        throw new Error(`${label} is missing required theme token "${required}" in the base block.`)
-      }
-      if (!basePaths.has(required)) {
-        throw new Error(`${label} overrides "${required}", which is not a semantic base token.`)
-      }
-    }
-    for (const path of baseThemePaths) {
-      if (!basePaths.has(path)) {
-        throw new Error(`${label} base block overrides "${path}", which is not a semantic token.`)
-      }
-    }
-
-    for (const mode of modes) {
-      const paths = modeThemePaths.get(mode.id)
-      for (const required of REQUIRED_THEME_MODE) {
-        if (!paths.has(required)) {
-          throw new Error(
-            `${label} is missing required theme token "${required}" in the "${mode.id}" block.`,
-          )
-        }
-        if (!modePathSets.get(mode.id).has(required)) {
-          throw new Error(
-            `${label} overrides "${required}", which is not a semantic token in mode "${mode.id}".`,
-          )
-        }
-      }
-      for (const path of paths) {
-        if (!modePathSets.get(mode.id).has(path)) {
-          throw new Error(
-            `${label} "${mode.id}" block overrides "${path}", which is not a semantic token.`,
-          )
-        }
-      }
-    }
-
-    // All themes must satisfy exactly the same contract (same override set), so adding a theme
-    // can never silently change which semantic tokens are themed.
-    if (referenceBaseSet === null) {
-      referenceBaseSet = baseThemePaths
-      referenceModeSets = new Map(modeThemePaths)
-    } else {
-      const diff = (a, b) => [...a].filter((path) => !b.has(path))
-      const baseMissing = diff(referenceBaseSet, baseThemePaths)
-      const baseExtra = diff(baseThemePaths, referenceBaseSet)
-      if (baseMissing.length > 0 || baseExtra.length > 0) {
-        throw new Error(
-          `Theme "${theme.id}" base overrides are out of sync with other themes.\n` +
-            (baseMissing.length > 0 ? `  Missing: ${baseMissing.join(', ')}\n` : '') +
-            (baseExtra.length > 0 ? `  Extra: ${baseExtra.join(', ')}\n` : ''),
-        )
-      }
-      for (const mode of modes) {
-        const paths = modeThemePaths.get(mode.id)
-        const expected = referenceModeSets.get(mode.id)
-        const missing = diff(expected, paths)
-        const extra = diff(paths, expected)
-        if (missing.length > 0 || extra.length > 0) {
-          throw new Error(
-            `Theme "${theme.id}" ${mode.id} overrides are out of sync with other themes.\n` +
-              (missing.length > 0 ? `  Missing: ${missing.join(', ')}\n` : '') +
-              (extra.length > 0 ? `  Extra: ${extra.join(', ')}\n` : ''),
-          )
-        }
-      }
-    }
-
-    themeBasePathSets.set(theme.id, baseThemePaths)
-    themeModePathSets.set(theme.id, modeThemePaths)
   }
 
-  return {
-    primitivePaths,
-    basePaths,
-    modePathSets,
-    themeBasePathSets,
-    themeModePathSets,
-  }
+  return { primitivePaths, basePaths, modePathSets }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -472,42 +367,41 @@ const cssFile = (destination, selector, filter) => ({
 const filterByPaths = (paths) => (token) => paths.has(token.path.join('.'))
 
 const buildArtifacts = async (sources, validated) => {
-  const { primitiveTokens, semanticBase, modes, themes, availableThemes, defaultMode } = sources
-  const { basePaths, modePathSets, themeBasePathSets, themeModePathSets } = validated
+  const { primitiveTokens, semanticBase, modes, defaultMode } = sources
+  const { basePaths, modePathSets } = validated
 
-  const resolvedThemes = {}
-  for (const themeMeta of availableThemes) {
-    resolvedThemes[themeMeta.id] = {}
-    const override = themes.find((candidate) => candidate.id === themeMeta.id)
-    for (const mode of modes) {
-      const rawTokens = [
-        primitiveTokens,
-        semanticBase,
-        mode.tokens,
-        ...(override ? [override.base, override.modes[mode.id]] : []),
-      ]
-      const tokens = override
-        ? mergeOverrides(rawTokens)
-        : mergeTrees(rawTokens, `theme "${themeMeta.id}" / mode "${mode.id}"`)
-      const built = await formatFiles(tokens, [
-        { destination: 'theme.json', format: 'ezhana/json-flat' },
-      ])
-      resolvedThemes[themeMeta.id][mode.id] = JSON.parse(built['theme.json'])
-    }
+  // Resolved semantic values for the default theme, one entry per color mode. This is the
+  // baseline themes are merged onto, and what the contrast checks and tooling consume.
+  const resolvedSemantic = {}
+  for (const mode of modes) {
+    const tokens = mergeTrees(
+      [primitiveTokens, semanticBase, mode.tokens],
+      `semantic mode "${mode.id}"`,
+    )
+    const built = await formatFiles(tokens, [
+      { destination: 'mode.json', format: 'ezhana/json-flat' },
+    ])
+    const all = JSON.parse(built['mode.json'])
+    resolvedSemantic[mode.id] = Object.fromEntries(
+      Object.entries(all).filter(([path]) => !path.startsWith(`${PRIMITIVE_ROOT}.`)),
+    )
   }
+
+  const resolvedPrimitives = await formatFiles(mergeTrees([primitiveTokens], 'primitive'), [
+    { destination: 'primitive.json', format: 'ezhana/json-flat' },
+  ])
+  const primitives = JSON.parse(resolvedPrimitives['primitive.json'])
 
   // Primitive layer (theme-agnostic), emitted once.
   const primitiveBuilt = await formatFiles(primitiveTokens, [
     cssFile('primitive.css', ':root', (token) => token.path[0] === PRIMITIVE_ROOT),
   ])
-  const primitiveCss = primitiveBuilt['primitive.css']
 
   // Semantic layer, mode-independent defaults.
   const baseBuilt = await formatFiles(
     mergeTrees([primitiveTokens, semanticBase], 'semantic base'),
     [cssFile('base.css', ':root', filterByPaths(basePaths))],
   )
-  const baseCss = baseBuilt['base.css']
 
   // Semantic layer per color mode: the default mode lives on :root (no-JS fallback), other modes
   // are selected explicitly by data-color-mode and, for dark modes, by prefers-color-scheme when
@@ -536,7 +430,7 @@ const buildArtifacts = async (sources, validated) => {
             'mode-system.css',
             [
               '@media (prefers-color-scheme: dark)',
-              ':root:not([data-color-mode]), :root[data-color-mode="dark"]',
+              `:root:not([data-color-mode]), :root[data-color-mode="${mode.id}"]`,
             ],
             filterByPaths(modePaths),
           ),
@@ -547,59 +441,13 @@ const buildArtifacts = async (sources, validated) => {
     modeCss[mode.id] = css
   }
 
-  // Theme overrides. The default theme values live in tokens/semantic, so only named themes are
-  // emitted. Mode-independent overrides and default-mode overrides share the [data-theme] block.
-  const themeCss = {}
-  for (const theme of themes) {
-    const themeBasePaths = themeBasePathSets.get(theme.id)
-    const themeModePaths = themeModePathSets.get(theme.id)
-    const defaultModePaths = themeModePaths.get(defaultMode)
-
-    const baseTokens = mergeTrees(
-      [primitiveTokens, theme.base, theme.modes[defaultMode]],
-      `theme "${theme.id}" base + ${defaultMode}`,
-    )
-    const baseBuilt = await formatFiles(baseTokens, [
-      cssFile(
-        'theme-base.css',
-        `[data-theme="${theme.id}"]`,
-        filterByPaths(new Set([...themeBasePaths, ...defaultModePaths])),
-      ),
-    ])
-
-    themeCss[theme.id] = { base: baseBuilt['theme-base.css'], modes: {} }
-
-    for (const mode of modes) {
-      if (mode.id === defaultMode) continue
-      const tokens = mergeTrees(
-        [primitiveTokens, theme.modes[mode.id]],
-        `theme "${theme.id}" mode "${mode.id}"`,
-      )
-      const explicit = await formatFiles(tokens, [
-        cssFile(
-          'theme-mode.css',
-          `[data-theme="${theme.id}"][data-color-mode="${mode.id}"]`,
-          filterByPaths(themeModePaths.get(mode.id)),
-        ),
-      ])
-      themeCss[theme.id].modes[mode.id] = { explicit: explicit['theme-mode.css'] }
-      if (mode.colorScheme === 'dark') {
-        const system = await formatFiles(tokens, [
-          cssFile(
-            'theme-mode-system.css',
-            [
-              '@media (prefers-color-scheme: dark)',
-              `[data-theme="${theme.id}"]:not([data-color-mode]), [data-theme="${theme.id}"][data-color-mode="dark"]`,
-            ],
-            filterByPaths(themeModePaths.get(mode.id)),
-          ),
-        ])
-        themeCss[theme.id].modes[mode.id].system = system['theme-mode-system.css']
-      }
-    }
+  return {
+    primitives,
+    resolvedSemantic,
+    primitiveCss: primitiveBuilt['primitive.css'],
+    baseCss: baseBuilt['base.css'],
+    modeCss,
   }
-
-  return { resolvedThemes, primitiveCss, baseCss, modeCss, themeCss }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -607,29 +455,30 @@ const buildArtifacts = async (sources, validated) => {
 /* -------------------------------------------------------------------------- */
 
 const banner = `/**
- * @ezhana/design-tokens — generated CSS custom properties.
+ * ${PACKAGE_NAME} — generated core CSS custom properties.
  *
  * Layers:
  *   primitive  --primitive-*  raw palette / scales, context-free and never themed
  *   semantic   --color-*, --font-*, --radius-*, ...  intent tokens; product code uses these
  *   component  (optional)     component tokens in a separate package, built on semantic tokens
  *
- * Themes are semantic-token overrides selected by data-theme; the default theme lives on :root.
+ * This stylesheet contains the default theme only. A theme is a separate package that overrides
+ * semantic tokens selected by [data-theme="<id>"]; see the theme contract in
+ * dist/json/contract.json.
+ *
  * The color mode is selected by the optional data-color-mode attribute. When the attribute is
  * absent the stylesheet follows the operating-system preference via prefers-color-scheme.
  *
- *   <html data-theme="default">                                  system color mode
- *   <html data-theme="cerulean" data-color-mode="dark">          explicit color mode
+ *   <html data-theme="default">                          system color mode
+ *   <html data-theme="cerulean" data-color-mode="dark">  explicit color mode
  *
  * The "design-tokens" cascade layer lets unlayered application CSS override a token without
- * specificity battles. Do not edit this file directly; run "pnpm build:tokens" instead.
+ * specificity battles. Do not edit this file directly; run "pnpm build" instead.
  */
 `
 
 const assembleCss = (artifacts, sources) => {
-  const { modes, themes, defaultMode } = sources
-  const defaultModeLabel =
-    modes.find((mode) => mode.id === defaultMode)?.label.toLowerCase() ?? defaultMode
+  const { modes, defaultMode } = sources
   const sections = []
 
   sections.push(
@@ -654,29 +503,10 @@ const assembleCss = (artifacts, sources) => {
     }
   }
 
-  for (const theme of themes) {
-    const css = artifacts.themeCss[theme.id]
-    sections.push(
-      `/* Theme overrides: ${theme.id} (base + ${defaultModeLabel}). */`,
-      css.base.trim(),
-    )
-    for (const mode of modes) {
-      if (mode.id === defaultMode) continue
-      const modeCss = css.modes[mode.id]
-      sections.push(
-        `/* Theme overrides: ${theme.id} × ${mode.id} (explicit). */`,
-        modeCss.explicit.trim(),
-      )
-      if (modeCss.system) {
-        sections.push(
-          `/* Theme overrides: ${theme.id} × ${mode.id} (system preference). */`,
-          modeCss.system.trim(),
-        )
-      }
-    }
-  }
-
-  const colorSchemeRules = [':root {\n  color-scheme: light dark;\n}']
+  const colorSchemes = [...new Set(modes.map((mode) => mode.colorScheme).filter(Boolean))]
+  const colorSchemeRules = [
+    `:root {\n  color-scheme: ${colorSchemes.length > 0 ? colorSchemes.join(' ') : 'light dark'};\n}`,
+  ]
   for (const mode of modes) {
     if (mode.colorScheme) {
       colorSchemeRules.push(
@@ -697,57 +527,63 @@ const assembleCss = (artifacts, sources) => {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Theme metadata (JS + TypeScript declarations)                               */
+/* Metadata and contract artifacts                                             */
 /* -------------------------------------------------------------------------- */
 
-const collectTokenNames = (resolvedTheme) => {
-  const groups = { primitive: [], semantic: [] }
-  for (const tokenPath of Object.keys(resolvedTheme)) {
-    const name = cssVariableName(tokenPath)
-    if (tokenPath.startsWith(`${PRIMITIVE_ROOT}.`)) groups.primitive.push(name)
-    else groups.semantic.push(name)
-  }
-  for (const names of Object.values(groups)) names.sort()
-  return groups
-}
+const collectTokenNames = (resolvedSemantic, primitives) => ({
+  primitive: Object.keys(primitives).map(cssVariableName).sort(),
+  semantic: Object.keys(resolvedSemantic).map(cssVariableName).sort(),
+})
 
-const createJsArtifacts = (sources, { resolvedThemes }) => {
-  const { availableThemes, modes, defaultTheme, defaultMode } = sources
-  const themeIds = availableThemes.map((theme) => theme.id)
+const createMetadataArtifacts = (sources, artifacts) => {
+  const { modes, defaultTheme, defaultMode } = sources
   const modeIds = modes.map((mode) => mode.id)
-  const themeLabels = Object.fromEntries(availableThemes.map((theme) => [theme.id, theme.label]))
   const modeLabels = Object.fromEntries(modes.map((mode) => [mode.id, mode.label]))
-  const tokenNames = collectTokenNames(resolvedThemes[defaultTheme][defaultMode])
+  const tokenNames = collectTokenNames(
+    artifacts.resolvedSemantic[defaultMode],
+    artifacts.primitives,
+  )
 
   const js = `/**
- * @ezhana/design-tokens — generated theme metadata.
- * Do not edit directly; run "pnpm build:tokens" instead.
+ * ${PACKAGE_NAME} — generated metadata.
+ * Do not edit directly; run "pnpm build" instead.
  */
-
-export const themes = ${JSON.stringify(themeIds)}
-
-export const modes = ${JSON.stringify(modeIds)}
 
 export const defaultTheme = ${JSON.stringify(defaultTheme)}
 
-export const themeLabels = ${JSON.stringify(themeLabels, null, 2)}
+export const modes = Object.freeze(${JSON.stringify(modeIds)})
 
-export const modeLabels = ${JSON.stringify(modeLabels, null, 2)}
+export const modeLabels = Object.freeze(${JSON.stringify(modeLabels, null, 2)})
 
-export const primitiveTokenNames = ${JSON.stringify(tokenNames.primitive, null, 2)}
+export const defaultThemeDefinition = Object.freeze({
+  id: defaultTheme,
+  label: 'Default',
+  modes,
+})
 
-export const semanticTokenNames = ${JSON.stringify(tokenNames.semantic, null, 2)}
+export const primitiveTokenNames = Object.freeze(${JSON.stringify(tokenNames.primitive, null, 2)})
 
-export const tokenNames = [...primitiveTokenNames, ...semanticTokenNames]
+export const semanticTokenNames = Object.freeze(${JSON.stringify(tokenNames.semantic, null, 2)})
+
+export const tokenNames = Object.freeze([...primitiveTokenNames, ...semanticTokenNames])
 `
 
   const literalUnion = (values) => values.map((value) => JSON.stringify(value)).join(' | ')
   const dts = `/**
- * @ezhana/design-tokens — generated theme metadata types.
- * Do not edit directly; run "pnpm build:tokens" instead.
+ * ${PACKAGE_NAME} — generated metadata types.
+ * Do not edit directly; run "pnpm build" instead.
  */
 
-export type Theme = ${literalUnion(themeIds)}
+/**
+ * A theme package identifies itself with this shape. Themes are separate packages, so the
+ * declaration is structural: \`@ezhana/design-theme-*\` packages declare the same object with a
+ * literal id, and \`defineThemeRegistry\` from \`@ezhana/theme\` accepts them.
+ */
+export type ThemeDefinition<Id extends string = string, Mode extends string = string> = {
+  readonly id: Id
+  readonly label: string
+  readonly modes: readonly Mode[]
+}
 
 export type Mode = ${literalUnion(modeIds)}
 
@@ -759,13 +595,11 @@ export type SemanticTokenName = ${literalUnion(tokenNames.semantic)}
 
 export type TokenName = PrimitiveTokenName | SemanticTokenName
 
-export declare const themes: readonly Theme[]
+export declare const defaultTheme: ${JSON.stringify(defaultTheme)}
+
+export declare const defaultThemeDefinition: ThemeDefinition<${JSON.stringify(defaultTheme)}, Mode>
 
 export declare const modes: readonly Mode[]
-
-export declare const defaultTheme: Theme
-
-export declare const themeLabels: Readonly<Record<Theme, string>>
 
 export declare const modeLabels: Readonly<Record<Mode, string>>
 
@@ -779,6 +613,36 @@ export declare const tokenNames: readonly TokenName[]
   return { js, dts, tokenNames }
 }
 
+const createContract = (sources, validated) => {
+  const { modes, defaultMode } = sources
+  const { primitivePaths, basePaths, modePathSets } = validated
+
+  return {
+    version: CONTRACT_VERSION,
+    generator: PACKAGE_NAME,
+    modes: modes.map((mode) => ({
+      id: mode.id,
+      label: mode.label,
+      ...(mode.colorScheme ? { colorScheme: mode.colorScheme } : {}),
+    })),
+    defaultMode,
+    required: { base: [...REQUIRED_THEME_BASE], mode: [...REQUIRED_THEME_MODE] },
+    semanticTokens: {
+      base: [...basePaths].sort(),
+      modes: Object.fromEntries(
+        modes.map((mode) => [mode.id, [...modePathSets.get(mode.id)].sort()]),
+      ),
+    },
+    primitiveTokens: [...primitivePaths].sort(),
+    contrast: {
+      min: CONTRAST_MIN,
+      pairs: CONTRAST_PAIRS.map((pair) => [...pair]),
+    },
+    themeNamespace: THEME_NAMESPACE,
+    themeIdPattern: THEME_ID_PATTERN,
+  }
+}
+
 /* -------------------------------------------------------------------------- */
 /* Entry point                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -788,18 +652,18 @@ const main = async () => {
   const validated = validateSources(sources)
   const artifacts = await buildArtifacts(sources, validated)
   const css = assembleCss(artifacts, sources)
-  const { js, dts, tokenNames } = createJsArtifacts(sources, artifacts)
+  const { js, dts, tokenNames } = createMetadataArtifacts(sources, artifacts)
+  const contract = createContract(sources, validated)
 
-  const themesJson = {
-    generator: '@ezhana/design-tokens',
-    themes: sources.availableThemes.map((theme) => theme.id),
-    modes: sources.modes.map((mode) => mode.id),
+  const coreJson = {
+    generator: PACKAGE_NAME,
+    version: CONTRACT_VERSION,
     defaultTheme: sources.defaultTheme,
-    themeLabels: Object.fromEntries(
-      sources.availableThemes.map((theme) => [theme.id, theme.label]),
-    ),
+    modes: sources.modes.map((mode) => mode.id),
+    defaultMode: sources.defaultMode,
     modeLabels: Object.fromEntries(sources.modes.map((mode) => [mode.id, mode.label])),
-    resolved: artifacts.resolvedThemes,
+    primitives: artifacts.primitives,
+    semantic: artifacts.resolvedSemantic,
   }
 
   await rm(distDir, { recursive: true, force: true })
@@ -809,19 +673,18 @@ const main = async () => {
 
   await Promise.all([
     writeFile(join(distDir, 'css', 'tokens.css'), css),
-    writeFile(join(distDir, 'json', 'themes.json'), `${JSON.stringify(themesJson, null, 2)}\n`),
+    writeFile(join(distDir, 'json', 'core.json'), `${JSON.stringify(coreJson, null, 2)}\n`),
+    writeFile(join(distDir, 'json', 'contract.json'), `${JSON.stringify(contract, null, 2)}\n`),
     writeFile(join(distDir, 'js', 'index.js'), js),
     writeFile(join(distDir, 'js', 'index.d.ts'), dts),
   ])
 
-  const themeCount = sources.availableThemes.length * sources.modes.length
   output(
-    `Design tokens built: ${themeCount} combinations (` +
-      `${sources.availableThemes.map((theme) => theme.id).join(', ')} × ` +
-      `${sources.modes.map((mode) => mode.id).join(', ')}), ` +
-      `${new Set(tokenNames.primitive.concat(tokenNames.semantic)).size} CSS variables.`,
+    `Core design tokens built: ${sources.modes.length} color modes, ` +
+      `${tokenNames.primitive.length + tokenNames.semantic.length} CSS variables ` +
+      `(${tokenNames.primitive.length} primitive + ${tokenNames.semantic.length} semantic).`,
   )
-  output('  dist/css/tokens.css, dist/json/themes.json, dist/js/index.{js,d.ts}')
+  output('  dist/css/tokens.css, dist/json/{core,contract}.json, dist/js/index.{js,d.ts}')
 }
 
 main().catch((error) => {

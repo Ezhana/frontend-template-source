@@ -1,9 +1,10 @@
 # Design System Narrative — Cerulean Theme
 
-> **Status:** implemented as the `cerulean` theme in `@ezhana/design-tokens`
-> (`tokens/themes/cerulean.json`), available in both template apps through the theme switcher.
-> It is derived from the reference design-system brief (monochrome blue, Public Sans, moderate
-> shape/spacing) with the adjustments documented at the end of this file.
+> **Status:** implemented as the standalone package `@ezhana/design-theme-cerulean` and built with
+> `@ezhana/theme-builder`. It is derived from the reference design-system brief (monochrome blue,
+> Public Sans, moderate shape/spacing) with the adjustments documented at the end of this file.
+> The palette and overrides live in this package; `@ezhana/design-tokens` only provides the shared
+> semantic contract.
 
 ## Visual Identity
 
@@ -41,6 +42,10 @@ remaining unmistakably "trustworthy blue".
 | Hairline border            | `--color-border`                                       | `#E5E4E7`                         | `#3B3644`                         |
 | Danger / success / warning | `--color-danger`, `--color-success`, `--color-warning` | `#B91C1C` / `#166534` / `#92400E` | `#F87171` / `#4ADE80` / `#FCD34D` |
 
+The accent rows are owned by this theme (`tokens/theme.json`). Every other row is inherited from the
+`@ezhana/design-tokens` default semantic layer and is re-themed by changing the core package, not by
+this theme.
+
 ### Supporting neutrals
 
 The reference brief's recurring grey `#777777` is represented by the tokenized neutral ramp rather
@@ -51,8 +56,11 @@ only saturated element on screen.
 
 ### Contrast (measured, not estimated)
 
-Every pair below is asserted by the token build's test suite (`pnpm --filter @ezhana/design-tokens test`)
-in **both** modes, so a future palette edit cannot silently break accessibility.
+The accent pairs are asserted by this package's test suite
+(`pnpm --filter @ezhana/design-theme-cerulean test`) in **both** modes. The inherited
+foreground/surface pairs are asserted by the core package's suite
+(`pnpm --filter @ezhana/design-tokens test`), because this theme does not override them. A future
+palette edit cannot silently break either layer.
 
 | Pair (foreground / background)         | Light   | Dark    |
 | -------------------------------------- | ------- | ------- |
@@ -72,12 +80,17 @@ reaches 10.29:1.
 
 ### Palette ramp
 
-The full primitive ramp lives in `tokens/primitive/color.json` under `primitive.color.cerulean` and is the
-only source for the theme's accent tokens (never used directly by components):
+The full ramp is theme-private material in [`tokens/palette.json`](../tokens/palette.json) under
+`theme.color.cerulean`, and is the only source for the theme's accent tokens:
 
 | Step | 50        | 100       | 200       | 300       | 400       | 500       | 600       | 700       | 800       | 900       | 950       |
 | ---- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- |
 | Hex  | `#EEF8FC` | `#D6EEF7` | `#B0DEEE` | `#7AC6E2` | `#3AA8CC` | `#0B8CB4` | `#007BA7` | `#00688F` | `#005574` | `#00425B` | `#002B3C` |
+
+The palette is resolved at build time into the override values and is **never emitted as CSS custom
+properties**. It therefore cannot be consumed by product code and does not appear in the core
+`primitive.*` scale or in the generated `PrimitiveTokenName` union. Changing the ramp requires no
+change to `@ezhana/design-tokens`.
 
 ## Typography
 
@@ -87,9 +100,10 @@ using a single family creates a cohesive experience that emphasises content over
 
 The font is self-hosted as a variable font via
 [`@fontsource-variable/public-sans`](https://fontsource.org/fonts/public-sans) (weights 100–900,
-`font-display: swap`), imported once in each app entrypoint. Because the `@font-face` is only
-referenced by the cerulean theme's font tokens, browsers only download Public Sans when the cerulean
-theme is active — the other themes keep their system stacks.
+`font-display: swap`). It is listed in `fonts` in `theme.config.mjs`, so the generated
+`dist/style.js` imports it after the core stylesheet and before the theme overrides. Because the
+`@font-face` is only referenced by the cerulean theme's font tokens, browsers only download Public
+Sans when the cerulean theme is active — the other themes keep their system stacks.
 
 | Role           | Token                 | Size                                           | Weight                       | Line height                         |
 | -------------- | --------------------- | ---------------------------------------------- | ---------------------------- | ----------------------------------- |
@@ -108,8 +122,9 @@ Font stacks:
 --font-family-mono    → ui-monospace, Consolas, monospace (code only)
 ```
 
-Public Sans is a theme-owned value: the semantic `--font-family-*` tokens are overridden by the
-Cerulean theme, and each theme decides its typeface. `default` and `ocean` keep the system stack.
+Public Sans is a theme-owned value: `tokens/theme.json` overrides the semantic `font.family.sans` and
+`font.family.heading` tokens, and each theme decides its own typeface. `default` and `ocean` keep the
+system stack.
 
 ## Shape & Spacing
 
@@ -125,9 +140,13 @@ theme's compact 6px controls and the `ocean` theme's pill-shaped controls.
 | Small radius   | `--radius-small`                                   | `0.25rem` (4px)   |
 | Border width   | `--border-width-default` / `--border-width-strong` | `1px` / `2px`     |
 
+`radius.control` is a theme-contract token overridden in `tokens/theme.json`; the other radii are
+inherited from the core package.
+
 **Spacing — level 2 (normal).** The standard 4px-based density scale is used unchanged, giving a
 familiar, breathable-but-efficient rhythm for professional applications. Layout code may consume the
-primitive scale directly; themed properties (colour, type, radius, elevation) go through semantic tokens.
+primitive scale directly; themed properties (colour, type, radius, elevation) go through semantic
+tokens.
 
 | Step          | `--primitive-space-1` | `-2` | `-3` | `-4` | `-5` | `-6` | `-8` | `-10` | `-12` | `-16` | `-24` |
 | ------------- | --------------------- | ---- | ---- | ---- | ---- | ---- | ---- | ----- | ----- | ----- | ----- |
@@ -138,13 +157,14 @@ primitive scale directly; themed properties (colour, type, radius, elevation) go
 offset. Transitions use `--motion-duration-fast` (150ms) / `--motion-duration-normal` (300ms) with a
 standard easing curve; they animate colour/background only, never layout.
 
-**Elevation.** Two semantic shadows: `--shadow-sm` for floating controls (theme switcher) and
-`--shadow-md` for hover elevation on interactive cards/links; dark mode uses stronger shadow alphas.
+**Elevation.** Two semantic shadows inherited from the core package: `--shadow-sm` for floating
+controls, `--shadow-md` for hover elevation on interactive cards/links; dark mode uses stronger
+shadow alphas.
 
 ## Theme Activation
 
-The theme is activated with `data-theme`. The color mode is optional (`data-color-mode`) and defaults
-to following the operating system through `prefers-color-scheme`:
+The theme is activated with `data-theme="cerulean"`. The color mode is optional
+(`data-color-mode`) and defaults to following the operating system through `prefers-color-scheme`:
 
 ```html
 <!-- follow the OS color mode -->
@@ -153,40 +173,68 @@ to following the operating system through `prefers-color-scheme`:
 <html data-theme="cerulean" data-color-mode="dark"></html>
 ```
 
+The generated theme CSS uses `:root[data-theme="cerulean"]` for the base and default-mode overrides
+(specificity 0,2,0), an explicit `:root[data-theme="cerulean"][data-color-mode="dark"]` block, and a
+system-dark block inside `@media (prefers-color-scheme: dark)`. Because the theme selectors are more
+specific than every core rule, the theme CSS is load-order independent and several theme packages
+can be loaded together safely.
+
 `@ezhana/theme` persists the user's choice (`{ theme, mode }`), resolves `system` mode through
 `prefers-color-scheme`, synchronises tabs, and writes `data-theme` — plus `data-color-mode` only for
 explicit `light` / `dark` preferences; in `system` mode the attribute is removed and CSS follows the
-media query. The token stylesheet maps the attributes to CSS custom properties; components never
-know which theme is active because they only consume semantic tokens.
+media query. Components never know which theme is active because they only consume semantic tokens.
+
+Theme identities are assembled by the application's registry. `@ezhana/design-tokens` no longer
+exports a `themes` list or a `Theme` union:
 
 ```ts
-import { createThemeManager } from '@ezhana/theme'
-import { defaultTheme, modes, themes } from '@ezhana/design-tokens'
+import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { theme as cerulean } from '@ezhana/design-theme-cerulean'
+import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
 
-const theme = createThemeManager({ themes: [...themes], modes: [...modes], defaultTheme })
-theme.setTheme('cerulean')
-theme.setMode('system') // no data-color-mode attribute; CSS follows the OS
+export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
+export type AppTheme = (typeof themeRegistry.themes)[number]
+
+export const themeManager = createThemeManager<AppTheme, Mode>({
+  themes: [...themeRegistry.themes],
+  modes: [...themeRegistry.modes],
+  defaultTheme: themeRegistry.defaultTheme,
+})
+
+themeManager.setTheme('cerulean')
+themeManager.setMode('system') // no data-color-mode attribute; CSS follows the OS
 ```
+
+Loading the theme itself is a separate, static concern: `import '@ezhana/design-theme-cerulean/style'`
+(core stylesheet + Public Sans + overrides) or the split `@ezhana/design-tokens/css/tokens.css` +
+`@ezhana/design-theme-cerulean/theme.css` entries.
 
 ## Implementation Notes
 
-| Concern                                                                                     | Location                                                                                           |
-| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Theme overrides (semantic tokens: accent set, fonts, control radius)                        | [`tokens/themes/cerulean.json`](../../../tokens/themes/cerulean.json)                              |
-| Cerulean palette ramp                                                                       | [`tokens/primitive/color.json`](../../../tokens/primitive/color.json) (`primitive.color.cerulean`) |
-| Semantic aliases (`--color-accent` → primitive/theme value, `--font-family-*` → theme font) | [`tokens/semantic/`](../../../tokens/semantic/)                                                    |
-| Public Sans (self-hosted variable font)                                                     | `@fontsource-variable/public-sans`, imported in both app entrypoints                               |
-| Generation + validation                                                                     | `pnpm build:tokens` / `pnpm --filter @ezhana/design-tokens test`                                   |
-| Switcher UI (theme options are generated from metadata)                                     | React: `ThemeSwitcher.tsx`; Vue: `ThemeSwitcher.vue`                                               |
+| Concern                                                                    | Location                                                                 |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Theme identity, label, description, palette sources and font entry         | [`theme.config.mjs`](../theme.config.mjs)                                |
+| Cerulean palette ramp                                                      | [`tokens/palette.json`](../tokens/palette.json) (`theme.color.cerulean`) |
+| Semantic overrides (accent set, Public Sans, control radius)               | [`tokens/theme.json`](../tokens/theme.json) (`base`, `light`, `dark`)    |
+| Generated CSS overrides and single-file bundle                             | `dist/css/theme.css`, `dist/css/standalone.css`                          |
+| Generated bundler entry (core stylesheet + Public Sans + overrides)        | `dist/style.js`                                                          |
+| Generated metadata (`themeId`, `themeLabel`, `theme`) and TypeScript types | `dist/js/index.js`, `dist/js/index.d.ts`                                 |
+| Resolved values per mode (used by tests and tooling)                       | `dist/json/theme.json`                                                   |
+| Generation + validation                                                    | `pnpm --filter @ezhana/design-theme-cerulean build`                      |
+| Tests (selectors, contract, no leaked variables, WCAG AA)                  | `pnpm --filter @ezhana/design-theme-cerulean test`                       |
+| Switcher UI (theme options are generated from the app's theme registry)    | React: `ThemeSwitcher.tsx`; Vue: `ThemeSwitcher.vue`                     |
 
-Adding the theme required **no application-specific theming code**: the generated `themes` metadata
-feeds the switcher, `[data-theme="cerulean"]` (plus mode-specific) selectors are generated from the
-theme override file, and the contract tests fail the build if any required semantic token is missing.
+Adding the theme required **no application-specific theming code** beyond registering it in the
+application's theme registry: the theme package ships its own palette, overrides, metadata and
+bundler entry; the contract tests of the theme package fail if any required semantic token is
+missing.
 
 ### Theme override contract satisfied by `cerulean`
 
-Themes do not define a token layer; they override semantic tokens. The Cerulean theme provides the
-required theme contract (and inherits everything else from the default semantic layer):
+Themes do not define a token layer; they override semantic tokens. The Cerulean package provides the
+required theme contract (and inherits everything else from the default semantic layer of
+`@ezhana/design-tokens`):
 
 | Semantic token                             | Value                                |
 | ------------------------------------------ | ------------------------------------ |
@@ -199,6 +247,10 @@ required theme contract (and inherits everything else from the default semantic 
 | `font.family.sans` / `font.family.heading` | Public Sans stack                    |
 | `radius.control`                           | `0.625rem`                           |
 
+Only this required set is enforced. Extra overrides are allowed but belong to this package alone:
+theme packages are independently versioned, so the old repository-wide "every theme must override
+the same set" rule no longer applies.
+
 ## Usage Guidelines
 
 **Do**
@@ -207,11 +259,11 @@ required theme contract (and inherits everything else from the default semantic 
 - Use `--color-bg-subtle` for inert surfaces (code, toolbars, secondary cards) and `--color-border` for separation instead of shadows.
 - Keep headings and body in Public Sans; use weight and size for hierarchy rather than a second family.
 - Rely on semantic tokens (`--color-*`, `--font-*`, `--radius-*`, `--shadow-*`) in components.
-- Let the switcher change the theme: every theme must satisfy the same semantic contract.
+- Register the theme in the app's theme registry so the switcher can select it.
 
 **Don't**
 
-- Don't use `--primitive-color-cerulean-*` directly in components; palette steps are not semantic.
+- Don't use the theme palette as tokens: `theme.color.cerulean.*` is build-time material and is never emitted as CSS variables.
 - Don't use the accent as a large background or long-form text color (keep it for local emphasis).
 - Don't hard-code `#007BA7` or Public Sans — both are theme values and can be replaced by another theme.
 - Don't mix pill and moderate radii within one control group; roundedness is a theme decision.
@@ -230,4 +282,5 @@ required theme contract (and inherits everything else from the default semantic 
 4. **Roundedness "level 2" made concrete** as a 10px control radius / 12px surface radius (between
    compact and pill), and **spacing "level 2"** as the existing 4px-base normal density scale.
 5. **Public Sans self-hosted as a variable font** rather than depending on a third-party CDN, so the
-   template works offline and avoids a font-loading privacy/performance dependency.
+   template works offline and avoids a font-loading privacy/performance dependency. It ships with
+   the theme package and is imported by the generated `./style` entry.

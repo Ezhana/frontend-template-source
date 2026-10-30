@@ -1,8 +1,9 @@
-import type { Mode, Theme as ThemeName } from '@ezhana/design-tokens'
+import type { Mode } from '@ezhana/design-tokens'
 import { SYSTEM_MODE } from '@ezhana/theme'
 import { onScopeDispose, shallowRef } from 'vue'
 
 import { themeManager } from './manager'
+import type { AppTheme } from './registry'
 
 /**
  * Vue adapter around the framework-agnostic theme manager.
@@ -20,7 +21,7 @@ export function useTheme() {
 
   return {
     state,
-    setTheme: (theme: ThemeName) => themeManager.setTheme(theme),
+    setTheme: (theme: AppTheme) => themeManager.setTheme(theme),
     setMode: (mode: Mode | typeof SYSTEM_MODE) => themeManager.setMode(mode),
   }
 }

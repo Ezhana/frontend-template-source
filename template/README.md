@@ -60,17 +60,41 @@ The `@ezhana/*` packages are regular npm dependencies, not linked workspace sour
 
 ## Theming
 
-Generated apps consume published design tokens and the theme runtime from npm. The generated CSS
-custom properties are imported in each app entry file; no local token build step is required.
+Generated apps consume published design tokens, theme packages and the theme runtime from npm. The
+stylesheets are imported in each app entry file; no local token build step is required.
 
+- `@ezhana/design-tokens` ships the core token scale, the semantic contract and the default theme.
+- `@ezhana/design-theme-ocean` and `@ezhana/design-theme-cerulean` are standalone theme packages, one
+  package per theme.
+- `@ezhana/theme` manages the theme and color-mode state.
 - The color mode follows the operating system by default (`prefers-color-scheme`).
 - `data-theme` selects the theme; `data-color-mode` is written only for an explicit color mode.
 - A theme switcher is generated into both React and Vue apps.
 
-See the npm package documentation for the token contract and runtime API:
+Each app registers its themes in `src/theme/registry.ts` and derives `AppTheme` from that registry, so
+the switcher and the theme manager always match the installed theme packages:
+
+```ts
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
+import { theme as cerulean } from '@ezhana/design-theme-cerulean'
+import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { defineThemeRegistry } from '@ezhana/theme'
+
+export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
+export type AppTheme = (typeof themeRegistry.themes)[number]
+```
+
+To add a theme, install its package in the app, import its stylesheet in the entry file and add its
+`theme` export to `defineThemeRegistry([...])`. Theme packages export `./style` (core stylesheet,
+the theme's fonts if any and its overrides in one import), `./theme.css` (overrides only) and
+`./standalone.css` (core plus overrides, for setups without a bundler).
+
+See the npm package documentation for the token contract, theme model and runtime API:
 
 - [`@ezhana/design-tokens`](https://www.npmjs.com/package/@ezhana/design-tokens)
 - [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
+- [`@ezhana/design-theme-cerulean`](https://www.npmjs.com/package/@ezhana/design-theme-cerulean)
+- [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
 
 ## CI
 

@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import {
-  modeLabels,
-  modes,
-  themeLabels,
-  themes,
-  type Mode,
-  type Theme,
-} from '@ezhana/design-tokens'
+import { modeLabels, modes, type Mode } from '@ezhana/design-tokens'
 import { SYSTEM_MODE } from '@ezhana/theme'
 
+import { themeRegistry } from '../theme/registry'
 import { useTheme } from '../theme/useTheme'
 
+const { themes, themeLabels } = themeRegistry
 const { state, setTheme, setMode } = useTheme()
 
 type ModeOptionValue = Mode | typeof SYSTEM_MODE
@@ -21,9 +16,10 @@ const modeOptions: readonly { value: ModeOptionValue; label: string }[] = [
 ]
 
 function onThemeChange(event: Event) {
-  const target = event.target as HTMLSelectElement | null
-  if (target === null) return
-  setTheme(target.value as Theme)
+  const target = event.target
+  if (!(target instanceof HTMLSelectElement)) return
+  const nextTheme = themes.find((candidate) => candidate === target.value)
+  if (nextTheme) setTheme(nextTheme)
 }
 </script>
 

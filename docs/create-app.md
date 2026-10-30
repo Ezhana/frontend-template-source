@@ -21,7 +21,7 @@ pinned `create-ezhana-app` devDependency.
 ## Lifecycle
 
 ```text
-preflight → scaffold (external CLI, pinned version) → normalize → overlay → install → verify → move
+preflight → scaffold (external CLI, pinned version) → normalize → overlay → move → install → verify
 ```
 
 1. **preflight**: resolve the template (interactive prompt or arguments) and the target
@@ -32,16 +32,22 @@ preflight → scaffold (external CLI, pinned version) → normalize → overlay 
 3. **normalize**:
    - remove generated lint/format configs and lockfiles, `node_modules`, `.git`;
    - remove generated ESLint/Prettier/Oxlint dependencies and scripts from `package.json`;
-   - write the `@ezhana/*` dependencies, ESLint/Prettier dependencies and scripts.
+   - write the `@ezhana/*` dependencies from `versions.json` (`@ezhana/design-tokens`,
+     `@ezhana/theme`, `@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`), the
+     ESLint/Prettier dependencies and the scripts.
 4. **overlay**: copy `overlays/<framework>` into the app:
    - `eslint.config.mjs`, `prettier.config.mjs`, `.prettierignore`;
-   - `src/theme/*` runtime integration;
+   - `src/theme/*` runtime integration (`registry.ts`, `manager.ts`, `useTheme.ts`);
    - `ThemeSwitcher` + `ThemeRoot` wrapper;
-   - entry file with token/font imports;
+   - entry file importing the core tokens CSS and each theme package's `./style` entry;
    - theme init script in `index.html` (no flash of wrong theme).
-5. **install**: one `pnpm install` after all package/config changes.
-6. **verify**: `prettier --write`, `lint`, `build`.
-7. Move the staging app to the target directory (only after a successful verification).
+5. **move**: rename the staging app to the target. This happens _before_ install on purpose: inside
+   the template workspace the app has to exist at `apps/<name>` when pnpm resolves the workspace.
+6. **install**: one `pnpm install` after all package/config changes.
+7. **verify**: `prettier --write`, `lint`, `build`.
+
+If install or verification fails, the moved app is removed again so the command can be retried
+against an empty target (`--keep-temp` skips both the cleanup and the staging cleanup).
 
 Options:
 
@@ -79,6 +85,26 @@ When `@ezhana/*` APIs change, update the overlay files and regenerate an app in 
 repository no longer keeps sample apps; apps exist only after a user runs `pnpm create:app` (in the
 generated template repository or locally).
 
+## Theme packages
+
+Themes are consumed as standalone packages, per
+[ADR 0003](adr/0003-themes-as-packages.md). The generator injects `@ezhana/design-tokens`,
+`@ezhana/theme`, `@ezhana/design-theme-cerulean` and `@ezhana/design-theme-ocean`; versions come from
+`versions.json`, so theme packages release independently of the core token package.
+
+The app owns its theme set: `src/theme/registry.ts` calls
+`defineThemeRegistry([defaultThemeDefinition, ...themeDefinitions])` and derives
+`AppTheme = (typeof themeRegistry.themes)[number]`; `manager.ts` and the switcher read from that
+registry, so they can never drift from the installed theme packages. Theme packages own their
+palette, fonts and CSS overrides — the app neither imports `@fontsource-*` directly nor contains any
+theme-specific token — and each package's `./style` entry pulls in the core stylesheet, the theme's
+fonts if any and its overrides.
+
+To change the default theme set, update both overlays (registry array + entry-file `./style` imports)
+and the injected dependency list in [`lib/create.mjs`](../tools/create-app/lib/create.mjs). Adding a
+theme in a generated app only needs `pnpm --filter ./apps/<name> add <theme-package>`, its stylesheet
+import and one entry in `src/theme/registry.ts`.
+
 ## CI
 
 `.github/workflows/create-app.yml` runs the generator matrix (React and Vue), installs the generated
@@ -109,13 +135,17 @@ devDependency and script, and never copies the tool into the template. Users run
 before the command, which puts the pinned generator (and its integrity) in the template's
 `pnpm-lock.yaml`. The package, not the template snapshot, is versioned and audited.
 
-`versions.json` is regenerated from the source package versions by the package's `prepack` hook (and
-manually with `pnpm sync:create-app`):
+`versions.json` is regenerated from the source package manifests under `packages/` (core tokens,
+official theme packages, ESLint/Prettier configs) plus the workspace catalog, by the package's
+`prepack` hook (and manually with `pnpm sync:create-app`):
 
 ```bash
 pnpm sync:create-app
 ```
 
-Run it after bumping `@ezhana/*` versions. Publishing requires the pinned `create-ezhana-app` version
-to exist on npm before the template is exported; the export workflow verifies that first, and the
-generated template's CI smoke-tests `pnpm create:app` against the installed package.
+It contains the `packages` map (name → published version) and the `catalog` versions; the generator
+throws on a missing catalog entry or a missing version for an injected dependency. Run it after
+bumping any `@ezhana/*` version, including the theme packages. Publishing requires the pinned
+`create-ezhana-app` version to exist on npm before the template is exported; the export workflow
+verifies that first, and the generated template's CI smoke-tests `pnpm create:app` against the
+installed package.

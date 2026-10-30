@@ -1,7 +1,7 @@
 {
   "name": "@ezhana/design-tokens",
   "version": "0.2.1",
-  "description": "Layered design tokens compiled to CSS custom properties for the template themes.",
+  "description": "Core design tokens: primitive scale, semantic contract and default theme compiled to CSS custom properties.",
   "type": "module",
   "exports": {
     ".": {
@@ -10,12 +10,12 @@
     },
     "./css": "./dist/css/tokens.css",
     "./css/tokens.css": "./dist/css/tokens.css",
-    "./json": "./dist/json/themes.json",
+    "./contract": "./dist/json/contract.json",
+    "./json": "./dist/json/core.json",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
-    "docs",
     "README.md"
   ],
   "sideEffects": [

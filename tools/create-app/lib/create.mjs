@@ -78,13 +78,11 @@ const readVersionManifest = async () => {
   const manifest = await readJson(join(toolRoot, 'versions.json'))
   const versions = new Map(Object.entries(manifest.packages ?? {}))
   const catalog = manifest.catalog ?? {}
-  const fontVersion = manifest.font
 
-  if (!fontVersion) throw new Error('versions.json is missing font.')
   if (!catalog.eslint || !catalog.prettier || !catalog.typescript) {
     throw new Error('versions.json is missing catalog versions.')
   }
-  return { versions, catalog, fontVersion }
+  return { versions, catalog }
 }
 
 const slugify = (value) =>
@@ -170,7 +168,12 @@ const normalize = async (recipe, appDir, meta) => {
     '@ezhana/theme': meta.versions.get('@ezhana/theme')
       ? `^${meta.versions.get('@ezhana/theme')}`
       : undefined,
-    '@fontsource-variable/public-sans': meta.fontVersion,
+    '@ezhana/design-theme-ocean': meta.versions.get('@ezhana/design-theme-ocean')
+      ? `^${meta.versions.get('@ezhana/design-theme-ocean')}`
+      : undefined,
+    '@ezhana/design-theme-cerulean': meta.versions.get('@ezhana/design-theme-cerulean')
+      ? `^${meta.versions.get('@ezhana/design-theme-cerulean')}`
+      : undefined,
   }
   manifest.devDependencies = {
     ...manifest.devDependencies,
@@ -272,15 +275,15 @@ export const createApp = async ({
   const stagingDir = await mkdtemp(join(dirname(targetPath), '.create-app-'))
   const appDir = join(stagingDir, 'app')
   const title = basename(targetPath)
-  const { versions, catalog, fontVersion } = await readVersionManifest()
+  const { versions, catalog } = await readVersionManifest()
   const meta = {
     versions,
     catalog,
-    fontVersion,
     packageName: slugify(title),
     title,
   }
 
+  let movedTarget = false
   try {
     process.stdout.write(`Creating ${recipe.label} app in ${targetPath}\n`)
     await scaffold(recipe, stagingDir)
@@ -290,6 +293,7 @@ export const createApp = async ({
     // Move before installing so that, inside a template workspace, the new app is part of
     // apps/* when pnpm resolves the workspace and installs its dependencies.
     await rename(appDir, targetPath)
+    movedTarget = true
 
     if (shouldInstall) {
       await install(targetPath)
@@ -307,6 +311,14 @@ export const createApp = async ({
   } catch (error) {
     if (keepTemp) {
       process.stderr.write(`\nGeneration failed. Staging directory kept at: ${stagingDir}\n`)
+    }
+    // The app was moved into place before install/verify (the workspace needs it at apps/<name>).
+    // Remove the half-generated app so the same command can be retried against an empty target.
+    if (movedTarget && !keepTemp) {
+      await rm(targetPath, { recursive: true, force: true })
+      process.stderr.write(
+        `Removed the incomplete app at ${targetPath} so the command can be retried.\n`,
+      )
     }
     throw error
   } finally {

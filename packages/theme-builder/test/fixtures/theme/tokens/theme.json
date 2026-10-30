@@ -1,0 +1,34 @@
+{
+  "$description": "Fixture theme overrides: DTCG sections for the base and both color modes.",
+  "base": {
+    "font": {
+      "family": {
+        "sans": { "$value": "\"Fixture Sans\", system-ui, sans-serif", "$type": "fontFamily" },
+        "heading": { "$value": "\"Fixture Sans\", system-ui, sans-serif", "$type": "fontFamily" }
+      }
+    },
+    "radius": {
+      "control": { "$value": "0.5rem", "$type": "dimension" }
+    }
+  },
+  "light": {
+    "color": {
+      "accent": { "$value": "{theme.color.fixture.600}", "$type": "color" },
+      "accent-hover": { "$value": "{theme.color.fixture.700}", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.0}", "$type": "color" },
+      "accent-subtle": { "$value": "#007ba71a", "$type": "color" },
+      "accent-border": { "$value": "#007ba780", "$type": "color" },
+      "focus-ring": { "$value": "{theme.color.fixture.600}", "$type": "color" }
+    }
+  },
+  "dark": {
+    "color": {
+      "accent": { "$value": "{theme.color.fixture.300}", "$type": "color" },
+      "accent-hover": { "$value": "{theme.color.fixture.50}", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.950}", "$type": "color" },
+      "accent-subtle": { "$value": "#7ac6e226", "$type": "color" },
+      "accent-border": { "$value": "#7ac6e280", "$type": "color" },
+      "focus-ring": { "$value": "{theme.color.fixture.300}", "$type": "color" }
+    }
+  }
+}

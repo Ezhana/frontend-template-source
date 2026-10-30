@@ -54,6 +54,7 @@ jobs:
         run: |
           test -f "$RUNNER_TEMP/generated-app/eslint.config.mjs"
           test -f "$RUNNER_TEMP/generated-app/prettier.config.mjs"
+          test -f "$RUNNER_TEMP/generated-app/src/theme/registry.ts"
           test -f "$RUNNER_TEMP/generated-app/src/theme/useTheme.ts"
           test ! -f "$RUNNER_TEMP/generated-app/.oxlintrc.json"
 
@@ -63,6 +64,8 @@ jobs:
           tarball=$(ls "$RUNNER_TEMP"/create-ezhana-app-*.tgz)
           tar -tzf "$tarball" | grep -qx 'package/bin/create-app.mjs'
           tar -tzf "$tarball" | grep -qx 'package/overlays/react/src/ThemeRoot.tsx'
+          tar -tzf "$tarball" | grep -qx 'package/overlays/react/src/theme/registry.ts'
+          tar -tzf "$tarball" | grep -qx 'package/overlays/vue/src/theme/registry.ts'
           tar -tzf "$tarball" | grep -qx 'package/overlays/vue/src/ThemeRoot.vue'
           tar -tzf "$tarball" | grep -qx 'package/recipes/index.mjs'
           tar -tzf "$tarball" | grep -qx 'package/snippets/theme-init.html'

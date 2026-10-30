@@ -19,7 +19,7 @@
         "950": { "$value": "#0b0b0f" }
       },
       "violet": {
-        "$description": "Default theme hue.",
+        "$description": "Default theme accent palette.",
         "50": { "$value": "#f7efff" },
         "100": { "$value": "#eedcff" },
         "200": { "$value": "#dfbcff" },
@@ -31,34 +31,6 @@
         "800": { "$value": "#6717a3" },
         "900": { "$value": "#4c107a" },
         "950": { "$value": "#2f0a4d" }
-      },
-      "blue": {
-        "$description": "Secondary theme hue.",
-        "50": { "$value": "#eff6ff" },
-        "100": { "$value": "#dbeafe" },
-        "200": { "$value": "#bfdbfe" },
-        "300": { "$value": "#93c5fd" },
-        "400": { "$value": "#60a5fa" },
-        "500": { "$value": "#3b82f6" },
-        "600": { "$value": "#2563eb" },
-        "700": { "$value": "#1d4ed8" },
-        "800": { "$value": "#1e40af" },
-        "900": { "$value": "#1e3a8a" },
-        "950": { "$value": "#172554" }
-      },
-      "cerulean": {
-        "$description": "Cerulean theme hue: calm, technical, trustworthy blue.",
-        "50": { "$value": "#eef8fc" },
-        "100": { "$value": "#d6eef7" },
-        "200": { "$value": "#b0deee" },
-        "300": { "$value": "#7ac6e2" },
-        "400": { "$value": "#3aa8cc" },
-        "500": { "$value": "#0b8cb4" },
-        "600": { "$value": "#007ba7" },
-        "700": { "$value": "#00688f" },
-        "800": { "$value": "#005574" },
-        "900": { "$value": "#00425b" },
-        "950": { "$value": "#002b3c" }
       },
       "red": {
         "$description": "Danger palette.",

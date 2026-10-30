@@ -1,8 +1,6 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const FONT_VERSION = '^5.3.0'
-
 /**
  * Read the versions that the create-ezhana-app package needs to patch generated apps.
  * This is source-repository-only; the published package carries the resulting versions.json
@@ -26,5 +24,5 @@ export const readSourceVersions = async (sourceRoot) => {
     if (match) catalog[match[1].trim()] = match[2].trim()
   }
 
-  return { packages, catalog, font: FONT_VERSION }
+  return { packages, catalog }
 }

@@ -4,6 +4,10 @@ This directory is **optional**. It is a placeholder for shared packages that you
 this monorepo. Delete it (and the `build:packages` script in the root `package.json`) if you do not
 need any shared packages.
 
+Themes do not live here: official and third-party themes are published npm packages
+(`@ezhana/design-theme-*`) that generated apps install directly. Use this directory for your own
+shared code.
+
 ## Adding a package
 
 1. Create `packages/<your-package>` with:

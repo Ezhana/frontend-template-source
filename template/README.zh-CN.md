@@ -55,17 +55,39 @@ pnpm --filter ./apps/my-app build
 
 ## 主题
 
-生成的应用从 npm 安装已发布的设计令牌与主题运行时；生成的 CSS 自定义属性在入口文件中引入，
-本地不需要构建令牌。
+生成的应用从 npm 安装已发布的设计令牌、主题包与主题运行时；样式在入口文件中引入，本地不需要
+构建令牌。
 
+- `@ezhana/design-tokens` 提供核心令牌、语义契约和默认主题。
+- `@ezhana/design-theme-ocean` 和 `@ezhana/design-theme-cerulean` 是各自独立发布的主题包。
+- `@ezhana/theme` 管理主题与颜色模式状态。
 - 颜色模式默认跟随操作系统（`prefers-color-scheme`）。
 - `data-theme` 选择主题；只有显式选择颜色模式时才写 `data-color-mode`。
 - React 和 Vue 应用都会生成主题切换器。
 
-令牌契约和运行时 API 见 npm 包文档：
+每个应用在 `src/theme/registry.ts` 注册主题，并从注册表推导 `AppTheme`，因此切换器和主题管理器
+始终与已安装的主题包一致：
+
+```ts
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
+import { theme as cerulean } from '@ezhana/design-theme-cerulean'
+import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { defineThemeRegistry } from '@ezhana/theme'
+
+export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
+export type AppTheme = (typeof themeRegistry.themes)[number]
+```
+
+添加主题：在应用中安装对应主题包、在入口文件中引入其样式，并把它的 `theme` 导出加入
+`defineThemeRegistry([...])`。主题包提供 `./style`（核心样式 + 主题字体（如有）+ 覆盖，一次引入即可）、
+`./theme.css`（仅覆盖）和 `./standalone.css`（核心 + 覆盖，适合无 bundler 场景）。
+
+令牌契约、主题模型与运行时 API 见 npm 包文档：
 
 - [`@ezhana/design-tokens`](https://www.npmjs.com/package/@ezhana/design-tokens)
 - [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
+- [`@ezhana/design-theme-cerulean`](https://www.npmjs.com/package/@ezhana/design-theme-cerulean)
+- [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
 
 ## CI
 

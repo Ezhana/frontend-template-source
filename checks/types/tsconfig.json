@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": [],
+    "paths": {
+      "@ezhana/design-tokens": ["../../packages/design-tokens/dist/js/index.d.ts"],
+      "@ezhana/theme": ["../../packages/theme/index.d.ts"],
+      "@ezhana/design-theme-cerulean": ["../../packages/design-theme-cerulean/dist/js/index.d.ts"],
+      "@ezhana/design-theme-ocean": ["../../packages/design-theme-ocean/dist/js/index.d.ts"],
+      "@ezhana/theme-builder": ["../../packages/theme-builder/index.d.ts"]
+    }
+  },
+  "include": ["public-api.ts"]
+}

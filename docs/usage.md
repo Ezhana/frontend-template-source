@@ -1,313 +1,199 @@
 # Using design tokens and theming in a project
 
-This guide explains how the pieces fit together end to end: what the two packages do, how an app is
+This guide explains how the pieces fit together end to end: what each package does, how an app is
 wired, what happens at runtime when a user switches a theme or color mode, and how to extend the
-system.
+system — including a third-party theme package.
+
+The architecture decision behind this split is [ADR 0003](adr/0003-themes-as-packages.md).
 
 ## Packages at a glance
 
-| Package                                                        | Kind                    | Responsibility                                                                                                                                                            | Not responsible for                         |
-| -------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| [`@ezhana/design-tokens`](../packages/design-tokens/README.md) | Build-time data package | Token sources, Style Dictionary build, generated CSS variables + theme metadata + types, contract and contrast tests                                                      | Runtime state, storage, DOM, UI             |
-| [`@ezhana/theme`](../packages/theme/README.md)                 | Runtime package         | Theme state machine: `data-theme` (and optional `data-color-mode`) on the root, user preference, `localStorage`, `prefers-color-scheme`, cross-tab sync, frozen snapshots | CSS, token values, components, framework UI |
-| `@fontsource-variable/public-sans`                             | Static font assets      | Self-hosted variable font used by the Cerulean theme                                                                                                                      | Theme logic                                 |
+| Package                                                                        | Kind            | Responsibility                                                                                                                       | Not responsible for            |
+| ------------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| [`@ezhana/design-tokens`](../packages/design-tokens/README.md)                 | build-time data | primitive scale, semantic contract, default theme, core CSS, contract JSON, types                                                    | themes, runtime state, DOM, UI |
+| [`@ezhana/theme-builder`](../packages/theme-builder/README.md)                 | build-time tool | validate a theme package against the contract; generate its CSS, metadata, types and JSON                                            | runtime state, app wiring      |
+| [`@ezhana/design-theme-cerulean`](../packages/design-theme-cerulean/README.md) | theme package   | Cerulean palette, Public Sans, semantic overrides, design narrative                                                                  | other themes, app code         |
+| [`@ezhana/design-theme-ocean`](../packages/design-theme-ocean/README.md)       | theme package   | Ocean palette, pill-shaped controls, semantic overrides                                                                              | other themes, app code         |
+| [`@ezhana/theme`](../packages/theme/README.md)                                 | runtime         | theme/mode state machine: `data-theme` (+ optional `data-color-mode`), persistence, `prefers-color-scheme`, cross-tab sync, registry | CSS, token values, components  |
+| `@fontsource-variable/public-sans`                                             | static assets   | self-hosted variable font imported by the Cerulean theme's `./style` entry                                                           | theme logic                    |
 
-The split is deliberate: the token package is **data + build**, the theme package is **state +
-DOM attributes**. Neither knows about React or Vue; the apps add tiny adapters.
+The split is deliberate: tokens are **data + build**, themes are **data + build**, and the runtime is
+**state + DOM attributes**. No package knows about React or Vue; the apps add tiny adapters.
 
 ## The attribute model
 
-Three pieces of state map onto two root attributes:
+Two attributes on the document root select the visual result:
 
-| attribute         | values                         | written when              | effect                             |
-| ----------------- | ------------------------------ | ------------------------- | ---------------------------------- |
-| `data-theme`      | `default`, `cerulean`, `ocean` | always                    | theme overrides of semantic tokens |
-| `data-color-mode` | `light`, `dark`                | only for an explicit mode | semantic tokens for that mode      |
+| attribute         | values                 | written when                         | effect                                               |
+| ----------------- | ---------------------- | ------------------------------------ | ---------------------------------------------------- |
+| `data-theme`      | any installed theme id | always                               | theme-package overrides (`:root[data-theme="<id>"]`) |
+| `data-color-mode` | `light`, `dark`        | only for an explicit mode preference | semantic tokens for that mode (`[data-color-mode]`)  |
 
 `data-color-mode` is **optional**. Without it the stylesheet follows the OS via
 `@media (prefers-color-scheme: dark)`. So the default behavior is "follow the system", works before
 JavaScript runs, and does not require writing a resolved mode value into the DOM. `system` is a
 preference only; it is never written to `data-color-mode`.
 
+Theme CSS is `:root`-prefixed, so it wins over the core stylesheet regardless of import order.
+
 ## The complete flow
 
 ```text
               BUILD TIME                                                    RUNTIME
-┌──────────────────────────────────┐          ┌──────────────────────────────────────────────┐
-│ tokens/                          │          │ <head> inline script                         │
-│   primitive/  raw values         │          │   restore stored data-theme                  │
-│   semantic/   default theme      │          │   restore explicit data-color-mode (if any)  │
-│   themes/     semantic overrides │          │            │                                 │
-│            │                     │          │            ▼                                 │
-│            ▼                     │          │ <html data-theme="cerulean"                  │
-│ Style Dictionary build           │          │       [data-color-mode="dark"]>              │
-│   contract validation            │──ship──▶ │            │                                 │
-│   → dist/css/tokens.css          │          │            ▼                                 │
-│   → dist/json/themes.json        │          │ tokens.css remaps semantic CSS variables     │
-│   → dist/js index.js / .d.ts     │          │ (mode: attr or prefers-color-scheme)         │
-└──────────────────────────────────┘          │            │                                 │
-                                              │ app entry imports tokens.css                 │
-                                              │            │                                 │
-                                              │            ▼                                 │
-                                              │ @ezhana/theme manager (module init)          │
-                                              │   validate prefs, apply attributes, listen   │
-                                              │            │                                 │
-                                              │            ▼                                 │
-                                              │ switcher UI ──setTheme/setMode──▶ manager    │
-                                              │            │                                 │
-                                              │   persist + apply attrs + notify ◀───────────┘
-                                              │            │
-                                              │            ▼
-                                              │ component CSS uses --color-*,                │
-                                              │ --font-*, --radius-*, ... automatically      │
-                                              └──────────────────────────────────────────────┘
+┌─────────────────────────────────────┐        ┌──────────────────────────────────────────────┐
+│ @ezhana/design-tokens               │        │ <head> inline script                         │
+│   primitive/  raw values            │        │   restore stored data-theme                  │
+│   semantic/   default theme         │        │   restore explicit data-color-mode (if any)  │
+│            │                        │        │            │                                 │
+│            ▼                        │        │            ▼                                 │
+│ Style Dictionary                    │        │ <html data-theme="cerulean"                  │
+│   contract validation               │        │       [data-color-mode="dark"]>              │
+│   → dist/css/tokens.css             │        │            │                                 │
+│   → dist/json/contract.json         │──ship─▶│            ▼                                 │
+│   → dist/js index.js / .d.ts        │        │ core tokens.css remaps semantic variables    │
+└─────────────────────────────────────┘        │ (mode: attr or prefers-color-scheme)         │
+┌─────────────────────────────────────┐        │            │                                 │
+│ theme package (design-theme-*)      │        │            ▼                                 │
+│   tokens/palette.json  (theme.*)    │        │ theme theme.css remaps accents/fonts/radii   │
+│   tokens/theme.json    overrides    │        │            │                                 │
+│            │                        │        │            ▼                                 │
+│            ▼                        │        │ @ezhana/theme manager (module init)          │
+│ @ezhana/theme-builder               │        │   validate prefs, apply attributes, listen   │
+│   validate + contrast               │──ship─▶│            │                                 │
+│   → dist/css/theme.css              │        │            ▼                                 │
+│   → dist/css/standalone.css         │        │ switcher UI ──setTheme/setMode──▶ manager    │
+│   → dist/style.js, js/, json/       │        │            │                                 │
+└─────────────────────────────────────┘        │   persist + apply attrs + notify ◀───────────┘
+                                               │            │
+                                               │            ▼
+                                               │ components consume semantic tokens only
+                                               └──────────────────────────────────────────────┘
 ```
 
-Key point: **the app never computes theme values**. It writes at most two attributes; CSS variable
-resolution does the rest. Re-renders are limited to the switcher UI, not the whole app.
+## App wiring
 
-## Quick start in this repository
-
-```bash
-pnpm install                 # workspace dependencies
-pnpm build:tokens            # generate dist/ locally for inspection
-pnpm test                    # token contract/contrast tests + theme runtime tests
-pnpm check                   # format:check + lint + tests
-
-pnpm create:app react check-react --target /tmp/check-react   # generate to /tmp
-pnpm create:app vue check-vue --target /tmp/check-vue
-pnpm export:template --install            # assemble the generated frontend-template repository
-```
-
-The generated template apps import the published token CSS from npm, so they do not need a local
-token build hook.
-
-## Wiring an app (what the generator overlay does)
-
-Both generated templates follow the same five steps. The overlay lives in
-[`tools/create-app/overlays`](../tools/create-app/overlays); a new app generated by `pnpm create:app`
-gets the same integration.
-
-### 1. Add the workspace dependencies
-
-```json
-{
-  "dependencies": {
-    "@ezhana/design-tokens": "workspace:*",
-    "@ezhana/theme": "workspace:*",
-    "@fontsource-variable/public-sans": "^5.3.0"
-  }
-}
-```
-
-The font package is only needed if you use a theme with a custom typeface (Cerulean). The other
-themes use system stacks.
-
-### 2. Import the generated CSS in the entry file
-
-Order matters: font faces → token stylesheet → application CSS.
+### 1. Stylesheets
 
 ```ts
-// main.tsx / main.ts
-import '@fontsource-variable/public-sans'
+// main.ts / main.tsx
 import '@ezhana/design-tokens/css/tokens.css'
-import './index.css' // application styles last
+import '@ezhana/design-theme-ocean/style'
+import '@ezhana/design-theme-cerulean/style'
+import './index.css'
 ```
 
-### 3. Prevent the wrong-theme flash with an inline `<head>` script
+`./style` is self-sufficient (core CSS + the theme's fonts + overrides), so an app that installs a
+single theme can import just that one entry. The core stylesheet is imported by module id, so the
+extra import above costs nothing at runtime; it documents the dependency.
 
-This runs before the stylesheet is parsed, so the first paint already has the right attributes. It
-only restores the stored preference; the runtime manager re-validates afterwards. The color mode is
-optional — leaving it out is what makes the CSS follow the OS.
+### 2. Theme registry
 
-```html
-<script>
-  ;(function () {
-    var root = document.documentElement
-    var stored = null
-    try {
-      stored = JSON.parse(localStorage.getItem('ezhana-theme') || 'null')
-    } catch (error) {
-      stored = null
-    }
-    root.setAttribute(
-      'data-theme',
-      (stored && typeof stored.theme === 'string' && stored.theme) || 'default',
-    )
-    if (stored && (stored.mode === 'light' || stored.mode === 'dark')) {
-      root.setAttribute('data-color-mode', stored.mode)
-    } else {
-      root.removeAttribute('data-color-mode')
-    }
-  })()
-</script>
+```ts
+// src/theme/registry.ts
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
+import { theme as cerulean } from '@ezhana/design-theme-cerulean'
+import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { defineThemeRegistry } from '@ezhana/theme'
+
+export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
+export type AppTheme = (typeof themeRegistry.themes)[number]
 ```
 
-### 4. Create one theme manager per app
-
-The manager is a browser-wide singleton. Feed it the generated metadata so the switcher UI and the
-validation automatically track the token package.
+### 3. Manager
 
 ```ts
 // src/theme/manager.ts
-import { defaultTheme, modes, themes, type Mode, type Theme } from '@ezhana/design-tokens'
+import { type Mode } from '@ezhana/design-tokens'
 import { createThemeManager } from '@ezhana/theme'
 
-export const themeManager = createThemeManager<Theme, Mode>({
-  themes: [...themes],
-  modes: [...modes],
-  defaultTheme,
+import { themeRegistry, type AppTheme } from './registry'
+
+export const themeManager = createThemeManager<AppTheme, Mode>({
+  themes: [...themeRegistry.themes],
+  modes: [...themeRegistry.modes],
+  defaultTheme: themeRegistry.defaultTheme,
 })
 ```
 
-`createThemeManager` reads the stored preference, resolves `system` against
-`prefers-color-scheme`, applies `data-theme` (and `data-color-mode` only for an explicit mode) and
-subscribes to OS and cross-tab changes. Nothing else is needed for theming to work.
+### 4. Switcher UI
 
-### 5. Add a framework adapter and a switcher UI
+The switcher renders `themeRegistry.themes` / `themeRegistry.themeLabels` and
+`themeRegistry.modes`, and calls `setTheme` / `setMode`. Adding a theme package to the registry is
+enough for it to appear in the UI.
 
-React (`tools/create-app/overlays/react/src/theme/useTheme.ts`):
+## Installing a third-party theme
+
+A theme package is a normal dependency; nothing in the app knows how it is built:
+
+```bash
+pnpm add @acme/design-theme
+```
 
 ```ts
-import { useSyncExternalStore } from 'react'
-import { themeManager } from './manager'
+import '@acme/design-theme/style'
 
-export function useTheme() {
-  const state = useSyncExternalStore(
-    themeManager.subscribe,
-    themeManager.getState,
-    themeManager.getState,
-  )
-  return {
-    ...state,
-    setTheme: (theme) => themeManager.setTheme(theme),
-    setMode: (mode) => themeManager.setMode(mode),
-  }
-}
+import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { theme as acme } from '@acme/design-theme'
+import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+
+export const registry = defineThemeRegistry([defaultThemeDefinition, acme])
+export type AppTheme = (typeof registry.themes)[number]
+
+export const manager = createThemeManager<AppTheme, Mode>({
+  themes: [...registry.themes],
+  modes: [...registry.modes],
+  defaultTheme: registry.defaultTheme,
+})
 ```
 
-Vue (`tools/create-app/overlays/vue/src/theme/useTheme.ts`):
+`defineThemeRegistry` validates ids, labels and that every theme supports the same color modes. If a
+theme ships only `./theme.css` (no `./style`), import the core stylesheet yourself and load the
+theme's fonts.
 
-```ts
-import { onScopeDispose, shallowRef } from 'vue'
-import { themeManager } from './manager'
+## Authoring a theme package
 
-export function useTheme() {
-  const state = shallowRef(themeManager.getState())
-  const unsubscribe = themeManager.subscribe((next) => {
-    state.value = next
-  })
-  onScopeDispose(unsubscribe)
-  return {
-    state,
-    setTheme: (theme) => themeManager.setTheme(theme),
-    setMode: (mode) => themeManager.setMode(mode),
-  }
-}
+```text
+my-theme/
+├── package.json           # deps: @ezhana/design-tokens; devDeps: @ezhana/theme-builder
+├── theme.config.mjs       # id, label, tokens, overrides, fonts
+├── tokens/
+│   ├── palette.json       # theme-private palette, rooted at `theme.`
+│   └── theme.json         # overrides: base + one section per color mode
+├── scripts/build.mjs      # await buildTheme(new URL('../theme.config.mjs', import.meta.url))
+└── dist/                  # generated: css/, js/, json/, style.js
 ```
 
-The switcher components ([React](../tools/create-app/overlays/react/src/components/ThemeSwitcher.tsx),
-[Vue](../tools/create-app/overlays/vue/src/components/ThemeSwitcher.vue)) render:
+The contract is enforced at build time:
 
-- a theme `<select>` whose options come from `themes` + `themeLabels`;
-- Light / Dark / System toggle buttons driven by `mode` + `setMode` (`aria-pressed` for state);
-- a focus ring and semantic-token styling, so the switcher itself follows the active theme.
+- required overrides must exist in every color mode;
+- overrides must target existing semantic tokens;
+- references may only use core primitives (`{primitive.*}`) or the theme's own tokens (`{theme.*}`);
+- WCAG AA contrast is checked for the tokens the theme can change.
 
-## Runtime lifecycle
+See [`packages/theme-builder/README.md`](../packages/theme-builder/README.md) for the full reference
+and [`packages/design-theme-cerulean/tokens`](../packages/design-theme-cerulean/tokens) for a worked
+example.
 
-1. **First paint** — the inline script sets `data-theme` and, for explicit preferences,
-   `data-color-mode`. The generated CSS has a `:root` fallback for the default theme + light mode and
-   a `prefers-color-scheme` dark media query, so the page is styled even with JavaScript disabled.
-2. **Module init** — importing the manager module creates the singleton: it validates the stored
-   `{ theme, mode }` against the generated metadata, computes the system preference, applies the
-   attributes and attaches listeners.
-3. **User interaction** — `setTheme('ocean')` / `setMode('dark')`:
-   - validate the value (invalid values throw; persisted values fall back silently),
-   - update the frozen state snapshot,
-   - persist `{ theme, mode }` to `localStorage` (best effort),
-   - write the attributes (`setMode('system')` **removes** `data-color-mode`),
-   - notify subscribers → only the switcher re-renders.
-4. **OS preference change** — while the preference is `system`, the manager updates `systemMode` /
-   `resolvedMode` and notifies subscribers. The stylesheet already follows the media query; no
-   attribute changes are needed. Explicit modes are unaffected.
-5. **Another tab** — the `storage` event updates the state and attributes without writing storage
-   again.
-6. **Reload** — the inline script renders the right attributes immediately; the manager then
-   re-validates and continues from the persisted preference.
+## Extending the core package
 
-## Using tokens in component CSS
+| Change                | What to do                                                                                                                            | Build/test                                                   |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Add a semantic token  | add it to `tokens/semantic/base.json` or the mode files, referencing primitives only; consume it in CSS                               | `pnpm build && pnpm test`; contract/contrast tests must pass |
+| Add a color mode      | add `tokens/semantic/<mode>.json` with the same semantic set as `light.json`, add the mode block to every theme package               | builds list exactly what each file/theme is missing          |
+| Add a primitive       | add it to `tokens/primitive/*.json`; only add what more than one theme needs — brand ramps belong to the theme package that uses them | `pnpm build`                                                 |
+| Add a theme           | create a theme package with `@ezhana/theme-builder` (see above) and register it in the app                                            | theme build + `pnpm test`                                    |
+| Add a theme typeface  | set `fonts` in `theme.config.mjs` and override `font.family.*` in the theme; the generated `./style` entry loads the font             | theme build; check the font import in `dist/style.js`        |
+| Add a component layer | create a separate `@ezhana/component-tokens` package that consumes semantic tokens only                                               | own tests/contract; no changes to `design-tokens`            |
 
-Components consume **semantic tokens only**:
-
-```css
-.card {
-  color: var(--color-fg);
-  background: var(--color-bg-subtle);
-  border: var(--border-width-default) solid var(--color-border);
-  border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-sm);
-  font-family: var(--font-family-sans);
-  font-size: var(--font-size-body);
-}
-```
-
-- `--primitive-*` is for layout spacing and debugging; do not use palette primitives for themed
-  properties.
-- No raw hex values and no hard-coded font names. If a component needs a value that does not exist,
-  add a semantic token and rebuild.
-- The generated CSS lives in `@layer design-tokens`, so plain application CSS can override a token
-  locally without specificity battles:
-
-  ```css
-  .checkout {
-    --radius-control: 0;
-  }
-  ```
-
-- If a component system needs its own vocabulary (`--button-bg`, `--card-padding`), create the
-  optional component-token package described in the
-  [token README](../packages/design-tokens/README.md#component-layer-optional). It references
-  semantic tokens only, so themes and color modes keep working automatically.
-
-## What `@ezhana/theme` is for
-
-It exists because theme switching is **state**, not styling:
-
-- a stored user preference (`light` / `dark` / `system`) plus a theme identity (`data-theme`);
-- resolution of `system` through `prefers-color-scheme`;
-- validation against the generated `themes` / `modes` lists;
-- persistence and cross-tab synchronisation;
-- a stable, frozen, framework-agnostic state snapshot.
-
-It deliberately does **not** ship:
-
-- CSS or token values (that is `@ezhana/design-tokens`),
-- React/Vue providers or components (the apps own tiny adapters and their switcher UI),
-- a stylesheet loader (all themes ship in one CSS file),
-- any framework dependency (zero runtime dependencies, SSR-safe import, fully unit-tested with fake
-  DOM/storage/media-query objects).
-
-That separation makes it usable in React, Vue, static HTML, SSR, tests, and future frameworks
-without changing the token architecture.
-
-## Extending the system
-
-| Change                | What to do                                                                                                                                                                       | Build/test                                                           |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Add a theme           | add `packages/design-tokens/tokens/themes/<theme>.json` with `base` + each mode, satisfying the theme contract; see [README](../packages/design-tokens/README.md#adding-a-theme) | `pnpm build:tokens && pnpm test`; switcher picks it up automatically |
-| Add a color mode      | add `tokens/semantic/<mode>.json` (same semantic set as `light`) + add the mode block to every theme                                                                             | build errors list what each theme is missing                         |
-| Add a semantic token  | add it to `semantic/base.json` or the light/dark mode files, reference primitives only; consume it in CSS                                                                        | contract/contrast tests must pass                                    |
-| Add a theme typeface  | override `font.family.sans` / `font.family.heading` in a theme file and load the font in the app entry                                                                           | only Cerulean currently does this (Public Sans)                      |
-| Add a component layer | create a separate `@ezhana/component-tokens` package that consumes semantic tokens only                                                                                          | own tests/contract; no changes to `design-tokens`                    |
-
-Theme design narratives live with the token package, e.g. [`@ezhana/design-tokens/docs/themes/cerulean/DESIGN.md`](../packages/design-tokens/docs/themes/cerulean/DESIGN.md); Cerulean is a
-complete worked example (custom palette, Public Sans, level-2 shape/spacing, measured contrast).
+Theme design narratives live with the theme package, e.g.
+[`packages/design-theme-cerulean/docs/DESIGN.md`](../packages/design-theme-cerulean/docs/DESIGN.md).
 
 ## Build, CI and release flow
 
-1. `pnpm build:tokens` → validates contracts and emits `dist/` (not committed).
-2. `pnpm test` → resolved-theme JSON is checked for contract completeness and WCAG AA contrast; the
-   theme runtime tests use fake DOM/storage/media queries.
+1. `pnpm build` → builds the core package, then every `packages/design-theme-*` package. The core
+   must be built first: theme packages resolve its contract and stylesheet.
+2. `pnpm test` → builds, then runs the core contract/contrast suite, the theme-builder suite, the
+   theme runtime suite and every theme package's generated-artifact suite.
 3. `pnpm create:app react|vue <name>` → scaffolds into `apps/<name>` with the pinned external
    generator, applies the config/theme overlay, then installs, lints and builds the generated app.
 4. `pnpm export:template --install` → assembles the empty-apps `frontend-template`, pins the
@@ -315,33 +201,43 @@ complete worked example (custom palette, Public Sans, level-2 shape/spacing, mea
 5. CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `test`; the
    `.github/workflows/create-app.yml` matrix runs the generated React/Vue apps through lint/build and
    packs the generator tarball; the generated template's own CI smoke-tests `pnpm create:app`.
-6. Publishing: Changesets bumps `@ezhana/design-tokens` / `@ezhana/theme` / `create-ezhana-app`; the
-   token package's `prepack` rebuilds `dist/` and the generator's `prepack` refreshes
-   `versions.json`, so the published tarballs contain the generated artifacts.
+6. Publishing: Changesets bumps `@ezhana/design-tokens`, `@ezhana/theme-builder`,
+   `@ezhana/design-theme-*`, `@ezhana/theme` and `create-ezhana-app`. Publish the packages before the
+   template export: the generated apps and `versions.json` reference published versions. The token
+   and theme packages rebuild `dist/` in their `prepack` hooks, and the generator's `prepack`
+   refreshes `versions.json`.
+
+Release order matters: core → theme packages → generator → template export.
 
 ## Debugging checklist
 
-| Symptom                     | Check                                                                                                                       |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Wrong theme on load         | `document.documentElement.dataset` — is `theme` set? `localStorage.getItem('ezhana-theme')`                                 |
-| Mode does not follow the OS | is `data-color-mode` absent? (if present, an explicit mode is active)                                                       |
-| Theme does not change       | Is the manager module imported? Is `data-theme` updating? Is token CSS loaded before app CSS?                               |
-| Token is undefined          | `getComputedStyle(document.documentElement).getPropertyValue('--color-accent')`; run `pnpm build:tokens`                    |
-| Custom font missing         | `document.fonts.check('16px "Public Sans Variable"')`; is the font package imported in the entry file and the theme active? |
-| Broken token reference      | the build fails with the missing token path — fix it in the source rather than in generated files                           |
-| Flash of wrong theme        | inline `<head>` script present and before the module script?                                                                |
+| Symptom                     | Check                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Wrong theme on load         | `document.documentElement.dataset` — is `theme` set? `localStorage.getItem('ezhana-theme')`                   |
+| Mode does not follow the OS | is `data-color-mode` absent? (if present, an explicit mode is active)                                         |
+| Theme does not change       | is the theme package's CSS imported? is the id registered in `defineThemeRegistry`? is `data-theme` updating? |
+| Theme package rejected      | run its build: it lists the missing required override, unknown reference or failing contrast pair             |
+| Token is undefined          | `getComputedStyle(document.documentElement).getPropertyValue('--color-accent')`; run `pnpm build`             |
+| Custom font missing         | is the theme's `./style` entry (not `./theme.css`) imported, or the font package imported manually?           |
+| Broken token reference      | the build fails with the missing token path — fix the source, never the generated file                        |
+| Flash of wrong theme        | inline `<head>` script present and before the module script?                                                  |
 
 ## File map
 
-| File                                                         | Purpose                                          |
-| ------------------------------------------------------------ | ------------------------------------------------ |
-| `packages/design-tokens/tokens/**`                           | token sources (primitive / semantic / themes)    |
-| `packages/design-tokens/scripts/build.mjs`                   | Style Dictionary build + validation              |
-| `packages/design-tokens/dist/**`                             | generated CSS / JSON / JS + d.ts (not committed) |
-| `packages/theme/index.js`                                    | framework-agnostic theme runtime                 |
-| `tools/create-app/overlays/*/src/theme/manager.ts`           | app singleton wired to generated metadata        |
-| `tools/create-app/overlays/*/src/theme/useTheme.ts`          | React / Vue adapter                              |
-| `tools/create-app/overlays/*/src/components/ThemeSwitcher.*` | switcher UI                                      |
-| `tools/create-app/overlays/*/src/main.*`                     | CSS/font import order                            |
-| `tools/create-app/snippets/theme-init.html`                  | pre-paint inline script                          |
-| `packages/design-tokens/docs/themes/cerulean/DESIGN.md`      | worked example of a theme's design narrative     |
+| File                                                         | Purpose                                                          |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `packages/design-tokens/tokens/**`                           | core token sources (primitive / semantic)                        |
+| `packages/design-tokens/scripts/build.mjs`                   | Style Dictionary build + contract validation                     |
+| `packages/design-tokens/dist/**`                             | generated core CSS / JSON / contract / JS + d.ts (not committed) |
+| `packages/theme-builder/lib/**`                              | validation, resolution and artifact generation for themes        |
+| `packages/design-theme-*/tokens/**`                          | theme-private palette + semantic overrides                       |
+| `packages/design-theme-*/theme.config.mjs`                   | theme identity, sources, fonts, contrast options                 |
+| `packages/theme/index.js`                                    | framework-agnostic theme runtime + `defineThemeRegistry`         |
+| `tools/create-app/overlays/*/src/theme/registry.ts`          | app theme registry                                               |
+| `tools/create-app/overlays/*/src/theme/manager.ts`           | app singleton wired to the registry                              |
+| `tools/create-app/overlays/*/src/theme/useTheme.ts`          | React / Vue adapter                                              |
+| `tools/create-app/overlays/*/src/components/ThemeSwitcher.*` | switcher UI                                                      |
+| `tools/create-app/overlays/*/src/main.*`                     | CSS import order                                                 |
+| `tools/create-app/snippets/theme-init.html`                  | pre-paint inline script                                          |
+| `packages/design-theme-cerulean/docs/DESIGN.md`              | worked example of a theme's design narrative                     |
+| `docs/adr/0003-themes-as-packages.md`                        | the architecture decision for theme packages                     |

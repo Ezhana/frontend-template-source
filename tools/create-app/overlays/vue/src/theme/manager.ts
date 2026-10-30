@@ -1,15 +1,17 @@
-import { defaultTheme, modes, themes, type Mode, type Theme } from '@ezhana/design-tokens'
+import type { Mode } from '@ezhana/design-tokens'
 import { createThemeManager } from '@ezhana/theme'
+
+import { themeRegistry, type AppTheme } from './registry'
 
 /**
  * Browser-wide theme singleton.
  *
- * The generated metadata (`themes`, `modes`, `defaultTheme`) is the single
- * source of truth for the available themes, so adding a theme or a color mode
- * in `@ezhana/design-tokens` automatically shows up in the switcher UI.
+ * The registry is the single source of truth for the available themes, so a
+ * theme added in `src/theme/registry.ts` automatically shows up in the
+ * switcher UI.
  */
-export const themeManager = createThemeManager<Theme, Mode>({
-  themes: [...themes],
-  modes: [...modes],
-  defaultTheme,
+export const themeManager = createThemeManager<AppTheme, Mode>({
+  themes: [...themeRegistry.themes],
+  modes: [...themeRegistry.modes],
+  defaultTheme: themeRegistry.defaultTheme,
 })

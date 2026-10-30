@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from 'react'
 
-import type { Mode, Theme as ThemeName } from '@ezhana/design-tokens'
+import type { Mode } from '@ezhana/design-tokens'
 import type { ThemeState } from '@ezhana/theme'
 
 import { themeManager } from './manager'
+import type { AppTheme } from './registry'
 
-export type AppThemeState = ThemeState<ThemeName, Mode>
+export type AppThemeState = ThemeState<AppTheme, Mode>
 
 /** Mode preference accepted by the switcher: a concrete mode or `system`. */
 export type ThemeMode = Mode | 'system'
@@ -26,7 +27,7 @@ export function useTheme() {
 
   return {
     ...state,
-    setTheme: (theme: ThemeName) => themeManager.setTheme(theme),
+    setTheme: (theme: AppTheme) => themeManager.setTheme(theme),
     setMode: (mode: ThemeMode) => themeManager.setMode(mode),
   }
 }

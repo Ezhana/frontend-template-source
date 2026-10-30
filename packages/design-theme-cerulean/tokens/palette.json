@@ -1,0 +1,22 @@
+{
+  "theme": {
+    "color": {
+      "$type": "color",
+      "$description": "Theme-private palette. Resolved at build time and never emitted as CSS custom properties.",
+      "cerulean": {
+        "$description": "Cerulean hue: calm, technical, trustworthy blue.",
+        "50": { "$value": "#eef8fc" },
+        "100": { "$value": "#d6eef7" },
+        "200": { "$value": "#b0deee" },
+        "300": { "$value": "#7ac6e2" },
+        "400": { "$value": "#3aa8cc" },
+        "500": { "$value": "#0b8cb4" },
+        "600": { "$value": "#007ba7" },
+        "700": { "$value": "#00688f" },
+        "800": { "$value": "#005574" },
+        "900": { "$value": "#00425b" },
+        "950": { "$value": "#002b3c" }
+      }
+    }
+  }
+}

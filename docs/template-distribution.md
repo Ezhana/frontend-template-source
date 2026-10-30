@@ -1,9 +1,9 @@
 # Template distribution: source repository → generated template repository
 
-This repository is the **source/development monorepo**. It contains the `@ezhana/*` package sources,
-the external-scaffolder pipeline (`tools/create-app`, published as `create-ezhana-app`) and the
-template skeleton. The React and Vue applications are generated on demand; no full sample apps are
-committed.
+This repository is the **source/development monorepo**. It contains the `@ezhana/*` package sources
+(core design tokens, the official theme packages, the theme builder and the theme runtime), the
+external-scaffolder pipeline (`tools/create-app`, published as `create-ezhana-app`) and the template
+skeleton. The React and Vue applications are generated on demand; no full sample apps are committed.
 
 The public **template repository** (the one users click "Use this template" on) is generated from
 this repository. It keeps the monorepo layout (`apps/` + `packages/`) but does not contain any
@@ -52,7 +52,7 @@ the generator together with the root tooling, and `pnpm-lock.yaml` covers it.
 
 The generated root `package.json` has:
 
-- npm dependencies on `@ezhana/eslint-config-base` and `@ezhana/prettier-config`;
+- devDependencies on `@ezhana/eslint-config-base` and `@ezhana/prettier-config`;
 - an exact `create-ezhana-app` devDependency (the version published for this template snapshot);
 - `create:app`, `dev`, `build:packages`, `build:apps`, `build`, `lint` and `check` scripts;
 - app scripts use `pnpm -r --filter "./apps/*" --if-present`, so with zero apps install/lint/build
@@ -61,6 +61,15 @@ The generated root `package.json` has:
 
 `pnpm create:app` chooses React or Vue, creates the app under `apps/<name>`, applies the
 `@ezhana/*` overlay, installs dependencies and verifies format/lint/build.
+
+The generated app, not the root manifest, carries the theme stack. The generator injects
+`@ezhana/design-tokens`, `@ezhana/theme`, `@ezhana/design-theme-cerulean` and
+`@ezhana/design-theme-ocean` with `^<version>` ranges resolved from
+`tools/create-app/versions.json`. That file is regenerated from the `packages/` manifests by
+`pnpm sync:create-app`, so the official theme packages are collected automatically and version
+independently of the core tokens. The app registers its themes in `src/theme/registry.ts` and derives
+`AppTheme` from that registry; adding a theme package is an app-level change (install it, import its
+stylesheet, register it), not a template change.
 
 ## Generation
 
@@ -213,13 +222,16 @@ Run **Actions → Export template repo → Run workflow** in the source reposito
 ## Prerelease checklist
 
 1. `pnpm check` in this repository.
-2. `pnpm changeset version` + `pnpm changeset publish` for package changes, including
-   `create-ezhana-app` (the template pins the published versions; a version that is not on npm
-   makes `--install` fail). The generator's `prepack` hook refreshes `versions.json` before packing.
-   From GitHub Actions, publish with provenance (`pnpm publish --provenance`, or trusted publishing,
-   which attaches it automatically); local publishes omit provenance.
+2. Run `pnpm changeset version` + `pnpm changeset publish` for package changes. Publish in
+   dependency order: `@ezhana/design-tokens` first, then the official theme packages
+   (`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`) and `@ezhana/theme`, then
+   `create-ezhana-app` (the template pins the published versions; a version that is not on npm makes
+   `--install` fail). The generator's `prepack` hook refreshes `versions.json` before packing. From
+   GitHub Actions, publish with provenance (`pnpm publish --provenance`, or trusted publishing, which
+   attaches it automatically); local publishes omit provenance.
 3. Run `pnpm sync:create-app` locally to keep the committed `versions.json` in sync (CI verifies it).
 4. Verify the published packages with `pnpm view @ezhana/design-tokens version`,
+   `pnpm view @ezhana/design-theme-cerulean version`, `pnpm view @ezhana/design-theme-ocean version`,
    `pnpm view create-ezhana-app version` (and the config packages).
 5. Run `pnpm export:template --install` (or dispatch the export workflow) and let the generated
    template's own CI pass.
@@ -250,7 +262,12 @@ repository.
 
 ## Version policy
 
-- The generator pins `@ezhana/*` to `^<version>` from this monorepo's package manifests.
+- The generator pins its `@ezhana/*` dependencies (core tokens, theme runtime and the official theme
+  packages) to `^<version>` values collected from this monorepo's package manifests into
+  `tools/create-app/versions.json`.
+- Official theme packages version independently: a theme fix publishes only that theme package, and
+  newly generated apps pick it up through the `^<version>` range without regenerating the template.
+  Existing apps can upgrade one theme package without touching the core tokens.
 - The generated template pins `create-ezhana-app` to an **exact** version (no `^`), so a template
   snapshot always generates the same apps. Bump the generator version in the source repository, then
   regenerate the template; do not bump it in the generated repository.

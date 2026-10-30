@@ -1,0 +1,53 @@
+{
+  "name": "@ezhana/theme-builder",
+  "version": "0.0.0",
+  "description": "Compile and validate @ezhana/design-tokens theme packages.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "bin": {
+    "theme-builder": "./bin/theme-builder.mjs"
+  },
+  "scripts": {
+    "test": "node --test ./test/*.test.mjs"
+  },
+  "keywords": [
+    "design-tokens",
+    "style-dictionary",
+    "theming",
+    "css-variables",
+    "build-tool"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/theme-builder"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "dependencies": {
+    "style-dictionary": "5.7.0"
+  },
+  "devDependencies": {
+    "@ezhana/design-tokens": "workspace:*",
+    "@fontsource-variable/public-sans": "^5.3.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

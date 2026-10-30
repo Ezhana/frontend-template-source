@@ -1,9 +1,12 @@
-import { modeLabels, modes, themeLabels, themes } from '@ezhana/design-tokens'
+import { modeLabels, modes } from '@ezhana/design-tokens'
 import { SYSTEM_MODE } from '@ezhana/theme'
 
+import { themeRegistry } from '../theme/registry'
 import { useTheme } from '../theme/useTheme'
 
 import './ThemeSwitcher.css'
+
+const { themes, themeLabels } = themeRegistry
 
 const THEME_SELECT_ID = 'theme-switcher-theme'
 
@@ -15,8 +18,8 @@ const SYSTEM_LABEL = 'System'
  *
  * The theme control is a native `<select>` with a visually hidden label; the
  * mode control is a `role="group"` of toggle buttons using `aria-pressed`.
- * Both are driven by the generated theme metadata, so a new theme or mode shows
- * up here automatically.
+ * Both are driven by the theme registry, so a theme added in
+ * `src/theme/registry.ts` shows up here automatically.
  */
 function ThemeSwitcher() {
   const { theme, mode, setTheme, setMode } = useTheme()

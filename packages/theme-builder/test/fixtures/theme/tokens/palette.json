@@ -1,0 +1,14 @@
+{
+  "$description": "Theme-private palette for the fixture theme. Build-time material only.",
+  "theme": {
+    "color": {
+      "fixture": {
+        "$type": "color",
+        "50": { "$value": "#eef8fc" },
+        "300": { "$value": "#7ac6e2" },
+        "600": { "$value": "#007ba7" },
+        "700": { "$value": "#00688f" }
+      }
+    }
+  }
+}
