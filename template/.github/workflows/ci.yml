@@ -42,20 +42,30 @@ jobs:
       - name: Build
         run: pnpm build
 
-  # Exercises the published create-ezhana-app package pinned in devDependencies: tarball contents,
-  # bin resolution, official scaffolders, overlay and package.json patching.
+  # Exercises the published create-ezhana-app package pinned in devDependencies: official
+  # scaffolders, theme overlay, the opt-in config writer and the configure subcommand.
   #
   # One app is generated per job on purpose. The generator adds apps/<name> to the workspace; a
   # second `pnpm create:app` in the same job would make pnpm verify the (now stale) lockfile before
   # running and fail on the new importer. A matrix also keeps the failure attributable to a template.
   create-app:
-    name: Create ${{ matrix.template }} app
+    name: ${{ matrix.mode }} ${{ matrix.template }} app
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
-        template: [react, vue]
+        include:
+          - template: react
+            mode: default
+          - template: vue
+            mode: default
+          - template: react
+            mode: configured
+          - template: vue
+            mode: configured
+          - template: react
+            mode: configure-command
 
     steps:
       - name: Checkout
@@ -72,12 +82,33 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Create ${{ matrix.template }} app
-        run: pnpm create:app ${{ matrix.template }} generated-app --no-install
+        run: |
+          if [ "${{ matrix.mode }}" = "configured" ]; then
+            pnpm create:app ${{ matrix.template }} generated-app --no-install --eslint --prettier
+          else
+            pnpm create:app ${{ matrix.template }} generated-app --no-install
+          fi
 
-      - name: Check generated files
+      - name: Write configs through configure
+        if: matrix.mode == 'configure-command'
+        run: pnpm create:app configure apps/generated-app --eslint --prettier --no-install
+
+      - name: Check default generated files
+        if: matrix.mode == 'default'
+        run: |
+          test -f apps/generated-app/src/theme/registry.ts
+          test -f apps/generated-app/src/theme/useTheme.ts
+          test ! -f apps/generated-app/eslint.config.mjs
+          test ! -f apps/generated-app/prettier.config.mjs
+          if [ "${{ matrix.template }}" = "react" ]; then
+            test -f apps/generated-app/.oxlintrc.json
+          fi
+
+      - name: Check configured generated files
+        if: matrix.mode != 'default'
         run: |
           test -f apps/generated-app/eslint.config.mjs
           test -f apps/generated-app/prettier.config.mjs
+          test -f apps/generated-app/.prettierignore
           test -f apps/generated-app/src/theme/registry.ts
           test -f apps/generated-app/src/theme/useTheme.ts
-          test ! -f apps/generated-app/.oxlintrc.json

@@ -1,3 +1,5 @@
+// Internal TypeScript layer composed by the React/Vue modules. Generated apps inline this rule set
+// in tools/create-app/templates/ instead of importing it (ADR 0004).
 import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 

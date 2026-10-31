@@ -35,8 +35,8 @@ The generator is published as `create-ezhana-app` and is **not** vendored into t
 
 - The source of truth stays in `tools/create-app/`, which becomes a workspace member
   (`tools/*` glob) so Changesets version and publish it.
-- The package ships `bin/`, `lib/`, `overlays/`, `recipes/`, `snippets/` and `versions.json`, has no
-  runtime dependencies. Its `prepack` hook regenerates `versions.json` from the source
+- The package ships `bin/`, `lib/`, `overlays/`, `recipes/`, `snippets/`, `templates/` and
+  `versions.json`, has no runtime dependencies. Its `prepack` hook regenerates `versions.json` from the source
   manifests. Releases should run from CI with provenance enabled (`pnpm publish --provenance`, or
   trusted publishing, which attaches it automatically); the current manual changesets flow does not
   force it.

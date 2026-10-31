@@ -34,7 +34,6 @@ const ROOT_FILES = [
   'LICENSE',
   'lint-staged.config.mjs',
   'pnpm-workspace.yaml',
-  'prettier.config.mjs',
 ]
 
 const parseArgs = () => {
@@ -69,21 +68,6 @@ const exists = async (path) => {
   }
 }
 
-/** Collect versions of every package under packages/ so template deps can be pinned. */
-const readPublishedVersions = async () => {
-  const packagesDir = join(sourceRoot, 'packages')
-  const entries = await readdir(packagesDir, { withFileTypes: true })
-  const versions = new Map()
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    const manifestPath = join(packagesDir, entry.name, 'package.json')
-    if (!(await exists(manifestPath))) continue
-    const manifest = await readJson(manifestPath)
-    if (manifest.name) versions.set(manifest.name, manifest.version)
-  }
-  return versions
-}
-
 const readCreateAppVersion = async () => {
   const manifest = await readJson(join(sourceRoot, 'tools/create-app/package.json'))
   if (!manifest.version) {
@@ -94,13 +78,7 @@ const readCreateAppVersion = async () => {
 
 const createRootManifest = async (outDir) => {
   const sourceRootManifest = await readJson(join(sourceRoot, 'package.json'))
-  const versions = await readPublishedVersions()
   const createAppVersion = await readCreateAppVersion()
-
-  const required = ['@ezhana/eslint-config-base', '@ezhana/prettier-config']
-  for (const name of required) {
-    if (!versions.get(name)) throw new Error(`Cannot resolve published version for ${name}.`)
-  }
 
   const manifest = {
     name: 'frontend-template',
@@ -125,10 +103,11 @@ const createRootManifest = async (outDir) => {
     engines: sourceRootManifest.engines,
     'simple-git-hooks': sourceRootManifest['simple-git-hooks'],
     devDependencies: {
-      '@ezhana/eslint-config-base': `^${versions.get('@ezhana/eslint-config-base')}`,
-      '@ezhana/prettier-config': `^${versions.get('@ezhana/prettier-config')}`,
+      '@eslint/js': 'catalog:',
       'create-ezhana-app': createAppVersion,
       eslint: 'catalog:',
+      'eslint-config-prettier': 'catalog:',
+      globals: 'catalog:',
       'lint-staged': sourceRootManifest.devDependencies['lint-staged'],
       prettier: 'catalog:',
       'simple-git-hooks': sourceRootManifest.devDependencies['simple-git-hooks'],
@@ -194,6 +173,25 @@ const validateOutput = async (outDir) => {
     if (!(await exists(join(outDir, file)))) problems.push(`${file} is missing`)
   }
 
+  for (const file of ['eslint.config.mjs', 'prettier.config.mjs']) {
+    const path = join(outDir, file)
+    if (!(await exists(path))) {
+      problems.push(`${file} is missing`)
+      continue
+    }
+    const content = await readFile(path, 'utf8')
+    if (content.includes('@ezhana/eslint-config') || content.includes('@ezhana/prettier-config')) {
+      problems.push(
+        `${file} must be self-contained; it still imports an unpublished config package`,
+      )
+    }
+  }
+
+  const manifestText = JSON.stringify(rootManifest)
+  for (const name of ['@ezhana/eslint-config', '@ezhana/prettier-config']) {
+    if (manifestText.includes(name)) problems.push(`package.json must not reference ${name}`)
+  }
+
   if (await exists(join(outDir, 'tools'))) {
     problems.push(
       'generated template must not vendor tools/; create:app uses the published package',
@@ -251,7 +249,15 @@ const installLockfile = (outDir, createAppVersion) => {
 }
 
 const assertSourceToolIsPublishable = async () => {
-  for (const file of ['package.json', 'bin/create-app.mjs', 'versions.json']) {
+  for (const file of [
+    'package.json',
+    'bin/create-app.mjs',
+    'versions.json',
+    'templates/eslint-react.config.mjs',
+    'templates/eslint-vue.config.mjs',
+    'templates/prettier.config.mjs',
+    'templates/prettierignore',
+  ]) {
     if (!(await exists(join(sourceRoot, 'tools/create-app', file)))) {
       throw new Error(`tools/create-app/${file} is missing; the generator must stay publishable.`)
     }

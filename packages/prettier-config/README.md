@@ -1,15 +1,17 @@
-# @ezhana/eslint-config-vue
+# @ezhana/prettier-config
 
-ESLint flat config for Vue and TypeScript projects.
+> **Internal module.** This package is private to the `frontend-template-source` repository and is
+> not published to npm. Generated apps receive self-contained config files from
+> `create-ezhana-app`; they do not depend on this package.
+
+Shared Prettier configuration for frontend projects.
 
 ## Usage
 
 ```js
-import config from '@ezhana/eslint-config-vue'
-
-export default config
+export { default } from '@ezhana/prettier-config'
 ```
 
 ## Include
 
-- Prettier compatibility
+- Shared Prettier options for the source repository

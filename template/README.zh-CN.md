@@ -9,16 +9,23 @@
 pnpm create:app
 ```
 
-命令会询问框架和应用名，调用官方 `create-vite` / `create-vue` 生成项目，套用 `@ezhana/*` 的
-ESLint、Prettier 和主题集成，最后把应用安装到 `apps/<name>`。生成器本身是已发布的
-`create-ezhana-app` 包，以普通 devDependency 精确锁定，随 workspace 一起版本化和审计。非交互用法：
+命令会询问框架和应用名，调用官方 `create-vite` / `create-vue` 生成项目，套用主题集成，最后把应用
+安装到 `apps/<name>`。生成器本身是已发布的 `create-ezhana-app` 包，以普通 devDependency 精确锁定，
+随 workspace 一起版本化和审计。非交互用法：
 
 ```bash
 pnpm create:app react my-app
 pnpm create:app vue my-app
+
+# 创建时写入自包含的 ESLint/Prettier 配置
+pnpm create:app react my-app --eslint --prettier
+
+# 或稍后配置已有应用
+pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
-生成的应用共用根目录的工具链、Lint、提交钩子和 CI 配置。
+生成的应用默认保留官方脚手架自己的 lint/format 工具链，除非显式选择 Ezhana 基础配置。应用共用
+根目录的提交钩子和 CI 配置。
 
 ## 环境要求
 
@@ -44,6 +51,22 @@ pnpm check            # format:check + lint + build
 pnpm --filter ./apps/my-app dev
 pnpm --filter ./apps/my-app build
 ```
+
+## Lint 与格式化
+
+根目录提供可编辑、自包含的 `eslint.config.mjs` 和 `prettier.config.mjs` 基础配置。生成的应用不
+依赖任何 `@ezhana` 配置包。
+
+默认情况下 `create:app` 不改动脚手架的 lint/format 设置：React 应用保留 Vite 生成的 Oxlint 配置，
+Vue 应用默认没有 lint/format 设置。如需写入 Ezhana 基础配置，可在创建时传 `--eslint` /
+`--prettier`，或稍后执行：
+
+```bash
+pnpm create:app configure apps/my-app --eslint --prettier
+```
+
+`configure` 会覆盖它负责的配置文件，并通过 `pnpm add -D` 添加依赖。它不会删除 Oxlint，也不会修改
+`package.json` 脚本；如果需要 `pnpm lint` 使用 ESLint，请自行调整脚本。
 
 ## 共享包（可选）
 

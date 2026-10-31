@@ -11,17 +11,24 @@ pnpm create:app
 ```
 
 The command prompts for the framework and app name, scaffolds with the official
-`create-vite` / `create-vue` version, applies the `@ezhana/*` ESLint, Prettier and theme integration,
-then installs the app under `apps/<name>`. The generator itself is the published
-`create-ezhana-app` package, pinned as a regular devDependency, so it is versioned and audited
-together with the rest of the workspace tooling. Non-interactive usage:
+`create-vite` / `create-vue` version, applies the theme integration, then installs the app under
+`apps/<name>`. The generator itself is the published `create-ezhana-app` package, pinned as a regular
+devDependency, so it is versioned and audited together with the rest of the workspace tooling.
+Non-interactive usage:
 
 ```bash
 pnpm create:app react my-app
 pnpm create:app vue my-app
+
+# write self-contained ESLint/Prettier configs during creation
+pnpm create:app react my-app --eslint --prettier
+
+# or configure an existing app later
+pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
-Generated apps share the root tooling, linting, commit hooks and CI configuration.
+Generated apps keep the official scaffold's own lint/format tooling unless you ask for the Ezhana
+base config. They share the root commit hooks and CI configuration.
 
 ## Requirements
 
@@ -49,6 +56,23 @@ You can also use the workspace filters directly:
 pnpm --filter ./apps/my-app dev
 pnpm --filter ./apps/my-app build
 ```
+
+## Lint and format
+
+The root workspace has editable, self-contained `eslint.config.mjs` and `prettier.config.mjs` base
+files. Generated apps do not import any `@ezhana` config package.
+
+By default `create:app` leaves the scaffold's tooling untouched: a React app keeps the Oxlint config
+created by Vite, and a Vue app has no lint/format setup. To write the Ezhana base config into an app,
+either pass `--eslint` / `--prettier` when creating it or run:
+
+```bash
+pnpm create:app configure apps/my-app --eslint --prettier
+```
+
+`configure` overwrites the config files it owns and adds dependencies with `pnpm add -D`. It does not
+delete Oxlint or rewrite `package.json` scripts, so update those yourself if you want `pnpm lint` to
+run ESLint.
 
 ## Packages (optional)
 

@@ -1,19 +1,18 @@
 # Frontend Template Source
 
-Source/development monorepo for the `frontend-template` repository. It provides reusable ESLint and
-Prettier configurations, the design-token and theme packages, and the generator that creates React
-and Vue apps on demand. The consumer-facing template repository is generated from this repository;
-no full sample apps are committed here.
+Source/development monorepo for the `frontend-template` repository. It provides internal ESLint and
+Prettier base modules, the design-token and theme packages, and the generator that creates React and
+Vue apps on demand. The consumer-facing template repository is generated from this repository; no
+full sample apps are committed here.
 
 ## Features
 
 - pnpm workspace monorepo
 - Centralized dependency versions with pnpm Catalog
 - ESLint 10 Flat Config
-- TypeScript ESLint configuration
-- Vue 3 ESLint configuration
-- React ESLint configuration
-- Shared Prettier configuration
+- Internal TypeScript/Vue/React ESLint configuration modules (not published)
+- Internal Prettier configuration module (not published)
+- Opt-in, self-contained app configs written by `create:app configure`
 - Layered design tokens (primitive → semantic, optional component layer) compiled with Style Dictionary
 - Themes as standalone, independently versioned packages built with a validating theme builder
 - Multi-theme switching (`data-theme` + optional `data-color-mode`) through semantic-token overrides
@@ -21,7 +20,8 @@ no full sample apps are committed here.
 - Framework-agnostic theme runtime with a typed theme registry, persistence and system color-scheme support
 - Token contract, reference, and WCAG AA contrast validation for every theme package
 - On-demand React/Vue app generation from pinned `create-vite` / `create-vue` versions
-- Theme and tooling overlay applied to generated apps
+- Theme overlay applied to generated apps
+- Opt-in ESLint/Prettier configuration via `create:app --eslint` / `--prettier` or `create:app configure`
 - Generated `frontend-template` repository export
 - lint-staged with simple-git-hooks
 - GitHub Actions CI
@@ -45,15 +45,16 @@ frontend-template-source/
 │   ├── design-theme-ocean/     # official theme package
 │   ├── design-theme-quest/     # official QuestUI fantasy theme package (dark-only)
 │   ├── theme/                # theme/mode state machine + theme registry
-│   ├── eslint-config-base/
-│   ├── eslint-config-typescript/
-│   ├── eslint-config-vue/
-│   ├── eslint-config-react/
-│   └── prettier-config/
+│   ├── eslint-config-base/          # internal/private, not published
+│   ├── eslint-config-typescript/    # internal/private, not published
+│   ├── eslint-config-vue/           # internal/private, not published
+│   ├── eslint-config-react/         # internal/private, not published
+│   └── prettier-config/             # internal/private, not published
 │
 ├── tools/create-app/         # published create-ezhana-app generator + overlay pipeline
 │   ├── recipes/
-│   ├── overlays/
+│   ├── overlays/             # theme integration only
+│   ├── templates/            # self-contained app ESLint/Prettier configs
 │   └── bin/create-app.mjs
 │
 ├── template/                 # skeleton for the generated frontend-template
@@ -71,74 +72,24 @@ frontend-template-source/
 
 ## Packages
 
-### ESLint
+### Internal lint/format modules (not published)
 
-#### `@ezhana/eslint-config-base`
+`packages/eslint-config-base`, `packages/eslint-config-typescript`,
+`packages/eslint-config-react`, `packages/eslint-config-vue` and `packages/prettier-config` are
+private workspace packages. They configure this repository's own tooling and are **not published to
+npm**.
 
-Base ESLint Flat Config for frontend JavaScript projects.
+Generated apps and the generated template never depend on them. `create-ezhana-app` writes
+self-contained `eslint.config.mjs` / `prettier.config.mjs` files instead, so users can extend the
+base rules directly:
 
-Includes:
-
-- ESLint recommended rules
-- Browser globals
-- Basic JavaScript rules
-- Prettier compatibility
-
-Usage:
-
-```js
-import config from '@ezhana/eslint-config-base'
-
-export default config
+```bash
+pnpm create:app react my-app --eslint --prettier
+# or, for an existing app:
+pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
-#### `@ezhana/eslint-config-typescript`
-
-TypeScript ESLint configuration built on top of the base configuration.
-
-Usage:
-
-```js
-import config from '@ezhana/eslint-config-typescript'
-
-export default config
-```
-
-#### `@ezhana/eslint-config-vue`
-
-Vue 3 + TypeScript ESLint configuration.
-
-Usage:
-
-```js
-import config from '@ezhana/eslint-config-vue'
-
-export default config
-```
-
-#### `@ezhana/eslint-config-react`
-
-React + TypeScript ESLint configuration.
-
-Usage:
-
-```js
-import config from '@ezhana/eslint-config-react'
-
-export default config
-```
-
-### Prettier
-
-#### `@ezhana/prettier-config`
-
-Shared Prettier configuration for frontend projects.
-
-Usage:
-
-```js
-export { default } from '@ezhana/prettier-config'
-```
+By default no lint/format config is written; the official scaffold's own output is preserved.
 
 ### Design tokens
 
@@ -271,19 +222,31 @@ with `pnpm dlx`):
 pnpm install
 pnpm create:app react my-react-app
 pnpm create:app vue my-vue-app
+
+# write self-contained ESLint/Prettier configs during creation
+pnpm create:app react my-react-app --eslint --prettier
+
+# or configure an existing app later
+pnpm create:app configure apps/my-react-app --eslint --prettier
 ```
 
 The generator then:
 
-1. scaffolds with the pinned `create-vite` / `create-vue` version;
-2. removes the generated ESLint/Prettier/Oxlint configuration and dependency additions;
-3. applies the `@ezhana/*` ESLint/Prettier config, theme runtime, theme switcher and anti-flash script;
-4. installs dependencies once, formats, lints and builds;
-5. moves the app into `apps/<name>` before install (the workspace needs it there), then installs and
-   verifies it, removing the app again if either step fails.
+1. scaffolds with the pinned `create-vite` / `create-vue` version, keeping the scaffold's own
+   dependencies, scripts and lint/format configuration;
+2. applies the theme runtime, theme switcher and anti-flash script;
+3. moves the app into `apps/<name>` and adds the `@ezhana` theme dependencies with `pnpm add`;
+4. when `--eslint` / `--prettier` is passed, writes self-contained config files and adds their
+   dependencies (the same code as `configure`);
+5. verifies with ESLint (if configured) or the app's existing lint script, then builds.
 
 Run `pnpm create:app` without arguments for an interactive framework/name prompt. By default the app
 is created under `apps/<name>`; use `--target <path>` for a different directory.
+
+`configure` overwrites the config files it owns and adds dependencies, but it does not delete
+scaffold configs, rewrite scripts or migrate old setups. If you keep the Oxlint config generated by
+create-vite, it stays in place; update `package.json` scripts yourself if you want `pnpm lint` to use
+ESLint.
 
 Generated app commands:
 
@@ -292,11 +255,10 @@ cd apps/my-react-app
 pnpm dev
 pnpm build
 pnpm lint
-pnpm format:check
 ```
 
-Options: `--no-install`, `--no-verify`, `--keep-temp`, `--target`, `--root`. See
-[`docs/create-app.md`](docs/create-app.md).
+Options: `--eslint`, `--prettier`, `--no-install`, `--no-verify`, `--keep-temp`, `--target`,
+`--root`. See [`docs/create-app.md`](docs/create-app.md).
 
 In the generated template repository the same `pnpm create:app` command runs the published
 [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) devDependency; the generator
@@ -310,7 +272,7 @@ The generated `frontend-template` repository is a **workspace starter with no de
 - `apps/` — empty; users choose a stack with one command;
 - `packages/` — optional placeholder for your own workspace packages (delete it if unused);
 - `README.md` (English) and `README.zh-CN.md` (中文);
-- shared linting, formatting, commit hooks and CI from npm.
+- self-contained root lint/format configs, commit hooks and CI.
 
 ```bash
 pnpm install        # installs root tooling and the pinned create-ezhana-app generator
@@ -321,8 +283,9 @@ pnpm lint
 pnpm check
 ```
 
-The command is routed to the official `create-vite` / `create-vue` CLI and then patched with the
-Ezhana configuration and theme integration. The generated app appears under `apps/<name>`.
+The command uses the official `create-vite` / `create-vue` CLI and applies the theme integration.
+Lint/format configuration is opt-in with `--eslint` / `--prettier` or `create:app configure`; by
+default the scaffold's own tooling is preserved. The generated app appears under `apps/<name>`.
 
 To add your own package, create `packages/<name>`, reference it with `"workspace:*"` from an app,
 and run `pnpm build:packages` before `pnpm build`. See the template's `packages/README.md`.
@@ -474,41 +437,20 @@ model, required GitHub variables/secrets, and the user-package workflow.
 
 ## Development Workflow
 
-The repository uses a layered ESLint configuration model:
+The repository has two layers of lint/format configuration:
 
-```text
-@ezhana/eslint-config-base
-            │
-            ▼
-@ezhana/eslint-config-typescript
-            │
-      ┌─────┴─────┐
-      ▼           ▼
-    Vue         React
-```
+1. **Internal modules** in `packages/eslint-config-*` and `packages/prettier-config` configure this
+   source repository itself. They are private and are not published.
+2. **App-owned configs** are written by `create-ezhana-app` into generated apps and the generated
+   template. They are self-contained `eslint.config.mjs` / `prettier.config.mjs` files that users can
+   edit and extend without importing an `@ezhana` config package.
 
-This allows projects to opt into only the configuration they need.
+`pnpm create:app` does not write lint/format config by default. Use `--eslint` / `--prettier`, or
+the `configure` subcommand, when you want the base rules:
 
-For example:
-
-```text
-JavaScript
-  → @ezhana/eslint-config-base
-
-TypeScript
-  → @ezhana/eslint-config-typescript
-
-Vue
-  → @ezhana/eslint-config-vue
-
-React
-  → @ezhana/eslint-config-react
-```
-
-Prettier is managed independently through:
-
-```text
-@ezhana/prettier-config
+```bash
+pnpm create:app react my-app --eslint --prettier
+pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 ## Git Hooks
@@ -553,7 +495,9 @@ pnpm check
 
 ## Versioning and Releases
 
-Publishable packages are located under `packages/`.
+Published design/theme packages and the generator are versioned and released with Changesets. The
+lint/format config packages under `packages/` are private internal modules, so Changesets neither
+versions nor publishes them.
 
 The repository uses Changesets for package versioning:
 
@@ -587,7 +531,10 @@ Core development tooling is managed through pnpm Catalog:
 
 ```yaml
 catalog:
+  '@eslint/js': ...
   eslint: ...
+  eslint-config-prettier: ...
+  globals: ...
   prettier: ...
   typescript: ...
 ```
@@ -619,17 +566,20 @@ fights with component styles.
 
 Each workspace package declares the dependencies it directly uses instead of relying on transitive dependencies.
 
-### Layered configuration
+### Config belongs to the app
 
-Shared ESLint configurations are composed from small, focused layers rather than one large configuration package.
+Generated apps receive complete, self-contained ESLint/Prettier configuration files. Base rules are
+a starting point, not a package dependency the app cannot change.
 
-### Framework-specific ownership
+### Internal tooling is not published
 
-Vue and React specific linting dependencies belong to their corresponding ESLint configuration packages.
+The lint/format modules used by this repository remain private. Generated apps and the generated
+template never depend on unpublished workspace packages.
 
-### Templates remain lightweight
+### Explicit, opt-in configuration
 
-Application templates consume shared tooling instead of duplicating the implementation dependencies of those tools.
+Generating an app does not overwrite the scaffold's tooling. Lint/format configuration is written
+only when the user asks for it, and the command does not try to clean up or migrate existing files.
 
 ### Local checks and CI have different responsibilities
 

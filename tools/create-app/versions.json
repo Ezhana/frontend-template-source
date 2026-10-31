@@ -4,16 +4,14 @@
     "@ezhana/design-theme-ocean": "0.1.0",
     "@ezhana/design-theme-quest": "0.1.0",
     "@ezhana/design-tokens": "1.1.0",
-    "@ezhana/eslint-config-base": "0.1.0",
-    "@ezhana/eslint-config-react": "0.1.1",
-    "@ezhana/eslint-config-typescript": "0.1.0",
-    "@ezhana/eslint-config-vue": "0.1.1",
-    "@ezhana/prettier-config": "0.1.0",
     "@ezhana/theme": "0.4.0",
     "@ezhana/theme-builder": "0.2.0"
   },
   "catalog": {
+    "@eslint/js": "10.0.1",
     "eslint": "10.10.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
     "prettier": "3.9.8",
     "typescript": "6.0.2"
   }

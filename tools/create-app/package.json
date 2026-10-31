@@ -12,6 +12,7 @@
     "overlays",
     "recipes",
     "snippets",
+    "templates",
     "versions.json",
     "README.md"
   ],

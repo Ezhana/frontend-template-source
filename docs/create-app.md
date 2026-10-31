@@ -1,9 +1,10 @@
 # Creating an app from external scaffolders
 
 `tools/create-app` is a thin wrapper around the official framework scaffolders. It generates an app
-with `create-vite` / `create-vue`, then applies the `@ezhana/*` configuration and theme overlay. The
-same code is published as [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) and
-pinned by the generated template; this repository runs it from `tools/create-app` directly.
+with `create-vite` / `create-vue`, applies the `@ezhana` theme overlay, and can optionally write
+self-contained ESLint/Prettier configuration. The same code is published as
+[`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) and pinned by the generated
+template; this repository runs it from `tools/create-app` directly.
 
 ```bash
 pnpm create:app
@@ -11,6 +12,9 @@ pnpm create:app
 
 pnpm create:app react my-react-app
 pnpm create:app vue my-vue-app
+
+pnpm create:app react my-react-app --eslint --prettier
+pnpm create:app configure apps/my-react-app --eslint --prettier
 ```
 
 Apps are created under `apps/<name>` by default. Use `--target <path>` to generate elsewhere.
@@ -21,7 +25,8 @@ pinned `create-ezhana-app` devDependency.
 ## Lifecycle
 
 ```text
-preflight → scaffold (external CLI, pinned version) → normalize → overlay → move → install → verify
+preflight → scaffold (external CLI, pinned version) → prepare metadata → theme overlay
+          → move → add theme dependencies → optional configure → verify
 ```
 
 1. **preflight**: resolve the template (interactive prompt or arguments) and the target
@@ -29,66 +34,117 @@ preflight → scaffold (external CLI, pinned version) → normalize → overlay 
 2. **scaffold**: run the pinned external scaffolder in a staging directory next to the target.
    `create-vite@9.3.3` (`react-ts`) and `create-vue@3.24.0` (`--ts`) are pinned in
    [`recipes/`](../tools/create-app/recipes/index.mjs).
-3. **normalize**:
-   - remove generated lint/format configs and lockfiles, `node_modules`, `.git`;
-   - remove generated ESLint/Prettier/Oxlint dependencies and scripts from `package.json`;
-   - write the `@ezhana/*` dependencies from `versions.json` (`@ezhana/design-tokens`,
-     `@ezhana/theme`, `@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`), the
-     ESLint/Prettier dependencies and the scripts.
-4. **overlay**: copy `overlays/<framework>` into the app:
-   - `eslint.config.mjs`, `prettier.config.mjs`, `.prettierignore`;
+3. **prepare metadata**: remove generated lockfiles, `node_modules` and `.git`; set the app
+   `name` and `private` fields. The scaffold's dependencies, scripts and lint/format configuration
+   are left untouched.
+4. **theme overlay**: copy `overlays/<framework>` into the app:
    - `src/theme/*` runtime integration (`registry.ts`, `manager.ts`, `useTheme.ts`);
    - `ThemeSwitcher` + `ThemeRoot` wrapper;
    - entry file importing the core tokens CSS and each theme package's `./style` entry;
    - theme init script in `index.html` (no flash of wrong theme).
-5. **move**: rename the staging app to the target. This happens _before_ install on purpose: inside
-   the template workspace the app has to exist at `apps/<name>` when pnpm resolves the workspace.
-6. **install**: one `pnpm install` after all package/config changes.
-7. **verify**: `prettier --write`, `lint`, `build`.
+5. **move**: rename the staging app to the target. This happens _before_ dependency installation on
+   purpose: inside the template workspace the app has to exist at `apps/<name>` when pnpm resolves
+   the workspace.
+6. **add theme dependencies**: `pnpm add @ezhana/design-tokens @ezhana/theme
+@ezhana/design-theme-ocean @ezhana/design-theme-cerulean` with versions from `versions.json`.
+7. **optional configure**: when `--eslint` / `--prettier` is passed, write the self-contained
+   configuration files and run `pnpm add -D` for their dependencies (same implementation as the
+   `configure` subcommand).
+8. **verify**: if ESLint was configured, run `pnpm exec eslint .`; otherwise run `pnpm lint` when
+   the app has a `lint` script; then build.
 
-If install or verification fails, the moved app is removed again so the command can be retried
+Dependencies are added with pnpm, not by patching `package.json` by hand. The tool does not remove
+scaffold configuration, dependencies or scripts, and contains no migration or compatibility logic.
+
+`--no-install` skips dependency installation and verification. Config files selected with
+`--eslint` / `--prettier` are still written; the dependency add commands are printed for you to run
+later.
+
+If installation or verification fails, the moved app is removed again so the command can be retried
 against an empty target (`--keep-temp` skips both the cleanup and the staging cleanup).
 
-Options:
+## Configure an existing app
+
+```bash
+pnpm create:app configure apps/my-app --eslint --prettier
+```
+
+`configure` writes:
+
+- `eslint.config.mjs`: a self-contained ESLint flat config for the app's framework;
+- `prettier.config.mjs` and `.prettierignore` when `--prettier` is selected.
+
+It then adds the matching devDependencies with `pnpm add -D`. `--no-install` writes only the files
+and prints the command. The framework is inferred from `package.json`; use `--template react|vue`
+when that is not possible. The ESLint dependency set also pins `typescript` to the catalog version,
+because `typescript-eslint` needs a supported compiler major and the official scaffold may ship a
+newer one.
+
+`configure` intentionally:
+
+- overwrites the config files it owns;
+- does not delete Oxlint or any other scaffold configuration;
+- does not modify `package.json` scripts, so `pnpm lint` may still run Oxlint;
+- does not look for old versions, migrate old configs, or reconcile dependencies.
+
+Those choices keep the command small and predictable. Cleanup, script changes and lint/format
+migrations are user decisions.
+
+## Options
+
+### Create
 
 | Option         | Effect                                                             |
 | -------------- | ------------------------------------------------------------------ |
-| `--no-install` | scaffold + normalize + overlay only (useful for inspecting output) |
-| `--no-verify`  | install dependencies but skip format/lint/build                    |
+| `--eslint`     | write the ESLint base and add its dependencies                     |
+| `--prettier`   | write the Prettier base and add Prettier                           |
+| `--no-install` | scaffold + theme overlay + config files only                       |
+| `--no-verify`  | add dependencies but skip lint/build                               |
 | `--keep-temp`  | keep the staging directory when generation fails                   |
 | `--target`     | explicit output path instead of `apps/<name>`                      |
 | `--root`       | workspace root used for the default `apps/<name>` path             |
 | `--name`       | app directory name (alternative to the second positional argument) |
+| `--template`   | template name (alternative to the first positional argument)       |
 | `--list`       | list available templates                                           |
 
-## Config detection and timing
+### Configure
 
-External scaffolders do not expose reliable hooks, so this wrapper owns the lifecycle. The rules are:
+| Option              | Effect                                                           |
+| ------------------- | ---------------------------------------------------------------- |
+| `--target <path>`   | app directory (default: current directory)                       |
+| `--template <name>` | framework override; otherwise inferred from `package.json`       |
+| `--eslint`          | write `eslint.config.mjs` and add ESLint dependencies            |
+| `--prettier`        | write `prettier.config.mjs` / `.prettierignore` and add Prettier |
+| `--no-install`      | write files only; print the `pnpm add` command                   |
 
-- **Own the final configuration**: never merge generated ESLint/Prettier configs. Remove known
-  generated config files and `package.json` fields/scripts, then write the overlay.
-- **Known-file list, not heuristics**: see `GENERATED_CONFIG_FILES` in
-  [`lib/create.mjs`](../tools/create-app/lib/create.mjs). If an external generator changes its output,
-  the expected-entry check fails with the missing path.
-- **Do package changes before installing** so there is exactly one install and the lockfile matches
-  the final dependencies.
-- **Pin the external scaffolders** and update recipes intentionally; see the CI matrix.
+At least one of `--eslint` / `--prettier` is required.
 
-## Overlay maintenance
+## Default scaffold output
 
-The overlays are small and shared by generated apps:
+The generator does not own the scaffold's lint/format state by default:
 
-- `overlays/react` / `overlays/vue`: entry file, `ThemeRoot`, theme runtime files, theme switcher,
-  ESLint/Prettier configs.
+- `create-vite@9.3.3` React generates `.oxlintrc.json`, an `oxlint` devDependency and
+  `"lint": "oxlint"`; these are preserved.
+- `create-vue@3.24.0` with `--ts --force` generates no ESLint/Prettier configuration; nothing is
+  added.
 
-When `@ezhana/*` APIs change, update the overlay files and regenerate an app in CI. The source
-repository no longer keeps sample apps; apps exist only after a user runs `pnpm create:app` (in the
-generated template repository or locally).
+## Configuration templates
+
+`configure` copies from [`tools/create-app/templates/`](../tools/create-app/templates/):
+
+- `eslint-react.config.mjs`
+- `eslint-vue.config.mjs`
+- `prettier.config.mjs`
+- `prettierignore` (copied to `.prettierignore`)
+
+They are standalone files: no `@ezhana` config package is imported or listed as a dependency. The
+rules intentionally mirror the internal `@ezhana/*-config` modules used by this source repository,
+but the copies are hand-maintained; there is no sync or patch step.
 
 ## Theme packages
 
 Themes are consumed as standalone packages, per
-[ADR 0003](adr/0003-themes-as-packages.md). The generator injects `@ezhana/design-tokens`,
+[ADR 0003](adr/0003-themes-as-packages.md). The generator installs `@ezhana/design-tokens`,
 `@ezhana/theme`, `@ezhana/design-theme-cerulean` and `@ezhana/design-theme-ocean`; versions come from
 `versions.json`, so theme packages release independently of the core token package.
 
@@ -101,16 +157,15 @@ theme-specific token — and each package's `./style` entry pulls in the core st
 fonts if any and its overrides.
 
 To change the default theme set, update both overlays (registry array + entry-file `./style` imports)
-and the injected dependency list in [`lib/create.mjs`](../tools/create-app/lib/create.mjs). Adding a
-theme in a generated app only needs `pnpm --filter ./apps/<name> add <theme-package>`, its stylesheet
+and the theme package list in [`lib/create.mjs`](../tools/create-app/lib/create.mjs). Adding a theme
+in a generated app only needs `pnpm --filter ./apps/<name> add <theme-package>`, its stylesheet
 import and one entry in `src/theme/registry.ts`.
 
 ## CI
 
-`.github/workflows/create-app.yml` runs the generator matrix (React and Vue), installs the generated
-app, then lints and builds it. It also packs the tarball and checks the published file set, so the
-package layout cannot break silently. External scaffolders are pinned, so a version bump is an
-explicit recipe change and is covered by the same matrix.
+`.github/workflows/create-app.yml` runs the generator matrix: React and Vue, each with and without
+`--eslint --prettier`, installing and verifying the generated app. It also packs the tarball and
+checks the published file set, including `templates/`, so the package layout cannot break silently.
 
 ## Distribution
 
@@ -135,17 +190,24 @@ devDependency and script, and never copies the tool into the template. Users run
 before the command, which puts the pinned generator (and its integrity) in the template's
 `pnpm-lock.yaml`. The package, not the template snapshot, is versioned and audited.
 
-`versions.json` is regenerated from the source package manifests under `packages/` (core tokens,
-official theme packages, ESLint/Prettier configs) plus the workspace catalog, by the package's
-`prepack` hook (and manually with `pnpm sync:create-app`):
+`versions.json` is regenerated from the **non-private** package manifests under `packages/` (core
+tokens, official theme packages, theme runtime and theme builder) plus the workspace catalog by the
+package's `prepack` hook (and manually with `pnpm sync:create-app`):
 
 ```bash
 pnpm sync:create-app
 ```
 
 It contains the `packages` map (name → published version) and the `catalog` versions; the generator
-throws on a missing catalog entry or a missing version for an injected dependency. Run it after
-bumping any `@ezhana/*` version, including the theme packages. Publishing requires the pinned
-`create-ezhana-app` version to exist on npm before the template is exported; the export workflow
-verifies that first, and the generated template's CI smoke-tests `pnpm create:app` against the
-installed package.
+throws on a missing catalog entry or a missing version for an injected dependency. The internal
+ESLint/Prettier config packages are private and therefore excluded automatically.
+
+Publishing requires the pinned `create-ezhana-app` version to exist on npm before the template is
+exported; the export workflow verifies that first, and the generated template's CI smoke-tests
+`pnpm create:app` and `pnpm create:app configure` against the installed package.
+
+## Internal config packages
+
+`packages/eslint-config-*` and `packages/prettier-config` remain in this repository as **private
+internal modules**. They power the source repository's own lint/format configuration and are not
+published. Generated apps and the generated template never depend on them.

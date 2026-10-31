@@ -1,3 +1,6 @@
+// Internal base rules. Keep them in sync with the standalone mirrors in
+// tools/create-app/templates/eslint-{react,vue}.config.mjs and template/eslint.config.mjs
+// (ADR 0004).
 import js from '@eslint/js'
 import eslintConfigPrettier from 'eslint-config-prettier/flat'
 import globals from 'globals'

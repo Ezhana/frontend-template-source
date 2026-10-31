@@ -206,9 +206,18 @@ settings:
 
 catalogs:
   default:
+    '@eslint/js':
+      specifier: 10.0.1
+      version: 10.0.1
     eslint:
       specifier: 10.10.0
       version: 10.10.0
+    eslint-config-prettier:
+      specifier: 10.1.8
+      version: 10.1.8
+    globals:
+      specifier: 17.12.0
+      version: 17.12.0
     prettier:
       specifier: 3.9.8
       version: 3.9.8
@@ -223,6 +232,9 @@ importers:
       '@changesets/cli':
         specifier: 3.0.2
         version: 3.0.2
+      '@eslint/js':
+        specifier: 'catalog:'
+        version: 10.0.1(eslint@10.10.0(supports-color@7.2.0))
       '@ezhana/eslint-config-base':
         specifier: workspace:*
         version: link:packages/eslint-config-base
@@ -232,6 +244,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.10.0(supports-color@7.2.0)
+      eslint-config-prettier:
+        specifier: 'catalog:'
+        version: 10.1.8(eslint@10.10.0(supports-color@7.2.0))
+      globals:
+        specifier: 'catalog:'
+        version: 17.12.0
       lint-staged:
         specifier: 17.5.1
         version: 17.5.1

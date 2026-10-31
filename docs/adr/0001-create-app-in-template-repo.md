@@ -1,7 +1,8 @@
 # ADR 0001: Create apps from inside the template repository
 
 - **Status:** Accepted; the generator distribution section is superseded by
-  [ADR 0002](0002-distribute-create-app-via-npm.md)
+  [ADR 0002](0002-distribute-create-app-via-npm.md). The lint/format patch rules are amended by
+  [ADR 0004](0004-app-owned-lint-format-configs.md).
 - **Date:** 2026-10-27
 - **Scope:** `frontend-template` distribution and `tools/create-app`
 
@@ -101,13 +102,12 @@ user: pnpm create:app
         │
         ▼
   repository patch
-    ├── normalize: remove generated ESLint/Prettier/Oxlint configs and scripts
-    ├── overlay:   write @ezhana configs, theme runtime, ThemeRoot, ThemeSwitcher
-    ├── package:   patch package.json dependencies/scripts
-    └── entry:     patch index.html and entry imports
+    ├── metadata:  set app name/private (no dependency or script rewriting)
+    ├── overlay:   theme runtime, ThemeRoot, ThemeSwitcher, entry imports, index.html
+    └── configure: only with --eslint/--prettier; write standalone configs + pnpm add -D
         │
         ▼
-  install once → format/lint/build verify → move to apps/<name>
+  move to apps/<name> → pnpm add theme deps → optional configure → lint/build verify
 ```
 
 The wrapper owns the hooks. Official scaffolders do not expose a reliable post-generation hook, so
@@ -115,16 +115,17 @@ the wrapper's lifecycle is the only supported extension point.
 
 ## Repository patch rules
 
-- Patch by **known contract**, not heuristic config discovery. Prefer official CLI flags that skip
-  generated ESLint/Prettier configuration (for example `create-vue` feature flags).
-- Remove only known generated config files and `package.json` keys. If an unknown lint/format config
-  appears, fail with a clear message and update the recipe.
-- Never merge generated ESLint/Prettier configs; the patch layer owns the final state.
-- Patch `package.json` structurally (JSON), not with regular expressions.
-- Patch entry files with markers/AST or by replacing the entry file from the framework overlay; do not
-  use blind string replacement across the app.
-- Apply the patch **before** installing dependencies, then install exactly once.
-- Generate in a staging directory first; only move into `apps/<name>` after verification succeeds.
+- Keep the official scaffold's lint/format configuration by default. The patch layer does not remove
+  or rewrite it.
+- When the user opts into `--eslint` / `--prettier` (or runs `create-app configure`), write the
+  self-contained config files and add dependencies with `pnpm add -D`. Do not remove other configs,
+  dependencies or scripts, and do not add compatibility or migration logic.
+- Patch `package.json` only for minimal app metadata (name/private); dependency changes go through
+  pnpm.
+- Replace the framework entry files from the theme overlay; do not use blind string replacement
+  across the app.
+- Generate in a staging directory first; only move into `apps/<name>` after the overlay and metadata
+  step succeeds.
 - Pin official CLI versions and test the generated output in CI.
 
 ## Root scripts and template layout

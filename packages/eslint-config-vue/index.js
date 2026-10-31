@@ -1,3 +1,5 @@
+// Internal Vue composition. The standalone mirror for generated apps is
+// tools/create-app/templates/eslint-vue.config.mjs; keep the rules in sync (ADR 0004).
 import { defineConfig } from 'eslint/config'
 import eslintPluginVue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'

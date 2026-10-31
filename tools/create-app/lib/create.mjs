@@ -14,52 +14,17 @@ import { basename, dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
+import { configureApp, hasFeatures, normalizeFeatures, readVersionManifest } from './configure.mjs'
 import { recipes } from '../recipes/index.mjs'
 
 const toolRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 
-const LINTER_FORMATTER_DEPENDENCY =
-  /^(eslint($|-|\/)|@eslint\/|@typescript-eslint\/|@vue\/eslint-|eslint-plugin-|eslint-config-|oxlint$|prettier$|globals$|typescript-eslint$)/
-
-const GENERATED_CONFIG_FILES = [
-  '.oxlintrc.json',
-  'oxlint.json',
-  'eslint.config.js',
-  'eslint.config.mjs',
-  'eslint.config.cjs',
-  'eslint.config.ts',
-  'eslint.config.mts',
-  'eslint.config.cts',
-  '.eslintrc',
-  '.eslintrc.js',
-  '.eslintrc.cjs',
-  '.eslintrc.json',
-  '.eslintrc.yml',
-  '.eslintrc.yaml',
-  '.eslintignore',
-  'prettier.config.js',
-  'prettier.config.mjs',
-  'prettier.config.cjs',
-  'prettier.config.ts',
-  '.prettierrc',
-  '.prettierrc.js',
-  '.prettierrc.cjs',
-  '.prettierrc.json',
-  '.prettierrc.yml',
-  '.prettierrc.yaml',
-  '.prettierignore',
-]
-
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'bun.lockb']
-const OBSOLETE_SCRIPTS = [
-  'lint',
-  'lint:fix',
-  'lint:check',
-  'format',
-  'format:check',
-  'format:fix',
-  'build-only',
-  'type-check',
+const THEME_PACKAGES = [
+  '@ezhana/design-tokens',
+  '@ezhana/theme',
+  '@ezhana/design-theme-ocean',
+  '@ezhana/design-theme-cerulean',
 ]
 
 const exists = async (path) => {
@@ -73,17 +38,6 @@ const exists = async (path) => {
 
 const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'))
 const writeJson = async (path, value) => writeFile(path, `${JSON.stringify(value, null, 2)}\n`)
-
-const readVersionManifest = async () => {
-  const manifest = await readJson(join(toolRoot, 'versions.json'))
-  const versions = new Map(Object.entries(manifest.packages ?? {}))
-  const catalog = manifest.catalog ?? {}
-
-  if (!catalog.eslint || !catalog.prettier || !catalog.typescript) {
-    throw new Error('versions.json is missing catalog versions.')
-  }
-  return { versions, catalog }
-}
 
 const slugify = (value) =>
   value
@@ -116,96 +70,22 @@ const scaffold = async (recipe, stagingDir) => {
   return appDir
 }
 
-const normalize = async (recipe, appDir, meta) => {
-  const manifestPath = join(appDir, 'package.json')
-  const manifest = await readJson(manifestPath)
-
-  for (const file of GENERATED_CONFIG_FILES) {
-    await rm(join(appDir, file), { recursive: true, force: true })
-  }
+const prepareApp = async (appDir, meta) => {
   for (const file of LOCKFILES) await rm(join(appDir, file), { force: true })
   await rm(join(appDir, 'node_modules'), { recursive: true, force: true })
   await rm(join(appDir, '.git'), { recursive: true, force: true })
 
-  for (const field of [
-    'dependencies',
-    'devDependencies',
-    'peerDependencies',
-    'optionalDependencies',
-  ]) {
-    const group = manifest[field]
-    if (!group) continue
-    for (const name of Object.keys(group)) {
-      if (LINTER_FORMATTER_DEPENDENCY.test(name)) delete group[name]
-    }
-  }
-  delete manifest.eslintConfig
-  delete manifest.prettier
-
-  for (const script of OBSOLETE_SCRIPTS) delete manifest.scripts?.[script]
-  for (const name of recipe.removeDependencies ?? []) {
-    delete manifest.dependencies?.[name]
-    delete manifest.devDependencies?.[name]
-  }
-
+  const manifestPath = join(appDir, 'package.json')
+  const manifest = await readJson(manifestPath)
   manifest.name = meta.packageName
   manifest.private = true
   manifest.version = manifest.version ?? '0.1.0'
-  manifest.scripts = {
-    ...manifest.scripts,
-    lint: 'eslint .',
-    'lint:fix': 'eslint . --fix',
-    format: 'prettier . --write',
-    'format:check': 'prettier . --check',
-    build: recipe.buildScript,
-  }
-
-  manifest.dependencies = {
-    ...manifest.dependencies,
-    '@ezhana/design-tokens': meta.versions.get('@ezhana/design-tokens')
-      ? `^${meta.versions.get('@ezhana/design-tokens')}`
-      : undefined,
-    '@ezhana/theme': meta.versions.get('@ezhana/theme')
-      ? `^${meta.versions.get('@ezhana/theme')}`
-      : undefined,
-    '@ezhana/design-theme-ocean': meta.versions.get('@ezhana/design-theme-ocean')
-      ? `^${meta.versions.get('@ezhana/design-theme-ocean')}`
-      : undefined,
-    '@ezhana/design-theme-cerulean': meta.versions.get('@ezhana/design-theme-cerulean')
-      ? `^${meta.versions.get('@ezhana/design-theme-cerulean')}`
-      : undefined,
-  }
-  manifest.devDependencies = {
-    ...manifest.devDependencies,
-    [recipe.eslintConfig]: `^${meta.versions.get(recipe.eslintConfig)}`,
-    '@ezhana/prettier-config': `^${meta.versions.get('@ezhana/prettier-config')}`,
-    eslint: meta.catalog.eslint,
-    prettier: meta.catalog.prettier,
-    typescript: meta.catalog.typescript,
-  }
-
-  for (const [name, version] of Object.entries(manifest.dependencies)) {
-    if (version === undefined) throw new Error(`Missing published version for ${name}.`)
-  }
-  for (const [name, version] of Object.entries(manifest.devDependencies)) {
-    if (version === undefined) throw new Error(`Missing published version for ${name}.`)
-  }
-
   await writeJson(manifestPath, manifest)
 }
-
-const OVERLAY_RENAMES = [
-  ['eslint.config.mjs.template', 'eslint.config.mjs'],
-  ['prettier.config.mjs.template', 'prettier.config.mjs'],
-]
 
 const applyOverlay = async (recipe, appDir, meta) => {
   const overlayDir = join(toolRoot, recipe.overlay)
   await cp(overlayDir, appDir, { recursive: true, force: true })
-  for (const [from, to] of OVERLAY_RENAMES) {
-    const fromPath = join(appDir, from)
-    if (await exists(fromPath)) await rename(fromPath, join(appDir, to))
-  }
 
   for (const [label, file] of [
     ['main entry', recipe.mainEntry],
@@ -237,16 +117,25 @@ const removeAppWorkspaceFile = async (appDir) => {
   await rm(join(appDir, 'pnpm-workspace.yaml'), { force: true })
 }
 
-const install = async (appDir) => {
-  // CI=1 is set for the non-interactive external scaffolders; do not let pnpm infer a frozen
-  // lockfile here, because apps/<name> is a new workspace importer.
-  await run('pnpm', ['install', '--no-frozen-lockfile'], appDir, 'Installing dependencies')
+const themeSpecs = (versions) =>
+  THEME_PACKAGES.map((name) => {
+    const version = versions.get(name)
+    if (!version) throw new Error(`Missing published version for ${name}.`)
+    return `${name}@^${version}`
+  })
+
+const installThemeDependencies = async (appDir, versions) => {
+  await run('pnpm', ['add', ...themeSpecs(versions)], appDir, 'Installing theme dependencies')
   await removeAppWorkspaceFile(appDir)
 }
 
-const verify = async (appDir) => {
-  await run('pnpm', ['exec', 'prettier', '--write', '.'], appDir, 'Formatting generated app')
-  await run('pnpm', ['lint'], appDir, 'Linting generated app')
+const verify = async (appDir, features) => {
+  if (features.eslint) {
+    await run('pnpm', ['exec', 'eslint', '.'], appDir, 'Linting generated app')
+  } else {
+    const manifest = await readJson(join(appDir, 'package.json'))
+    if (manifest.scripts?.lint) await run('pnpm', ['lint'], appDir, 'Linting generated app')
+  }
   await run('pnpm', ['build'], appDir, 'Building generated app')
 }
 
@@ -256,6 +145,7 @@ export const createApp = async ({
   install: shouldInstall = true,
   verify: shouldVerify = true,
   keepTemp = false,
+  features = {},
 }) => {
   const recipe = recipes[template]
   if (!recipe) {
@@ -264,6 +154,7 @@ export const createApp = async ({
     )
   }
 
+  const selected = normalizeFeatures(features)
   const targetPath = target
   if (await exists(targetPath)) {
     const entries = await readdir(targetPath)
@@ -275,10 +166,9 @@ export const createApp = async ({
   const stagingDir = await mkdtemp(join(dirname(targetPath), '.create-app-'))
   const appDir = join(stagingDir, 'app')
   const title = basename(targetPath)
-  const { versions, catalog } = await readVersionManifest()
+  const { versions } = await readVersionManifest()
   const meta = {
     versions,
-    catalog,
     packageName: slugify(title),
     title,
   }
@@ -287,7 +177,7 @@ export const createApp = async ({
   try {
     process.stdout.write(`Creating ${recipe.label} app in ${targetPath}\n`)
     await scaffold(recipe, stagingDir)
-    await normalize(recipe, appDir, meta)
+    await prepareApp(appDir, meta)
     await applyOverlay(recipe, appDir, meta)
 
     // Move before installing so that, inside a template workspace, the new app is part of
@@ -296,10 +186,32 @@ export const createApp = async ({
     movedTarget = true
 
     if (shouldInstall) {
-      await install(targetPath)
-      if (shouldVerify) {
-        await verify(targetPath)
+      await installThemeDependencies(targetPath, versions)
+      if (hasFeatures(selected)) {
+        await configureApp({
+          target: targetPath,
+          template,
+          features: selected,
+          install: true,
+        })
         await removeAppWorkspaceFile(targetPath)
+      }
+      if (shouldVerify) {
+        await verify(targetPath, selected)
+        await removeAppWorkspaceFile(targetPath)
+      }
+    } else {
+      process.stdout.write(
+        `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n` +
+          `  pnpm add ${themeSpecs(versions).join(' ')}\n`,
+      )
+      if (hasFeatures(selected)) {
+        await configureApp({
+          target: targetPath,
+          template,
+          features: selected,
+          install: false,
+        })
       }
     }
 
