@@ -23,8 +23,8 @@ Create options:
   --name <name>      App directory name (alternative to the second positional argument)
   --target <path>    Explicit target directory (overrides apps/<name>)
   --root <path>      Workspace root used for the default apps/<name> path
-  --eslint           Write the Ezhana ESLint base config and add its dependencies
-  --prettier         Write the Ezhana Prettier base config and add its dependencies
+  --eslint           Write eslint.config.mjs and add the shared ESLint config package
+  --prettier         Write prettier.config.mjs/.prettierignore and add the shared Prettier config
   --no-install       Scaffold and overlay only; do not add dependencies or verify
   --no-verify        Add dependencies but skip lint/build verification
   --keep-temp        Keep the staging directory when generation fails
@@ -34,8 +34,8 @@ Create options:
 Configure options:
   --target <path>    App directory (default: current directory)
   --template <name>  Framework override: ${templateNames.join(', ')}
-  --eslint           Write eslint.config.mjs and add the ESLint dependencies
-  --prettier         Write prettier.config.mjs/.prettierignore and add Prettier
+  --eslint           Write eslint.config.mjs and add the shared ESLint config package
+  --prettier         Write prettier.config.mjs/.prettierignore and add the shared Prettier config
   --no-install       Write config files only; print the pnpm add command
   -h, --help         Show configure help
 

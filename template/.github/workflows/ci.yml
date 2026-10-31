@@ -114,3 +114,5 @@ jobs:
           test -f apps/generated-app/.prettierignore
           test -f apps/generated-app/src/theme/registry.ts
           test -f apps/generated-app/src/theme/useTheme.ts
+          grep -q "@ezhana/eslint-config-${{ matrix.template }}" apps/generated-app/eslint.config.mjs
+          grep -q '@ezhana/prettier-config' apps/generated-app/prettier.config.mjs

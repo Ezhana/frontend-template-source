@@ -55,28 +55,35 @@ jobs:
           cache: true
           require-lockfile: true
 
+      # Generate inside the workspace: with --eslint/--prettier the app depends on the @ezhana
+      # config packages shipped in packages/ through workspace:* dependencies, so it cannot live
+      # outside the pnpm workspace.
       - name: Generate app
-        run: pnpm create:app ${{ matrix.template }} generated-app --target "$RUNNER_TEMP/generated-app" ${{ matrix.features }}
+        run: pnpm create:app ${{ matrix.template }} generated-app ${{ matrix.features }}
 
       - name: Check default generated files
         if: matrix.features == ''
         run: |
-          test -f "$RUNNER_TEMP/generated-app/src/theme/registry.ts"
-          test -f "$RUNNER_TEMP/generated-app/src/theme/useTheme.ts"
-          test ! -f "$RUNNER_TEMP/generated-app/eslint.config.mjs"
-          test ! -f "$RUNNER_TEMP/generated-app/prettier.config.mjs"
+          test -f apps/generated-app/src/theme/registry.ts
+          test -f apps/generated-app/src/theme/useTheme.ts
+          test ! -f apps/generated-app/eslint.config.mjs
+          test ! -f apps/generated-app/prettier.config.mjs
           if [ "${{ matrix.template }}" = "react" ]; then
-            test -f "$RUNNER_TEMP/generated-app/.oxlintrc.json"
+            test -f apps/generated-app/.oxlintrc.json
           fi
 
       - name: Check configured generated files
         if: matrix.features != ''
         run: |
-          test -f "$RUNNER_TEMP/generated-app/eslint.config.mjs"
-          test -f "$RUNNER_TEMP/generated-app/prettier.config.mjs"
-          test -f "$RUNNER_TEMP/generated-app/.prettierignore"
-          test -f "$RUNNER_TEMP/generated-app/src/theme/registry.ts"
-          test -f "$RUNNER_TEMP/generated-app/src/theme/useTheme.ts"
+          test -f apps/generated-app/eslint.config.mjs
+          test -f apps/generated-app/prettier.config.mjs
+          test -f apps/generated-app/.prettierignore
+          test -f apps/generated-app/src/theme/registry.ts
+          test -f apps/generated-app/src/theme/useTheme.ts
+          grep -q "@ezhana/eslint-config-${{ matrix.template }}" apps/generated-app/eslint.config.mjs
+          grep -q '@ezhana/prettier-config' apps/generated-app/prettier.config.mjs
+          grep -q '"@ezhana/eslint-config-${{ matrix.template }}": "workspace:' apps/generated-app/package.json
+          grep -q '"@ezhana/prettier-config": "workspace:' apps/generated-app/package.json
 
       - name: Pack generator
         run: |

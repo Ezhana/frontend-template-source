@@ -104,7 +104,7 @@ user: pnpm create:app
   repository patch
     ├── metadata:  set app name/private (no dependency or script rewriting)
     ├── overlay:   theme runtime, ThemeRoot, ThemeSwitcher, entry imports, index.html
-    └── configure: only with --eslint/--prettier; write standalone configs + pnpm add -D
+    └── configure: only with --eslint/--prettier; write app configs + pnpm add -D
         │
         ▼
   move to apps/<name> → pnpm add theme deps → optional configure → lint/build verify
@@ -117,9 +117,10 @@ the wrapper's lifecycle is the only supported extension point.
 
 - Keep the official scaffold's lint/format configuration by default. The patch layer does not remove
   or rewrite it.
-- When the user opts into `--eslint` / `--prettier` (or runs `create-app configure`), write the
-  self-contained config files and add dependencies with `pnpm add -D`. Do not remove other configs,
-  dependencies or scripts, and do not add compatibility or migration logic.
+- When the user opts into `--eslint` / `--prettier` (or runs `create-app configure`), write the app
+  config files and add dependencies with `pnpm add -D`. Do not remove other configs, dependencies or
+  scripts, and do not add compatibility or migration logic. The config files compose the workspace
+  config packages rather than carrying rule copies; see [ADR 0004](0004-app-owned-lint-format-configs.md).
 - Patch `package.json` only for minimal app metadata (name/private); dependency changes go through
   pnpm.
 - Replace the framework entry files from the theme overlay; do not use blind string replacement

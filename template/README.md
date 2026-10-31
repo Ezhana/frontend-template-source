@@ -20,15 +20,15 @@ Non-interactive usage:
 pnpm create:app react my-app
 pnpm create:app vue my-app
 
-# write self-contained ESLint/Prettier configs during creation
+# write thin ESLint/Prettier configs that compose the shared packages
 pnpm create:app react my-app --eslint --prettier
 
 # or configure an existing app later
 pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
-Generated apps keep the official scaffold's own lint/format tooling unless you ask for the Ezhana
-base config. They share the root commit hooks and CI configuration.
+Generated apps keep the official scaffold's own lint/format tooling unless you ask for the shared
+config. They share the root commit hooks and CI configuration.
 
 ## Requirements
 
@@ -59,28 +59,46 @@ pnpm --filter ./apps/my-app build
 
 ## Lint and format
 
-The root workspace has editable, self-contained `eslint.config.mjs` and `prettier.config.mjs` base
-files. Generated apps do not import any `@ezhana` config package.
+The lint/format rules live in the shared workspace packages under `packages/`:
+`eslint-config-base`, `eslint-config-typescript`, `eslint-config-react`, `eslint-config-vue` and
+`prettier-config`. The root `eslint.config.mjs` imports `@ezhana/eslint-config-base` and the root
+`prettier.config.mjs` re-exports `@ezhana/prettier-config`, so a rule change in `packages/` applies
+to the workspace root.
 
 By default `create:app` leaves the scaffold's tooling untouched: a React app keeps the Oxlint config
-created by Vite, and a Vue app has no lint/format setup. To write the Ezhana base config into an app,
+created by Vite, and a Vue app has no lint/format setup. To write the shared config into an app,
 either pass `--eslint` / `--prettier` when creating it or run:
 
 ```bash
 pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
-`configure` overwrites the config files it owns and adds dependencies with `pnpm add -D`. It does not
-delete Oxlint or rewrite `package.json` scripts, so update those yourself if you want `pnpm lint` to
-run ESLint.
+`configure` writes thin configs: the app `eslint.config.mjs` imports
+`@ezhana/eslint-config-<framework>` (with an extension point for app-specific overrides) and the app
+`prettier.config.mjs` re-exports `@ezhana/prettier-config`. It adds the config packages to the app as
+`workspace:*` dependencies with `pnpm add -D`. It does not delete Oxlint or rewrite `package.json`
+scripts, so update those yourself if you want `pnpm lint` to run ESLint.
 
-## Packages (optional)
+Change rules for every app in the matching `packages/eslint-config-*/index.js` (or
+`packages/prettier-config/index.js`), or add overrides in the individual app config.
 
-`packages/` is an optional placeholder for your own shared packages. It contains only a `README.md`.
-**If you do not need shared packages, delete the `packages/` directory and remove the
-`build:packages` script from the root `package.json`.** See [`packages/README.md`](packages/README.md).
+## Packages
 
-The `@ezhana/*` packages are regular npm dependencies, not linked workspace sources.
+`packages/` contains the shared lint/format config packages (the five config packages described
+above). They are workspace packages, not published npm dependencies: the root and app configs
+resolve them through the workspace, so keep the directory and the packages.
+
+Add your own shared packages alongside them:
+
+- create `packages/<name>` with a `package.json`, `src/` and a build script;
+- reference it from an app with `"workspace:*"`;
+- run `pnpm build:packages` before `pnpm build` (the config packages have no build step and are
+  skipped).
+
+See [`packages/README.md`](packages/README.md).
+
+The published `@ezhana/*` theme and token packages are regular npm dependencies, not linked
+workspace sources.
 
 ## Theming
 

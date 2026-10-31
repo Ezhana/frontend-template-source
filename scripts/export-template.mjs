@@ -5,8 +5,9 @@
  * The exported template is a workspace starter with an empty `apps/`; users choose React or Vue
  * with `pnpm create:app`. The command runs the published `create-ezhana-app` package, pinned as an
  * exact devDependency so the generated lockfile covers it — the generator is not vendored into the
- * template repository. Every `@ezhana/*` dependency resolved by the generator points at the
- * published npm version.
+ * template repository. The `@ezhana` lint/format config packages are copied into the template's
+ * `packages/` directory as workspace packages (they are not published to npm); theme packages are
+ * installed from npm by the generator.
  *
  * Usage:
  *   node scripts/export-template.mjs [--out <dir>] [--install]
@@ -17,7 +18,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
-import { dirname, join, relative } from 'node:path'
+import { basename, dirname, join, relative, sep } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -35,6 +36,19 @@ const ROOT_FILES = [
   'lint-staged.config.mjs',
   'pnpm-workspace.yaml',
 ]
+
+// The lint/format rules live only in these packages. They stay private in the source repository
+// and are copied into the generated template's `packages/` directory as workspace packages, so
+// the generated root configs and apps can compose them with `workspace:*` dependencies.
+const CONFIG_PACKAGES = [
+  { dir: 'eslint-config-base', name: '@ezhana/eslint-config-base' },
+  { dir: 'eslint-config-typescript', name: '@ezhana/eslint-config-typescript' },
+  { dir: 'eslint-config-react', name: '@ezhana/eslint-config-react' },
+  { dir: 'eslint-config-vue', name: '@ezhana/eslint-config-vue' },
+  { dir: 'prettier-config', name: '@ezhana/prettier-config' },
+]
+
+const WORKSPACE_CONFIG_PACKAGES = new Set(CONFIG_PACKAGES.map(({ name }) => name))
 
 const parseArgs = () => {
   const args = process.argv.slice(2)
@@ -103,11 +117,10 @@ const createRootManifest = async (outDir) => {
     engines: sourceRootManifest.engines,
     'simple-git-hooks': sourceRootManifest['simple-git-hooks'],
     devDependencies: {
-      '@eslint/js': 'catalog:',
+      '@ezhana/eslint-config-base': 'workspace:*',
+      '@ezhana/prettier-config': 'workspace:*',
       'create-ezhana-app': createAppVersion,
       eslint: 'catalog:',
-      'eslint-config-prettier': 'catalog:',
-      globals: 'catalog:',
       'lint-staged': sourceRootManifest.devDependencies['lint-staged'],
       prettier: 'catalog:',
       'simple-git-hooks': sourceRootManifest.devDependencies['simple-git-hooks'],
@@ -117,6 +130,18 @@ const createRootManifest = async (outDir) => {
 
   await writeJson(join(outDir, 'package.json'), manifest)
   return createAppVersion
+}
+
+const copyConfigPackages = async (outDir) => {
+  for (const { dir } of CONFIG_PACKAGES) {
+    await cp(join(sourceRoot, 'packages', dir), join(outDir, 'packages', dir), {
+      recursive: true,
+      filter: (path) => {
+        const parts = relative(join(sourceRoot, 'packages', dir), path).split(sep)
+        return !parts.includes('node_modules') && basename(path) !== 'CHANGELOG.md'
+      },
+    })
+  }
 }
 
 const copyRootFiles = async (outDir) => {
@@ -154,9 +179,33 @@ const copyRootFiles = async (outDir) => {
 
 const validateOutput = async (outDir) => {
   const problems = []
+
+  const checkWorkspaceDependencies = (label, manifest) => {
+    const dependencies = {
+      ...manifest.dependencies,
+      ...manifest.devDependencies,
+      ...manifest.peerDependencies,
+    }
+    for (const [name, spec] of Object.entries(dependencies)) {
+      if (
+        typeof spec === 'string' &&
+        spec.startsWith('workspace:') &&
+        !WORKSPACE_CONFIG_PACKAGES.has(name)
+      ) {
+        problems.push(
+          `${label}: ${name} must not be a workspace: dependency; only the lint/format config packages are local`,
+        )
+      }
+    }
+  }
+
   const rootManifest = await readJson(join(outDir, 'package.json'))
-  if (JSON.stringify(rootManifest).includes('workspace:')) {
-    problems.push('package.json still contains a workspace: dependency')
+  const dependencies = { ...rootManifest.dependencies, ...rootManifest.devDependencies }
+  checkWorkspaceDependencies('package.json', rootManifest)
+  for (const name of ['@ezhana/eslint-config-base', '@ezhana/prettier-config']) {
+    if (dependencies[name] !== 'workspace:*') {
+      problems.push(`root devDependencies must include ${name} as workspace:*`)
+    }
   }
   if (rootManifest.scripts?.['create:app'] !== 'create-ezhana-app') {
     problems.push('root create:app script must run the published create-ezhana-app package')
@@ -173,23 +222,39 @@ const validateOutput = async (outDir) => {
     if (!(await exists(join(outDir, file)))) problems.push(`${file} is missing`)
   }
 
-  for (const file of ['eslint.config.mjs', 'prettier.config.mjs']) {
+  for (const { dir, name } of CONFIG_PACKAGES) {
+    const manifestPath = join(outDir, 'packages', dir, 'package.json')
+    if (!(await exists(manifestPath))) {
+      problems.push(`packages/${dir} is missing`)
+      continue
+    }
+    const manifest = await readJson(manifestPath)
+    if (manifest.name !== name) problems.push(`packages/${dir}/package.json must be ${name}`)
+    if (manifest.private !== true) {
+      problems.push(`packages/${dir}/package.json must stay private`)
+    }
+    if ('publishConfig' in manifest) {
+      problems.push(`packages/${dir}/package.json must not define publishConfig`)
+    }
+    checkWorkspaceDependencies(`packages/${dir}/package.json`, manifest)
+    if (!(await exists(join(outDir, 'packages', dir, 'index.js')))) {
+      problems.push(`packages/${dir}/index.js is missing`)
+    }
+  }
+
+  for (const [file, packageName] of [
+    ['eslint.config.mjs', '@ezhana/eslint-config-base'],
+    ['prettier.config.mjs', '@ezhana/prettier-config'],
+  ]) {
     const path = join(outDir, file)
     if (!(await exists(path))) {
       problems.push(`${file} is missing`)
       continue
     }
     const content = await readFile(path, 'utf8')
-    if (content.includes('@ezhana/eslint-config') || content.includes('@ezhana/prettier-config')) {
-      problems.push(
-        `${file} must be self-contained; it still imports an unpublished config package`,
-      )
+    if (!content.includes(packageName)) {
+      problems.push(`${file} must compose ${packageName} instead of copying its rules`)
     }
-  }
-
-  const manifestText = JSON.stringify(rootManifest)
-  for (const name of ['@ezhana/eslint-config', '@ezhana/prettier-config']) {
-    if (manifestText.includes(name)) problems.push(`package.json must not reference ${name}`)
   }
 
   if (await exists(join(outDir, 'tools'))) {
@@ -274,6 +339,7 @@ const main = async () => {
   await mkdir(resolvedOut, { recursive: true })
 
   await cp(skeletonDir, resolvedOut, { recursive: true })
+  await copyConfigPackages(resolvedOut)
   await copyRootFiles(resolvedOut)
   const createAppVersion = await createRootManifest(resolvedOut)
   await validateOutput(resolvedOut)
@@ -284,7 +350,7 @@ const main = async () => {
   process.stdout.write(
     `Template exported to ${relative(sourceRoot, resolvedOut) || resolvedOut}\n` +
       '  apps: empty (create with pnpm create:app)\n' +
-      '  packages: optional placeholder (README only; users add their own workspaces here)\n' +
+      '  packages: shared lint/format config packages (copied from this repository)\n' +
       `  create:app: create-ezhana-app@${createAppVersion} (published package, pinned in devDependencies)\n` +
       (install
         ? '  pnpm-lock.yaml generated\n'

@@ -1,14 +1,41 @@
-# ADR 0004: Lint/format config is app-owned, packages stay internal
+# ADR 0004: Lint/format configs ship as workspace packages
 
-- **Status:** Accepted
+- **Status:** Accepted; rewritten in place on 2026-11-01. Replaces the earlier "app-owned
+  self-contained configs" decision.
 - **Date:** 2026-11-01
-- **Scope:** the five `@ezhana/*` config packages, `create-ezhana-app`, the generated template
+- **Scope:** the five `@ezhana/*` config packages, the generated `frontend-template` repository,
+  `create-ezhana-app`
 - **Amends:** [ADR 0001](0001-create-app-in-template-repo.md#repository-patch-rules) for lint/format
-  patch rules and [ADR 0002](0002-distribute-create-app-via-npm.md) for the generator package layout
+  patch rules and [ADR 0002](0002-distribute-create-app-via-npm.md) for how the template is
+  assembled
 
 ## Context
 
-The repository published five configuration packages:
+The previous revision of this ADR made lint/format configuration app-owned and self-contained:
+`create-ezhana-app` wrote complete rule sets into every generated app, and the generated template's
+root configs were complete files too. Those files were hand-maintained copies of the private
+packages in `packages/`:
+
+- `packages/eslint-config-base/index.js`
+- `packages/eslint-config-typescript/index.js`
+- `packages/eslint-config-react/index.js`
+- `packages/eslint-config-vue/index.js`
+- `packages/prettier-config/index.js`
+
+That created three sources of the same rules — the packages, `tools/create-app/templates/` and
+`template/` — that had to be kept in sync by hand. Every rule change had to be repeated in up to
+three places, and the copies could drift. The generated template also shipped a `packages/`
+directory with only a placeholder README, while the rules users were expected to edit lived in files
+that a template regeneration overwrites.
+
+The config packages themselves are useful: they are the repository's real lint/format composition,
+they are small, and there is no reason to publish them to npm.
+
+## Decision
+
+### 1. The five config packages are the single source of rules
+
+The packages stay in `packages/` and are the only place where the rule sets exist:
 
 - `@ezhana/eslint-config-base`
 - `@ezhana/eslint-config-typescript`
@@ -16,120 +43,118 @@ The repository published five configuration packages:
 - `@ezhana/eslint-config-vue`
 - `@ezhana/prettier-config`
 
-Generated apps depended on them and **imported** them from `eslint.config.mjs` /
-`prettier.config.mjs`. That made the configuration a package dependency the app could not freely
-edit. It also meant the generated template's root manifest had to depend on unpublished or
-versioned config packages.
+They stay private (`private: true`, no `publishConfig`) and are not published or versioned by
+Changesets. The React and Vue packages compose the base and TypeScript packages; the base package
+exports the Prettier compatibility config (`prettierConfig`) that the framework packages append.
+No copies exist to keep in sync.
 
-`create-ezhana-app` additionally owned the final configuration state: it deleted known scaffold
-config files, removed ESLint/Prettier/Oxlint dependencies and scripts, rewrote `build`, and wrote its
-own configs unconditionally. With `create-vite@9.3.3` defaulting React to Oxlint, this meant the
-generator silently replaced a valid official setup.
+### 2. The generated template ships the packages under `packages/`
 
-The expected product is the opposite: **provide base rules, let the app own and extend them**.
+`scripts/export-template.mjs` copies the five package directories from this repository into the
+generated `frontend-template` repository under `packages/`, keeping the same layout. The exported
+root configs compose them:
 
-## Decision
+```js
+// eslint.config.mjs
+import config from '@ezhana/eslint-config-base'
 
-### 1. The config packages stay, but are internal
-
-The five packages remain in `packages/` so this source repository can compose its own lint/format
-configuration. They are marked `private: true`, their `publishConfig` is removed, and they are no
-longer published or versioned by Changesets.
-
-`versions.json` only contains published packages; the private config packages are excluded from the
-generator's dependency manifest.
-
-### 2. Generated configs are self-contained
-
-`create-ezhana-app` ships standalone templates in `tools/create-app/templates/`:
-
-- `eslint-react.config.mjs`
-- `eslint-vue.config.mjs`
-- `prettier.config.mjs`
-- `prettierignore` (copied to `.prettierignore`)
-
-They never import an `@ezhana` config package. The generated template root also gets self-contained
-`eslint.config.mjs` / `prettier.config.mjs` files. Users can edit every rule directly.
-
-The rule sets intentionally mirror the internal packages, but the copies are hand-maintained. No
-sync, patch, or compatibility layer is introduced.
-
-### 3. Lint/format writing is opt-in
-
-Default `create:app` behavior:
-
-- scaffolds with the pinned official CLI;
-- applies only the theme overlay;
-- adds theme dependencies with `pnpm add`;
-- does not touch the scaffold's lint/format config, dependencies or scripts.
-
-A `configure` subcommand writes the selected config files into an existing app and adds their
-dependencies:
-
-```bash
-pnpm create:app configure apps/my-app --eslint --prettier
+export default config
 ```
 
-The create command exposes the same action as feature flags:
-
-```bash
-pnpm create:app react my-app --eslint --prettier
+```js
+// prettier.config.mjs
+export { default } from '@ezhana/prettier-config'
 ```
 
-Dependencies are added with `pnpm add -D`, not by patching package.json by hand.
+The exported root `package.json` declares `@ezhana/eslint-config-base` and
+`@ezhana/prettier-config` as `workspace:*` devDependencies, plus `eslint`, `prettier` and
+`typescript` from the catalog. The packages' own dependencies (`@eslint/js`,
+`eslint-config-prettier`, `globals`, `typescript-eslint` and the framework plugins) are declared
+once, in the package manifests.
 
-### 4. No compatibility or patch logic
+### 3. Generated apps get thin configs that compose the packages
 
-`configure` and create intentionally do **not**:
+`create-ezhana-app` still writes lint/format configuration only when asked. The files it writes
+contain no rules of their own:
 
-- look for old create-app versions or migrate existing apps;
-- remove Oxlint, ESLint, Prettier or any scaffold configuration;
-- rewrite `lint` / `format` / `build` scripts;
-- detect known config-file variants or reconcile dependency versions;
-- validate forward/backward compatibility of configs or versions.
+- `eslint.config.mjs` imports `@ezhana/eslint-config-<framework>` and spreads it into
+  `defineConfig([...])`, leaving the array as the extension point for app-level overrides;
+- `prettier.config.mjs` re-exports `@ezhana/prettier-config`;
+- `.prettierignore` remains a standalone file.
 
-It overwrites the files it owns, adds dependencies, and stops. If a React app keeps its Oxlint
-config and also gets `eslint.config.mjs`, that is the user's choice to resolve.
+Dependencies are added with `pnpm add -D`: `@ezhana/eslint-config-<framework>` (or
+`@ezhana/prettier-config`) as `workspace:*`, plus `eslint`/`prettier` and `typescript` at the catalog
+versions from `versions.json`. A rule change is made once, in `packages/eslint-config-*/index.js` or
+`packages/prettier-config/index.js`; an app can still add its own rule overrides in its config file.
+
+### 4. The config features require a workspace that contains the packages
+
+The written app configs import workspace packages, so `configure` (and `create:app` with
+`--eslint`/`--prettier`) only works when the app is inside a pnpm workspace that ships them: the
+generated `frontend-template` repository or this source repository. `configure` walks up from the
+target to find `pnpm-workspace.yaml` and fails with an explicit error when the workspace or the
+needed packages are missing. Generating with `--target` outside such a workspace cannot be combined
+with `--eslint`/`--prettier`.
+
+### 5. No copies, no codegen, no patch logic
+
+The change removes the hand-maintained rule copies rather than generating them. There is no codegen
+or sync step: the export copies whole package directories. `configure` keeps its narrow behavior: it
+writes the files it owns, adds dependencies and stops. It does not remove scaffold tooling, rewrite
+scripts, migrate old apps or reconcile versions.
 
 ## Consequences
 
 ### Positive
 
-- Apps can extend the base rules directly; no unpublished package is required.
-- `create:app` no longer silently replaces a valid official scaffold setup.
-- The source repository keeps one internal lint/format composition for its own checks.
-- The generator's behavior is small and predictable: write files, add dependencies, build.
+- One source of truth for lint/format rules; a rule change is made once.
+- Users can extend the base rules in the app config and change shared rules in the workspace
+  packages.
+- The generated template carries editable, visible config packages instead of hidden copies.
+- The config packages need no npm release: the generated template links them as workspace packages.
 
 ### Negative / trade-offs
 
-- Rule sets are duplicated between the internal packages, the generator templates and the template
-  root. A rule change must be made in several places by hand.
-- `configure` does not wire `pnpm lint` to ESLint; users adjust scripts themselves.
-- Users who want a single linter must remove Oxlint or other scaffold config manually.
-- Existing apps generated by older versions are not migrated.
+- The generated template now contains `@ezhana` source code (the five config packages), not only
+  configuration.
+- Lint/format configuration is available only inside a workspace that ships the packages; a
+  standalone app directory cannot use `--eslint`/`--prettier`.
+- The template snapshot is a copy: edits users make in their generated repository are not propagated
+  automatically, and changes here reach users only through a new export.
+- Framework plugins and `typescript-eslint` versions are pinned in the package manifests, so
+  upgrading them means editing the packages, not the generated apps.
+- Users who want `pnpm lint` to run ESLint still adjust their scripts themselves.
 
 ### Neutral
 
-- The five packages remain part of the workspace but are not release artifacts.
-- The generator still owns the theme overlay and theme dependency installation.
+- The packages remain private workspace packages, outside Changesets and `versions.json`.
+- Theme packages and the theme runtime are still installed from npm; only the config packages ship
+  as workspace source.
 
 ## Alternatives considered
 
-1. **Delete the packages and move base rules to the repo root.** Rejected: the user explicitly wants
-   the packages kept as internal modules; they are useful for the source repository's own linting.
-2. **Publish the packages and let apps import them.** Rejected: it recreates the dependency users
-   cannot extend, which is the problem this change solves.
-3. **Keep auto-overwriting scaffold configs.** Rejected: it silently discards valid official output
-   (notably Oxlint).
-4. **Make `configure` a migration/cleanup tool.** Rejected: it adds compatibility branches and patch
-   logic. A small explicit writer is more maintainable.
-5. **Sync generated templates from the internal packages.** Rejected for now: it adds a codegen/patch
-   step. Hand-maintained self-contained copies are simpler.
+1. **Publish the five packages to npm.** Rejected: it recreates a dependency users cannot freely
+   edit and adds five more release artifacts; the packages only need to exist inside the workspace.
+2. **Keep self-contained copies in the generator templates and the template root.** Rejected: it is
+   the design this ADR replaces — three hand-maintained rule sources that drift.
+3. **Generate or sync the copies from the packages.** Rejected: a codegen step adds build tooling,
+   generated files and its own failure modes for no benefit over shipping the packages themselves.
+4. **Keep the packages private and do not ship them.** Rejected: generated configs would either
+   import an unpublished package or fall back to copies.
+5. **Make `configure` a migration/cleanup tool.** Rejected: it adds compatibility branches and patch
+   logic; a small explicit writer is more maintainable.
 
 ## Migration and release notes
 
-- The five packages stop being published; their current npm versions remain but receive no updates.
-- `create-ezhana-app` gets a minor release for the new `configure` subcommand and the default
-  no-config behavior.
-- Generated apps from older versions are not migrated. Run `configure` if you want the standalone
-  configs, then remove any old config you no longer need.
+- This file is rewritten in place to keep incoming links working: the title and the decision
+  changed, not the filename.
+- `create-ezhana-app` gets a minor release for the thin configs and the workspace requirement.
+- The five config packages stay `private`; they are not versioned or published (they were already
+  unpublished under the previous decision).
+- Apps generated by older releases keep their self-contained configs; nothing is migrated. Running
+  `configure` from the new release writes the thin configs into a workspace app.
+- The generated template must be re-exported for the packages and the new root configs to appear.
+  After a config-package change, re-export as well: the rules ship as a copy inside the generated
+  repository. Users edit the rules in their own copy generated from the template; the template
+  repository itself is force-pushed from this source repository, so upstream rule changes belong
+  here.

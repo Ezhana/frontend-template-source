@@ -1,5 +1,4 @@
-// Internal React composition. The standalone mirror for generated apps is
-// tools/create-app/templates/eslint-react.config.mjs; keep the rules in sync (ADR 0004).
+// Shared React rules: base rules + TypeScript + React and React Hooks, used by generated apps.
 import { defineConfig } from 'eslint/config'
 import eslintReact from '@eslint-react/eslint-plugin'
 import reactHooks from 'eslint-plugin-react-hooks'

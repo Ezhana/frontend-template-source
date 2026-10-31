@@ -217,58 +217,64 @@ Theme design narratives live with the theme package, e.g.
 3. `pnpm create:app react|vue <name>` → scaffolds into `apps/<name>` with the pinned external
    generator, applies the theme overlay, adds theme dependencies and builds the generated app. Lint
    and format files are written only with `--eslint` / `--prettier`; the scaffold's own tooling is
-   preserved by default. `pnpm create:app configure apps/<name> --eslint --prettier` writes the same
-   self-contained configs and dependencies into an existing app.
-4. `pnpm export:template --install` → assembles the empty-apps `frontend-template`, pins the
-   published `create-ezhana-app` devDependency and creates its root lockfile.
+   preserved by default. `pnpm create:app configure apps/<name> --eslint --prettier` writes thin app
+   configs and adds the workspace config packages (`workspace:*`) plus `eslint`/`typescript` (or
+   `prettier`) from the catalog. Both commands require a pnpm workspace that ships the config
+   packages under `packages/`; outside it they stop with an error.
+4. `pnpm export:template --install` → assembles the empty-apps `frontend-template`, copies the five
+   lint/format config packages into its `packages/`, pins the published `create-ezhana-app`
+   devDependency and creates its root lockfile.
 5. CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `test`; the
-   `.github/workflows/create-app.yml` matrix runs React/Vue with and without config features through
-   lint/build and packs the generator tarball; the generated template's own CI smoke-tests
-   `pnpm create:app` and `pnpm create:app configure`.
+   `.github/workflows/create-app.yml` matrix generates React/Vue apps with and without config
+   features inside the workspace (so the `workspace:*` config dependencies resolve) through
+   lint/build, asserts the configured app config imports the workspace config package, and packs
+   the generator tarball; the generated template's own CI smoke-tests `pnpm create:app` and
+   `pnpm create:app configure`.
 6. Publishing: Changesets bumps `@ezhana/design-tokens`, `@ezhana/theme-builder`,
-   `@ezhana/design-theme-*`, `@ezhana/theme` and `create-ezhana-app`. The internal ESLint/Prettier
-   config packages are private and are not published. Publish the packages before the template
-   export: the generated apps and `versions.json` reference published versions. The token and theme
-   packages rebuild `dist/` in their `prepack` hooks, and the generator's `prepack` refreshes
-   `versions.json`.
+   `@ezhana/design-theme-*`, `@ezhana/theme` and `create-ezhana-app`. The shared ESLint/Prettier
+   config packages are private and are not published; the export copies them into the template.
+   Publish the packages before the template export: the generated apps and `versions.json` reference
+   published versions. The token and theme packages rebuild `dist/` in their `prepack` hooks, and the
+   generator's `prepack` refreshes `versions.json`.
 
 Release order matters: core → theme packages → generator → template export.
 
 ## Debugging checklist
 
-| Symptom                          | Check                                                                                                         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Wrong theme on load              | `document.documentElement.dataset` — is `theme` set? `localStorage.getItem('ezhana-theme')`                   |
-| Mode does not follow the OS      | is `data-color-mode` absent? (if present, an explicit mode is active)                                         |
-| Theme does not change            | is the theme package's CSS imported? is the id registered in `defineThemeRegistry`? is `data-theme` updating? |
-| Theme package rejected           | run its build: it lists the missing required override, unknown reference or failing contrast pair             |
-| Token is undefined               | `getComputedStyle(document.documentElement).getPropertyValue('--color-accent')`; run `pnpm build`             |
-| Custom font missing              | is the theme's `./style` entry (not `./theme.css`) imported, or the font package imported manually?           |
-| Broken token reference           | the build fails with the missing token path — fix the source, never the generated file                        |
-| Flash of wrong theme             | inline `<head>` script present and before the module script?                                                  |
-| Generated app has no lint config | pass `--eslint` (and `--prettier`) to `create:app`, or run `create:app configure`                             |
-| `pnpm lint` still runs Oxlint    | `configure` does not change scripts; update `package.json` manually or remove the Oxlint config               |
+| Symptom                                | Check                                                                                                            |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Wrong theme on load                    | `document.documentElement.dataset` — is `theme` set? `localStorage.getItem('ezhana-theme')`                      |
+| Mode does not follow the OS            | is `data-color-mode` absent? (if present, an explicit mode is active)                                            |
+| Theme does not change                  | is the theme package's CSS imported? is the id registered in `defineThemeRegistry`? is `data-theme` updating?    |
+| Theme package rejected                 | run its build: it lists the missing required override, unknown reference or failing contrast pair                |
+| Token is undefined                     | `getComputedStyle(document.documentElement).getPropertyValue('--color-accent')`; run `pnpm build`                |
+| Custom font missing                    | is the theme's `./style` entry (not `./theme.css`) imported, or the font package imported manually?              |
+| Broken token reference                 | the build fails with the missing token path — fix the source, never the generated file                           |
+| Flash of wrong theme                   | inline `<head>` script present and before the module script?                                                     |
+| Generated app has no lint config       | pass `--eslint` (and `--prettier`) to `create:app`, or run `create:app configure`                                |
+| `configure` errors about the workspace | run it inside the `frontend-template` / source workspace: the app configs compose packages that only exist there |
+| `pnpm lint` still runs Oxlint          | `configure` does not change scripts; update `package.json` manually or remove the Oxlint config                  |
 
 ## File map
 
-| File                                                         | Purpose                                                          |
-| ------------------------------------------------------------ | ---------------------------------------------------------------- |
-| `packages/design-tokens/tokens/**`                           | core token sources (primitive / semantic)                        |
-| `packages/design-tokens/scripts/build.mjs`                   | Style Dictionary build + contract validation                     |
-| `packages/design-tokens/dist/**`                             | generated core CSS / JSON / contract / JS + d.ts (not committed) |
-| `packages/theme-builder/lib/**`                              | validation, resolution and artifact generation for themes        |
-| `packages/design-theme-*/tokens/**`                          | theme-private palette + semantic overrides                       |
-| `packages/design-theme-*/theme.config.mjs`                   | theme identity, sources, fonts, contrast options                 |
-| `packages/theme/index.js`                                    | framework-agnostic theme runtime + `defineThemeRegistry`         |
-| `tools/create-app/overlays/*/src/theme/registry.ts`          | app theme registry                                               |
-| `tools/create-app/overlays/*/src/theme/manager.ts`           | app singleton wired to the registry                              |
-| `tools/create-app/overlays/*/src/theme/useTheme.ts`          | React / Vue adapter                                              |
-| `tools/create-app/overlays/*/src/components/ThemeSwitcher.*` | switcher UI                                                      |
-| `tools/create-app/overlays/*/src/main.*`                     | CSS import order                                                 |
-| `tools/create-app/templates/eslint-*.config.mjs`             | self-contained app ESLint configs written by `configure`         |
-| `tools/create-app/templates/prettier.config.mjs`             | self-contained app Prettier config written by `configure`        |
-| `packages/eslint-config-*`, `packages/prettier-config`       | private internal config modules (not published)                  |
-| `tools/create-app/snippets/theme-init.html`                  | pre-paint inline script                                          |
-| `packages/design-theme-cerulean/docs/DESIGN.md`              | worked example of a theme's design narrative                     |
-| `packages/design-theme-quest/docs/DESIGN.md`                 | dark-only theme narrative + tokenized component recipes          |
-| `docs/adr/0003-themes-as-packages.md`                        | the architecture decision for theme packages                     |
+| File                                                         | Purpose                                                                           |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `packages/design-tokens/tokens/**`                           | core token sources (primitive / semantic)                                         |
+| `packages/design-tokens/scripts/build.mjs`                   | Style Dictionary build + contract validation                                      |
+| `packages/design-tokens/dist/**`                             | generated core CSS / JSON / contract / JS + d.ts (not committed)                  |
+| `packages/theme-builder/lib/**`                              | validation, resolution and artifact generation for themes                         |
+| `packages/design-theme-*/tokens/**`                          | theme-private palette + semantic overrides                                        |
+| `packages/design-theme-*/theme.config.mjs`                   | theme identity, sources, fonts, contrast options                                  |
+| `packages/theme/index.js`                                    | framework-agnostic theme runtime + `defineThemeRegistry`                          |
+| `tools/create-app/overlays/*/src/theme/registry.ts`          | app theme registry                                                                |
+| `tools/create-app/overlays/*/src/theme/manager.ts`           | app singleton wired to the registry                                               |
+| `tools/create-app/overlays/*/src/theme/useTheme.ts`          | React / Vue adapter                                                               |
+| `tools/create-app/overlays/*/src/components/ThemeSwitcher.*` | switcher UI                                                                       |
+| `tools/create-app/overlays/*/src/main.*`                     | CSS import order                                                                  |
+| `tools/create-app/templates/eslint-*.config.mjs`             | thin app ESLint configs written by `configure` (compose the workspace packages)   |
+| `tools/create-app/templates/prettier.config.mjs`             | thin app Prettier config written by `configure` (re-exports the workspace config) |
+| `packages/eslint-config-*`, `packages/prettier-config`       | shared lint/format config packages (not published; copied into the template)      |
+| `tools/create-app/snippets/theme-init.html`                  | pre-paint inline script                                                           |
+| `packages/design-theme-cerulean/docs/DESIGN.md`              | worked example of a theme's design narrative                                      |
+| `packages/design-theme-quest/docs/DESIGN.md`                 | dark-only theme narrative + tokenized component recipes                           |
+| `docs/adr/0003-themes-as-packages.md`                        | the architecture decision for theme packages                                      |

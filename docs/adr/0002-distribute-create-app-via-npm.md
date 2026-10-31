@@ -1,6 +1,7 @@
 # ADR 0002: Distribute create-app as a published npm package
 
-- **Status:** Accepted
+- **Status:** Accepted; the template's lint/format config packaging is amended by
+  [ADR 0004](0004-app-owned-lint-format-configs.md).
 - **Date:** 2026-10-27
 - **Scope:** `create-ezhana-app` and the generated `frontend-template` repository
 - **Supersedes:** the vendoring option in [ADR 0001](0001-create-app-in-template-repo.md#distribution-of-the-generator)

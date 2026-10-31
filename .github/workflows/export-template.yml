@@ -50,11 +50,12 @@ jobs:
           pnpm view "create-ezhana-app@$version" version
 
       # An old published version makes the generated template's configure-command CI fail. Run the
-      # published bin so the export only proceeds when the pinned release supports the new command.
-      - name: Verify published generator supports configure
+      # published bin so the export only proceeds when the pinned release writes configs that
+      # compose the shared workspace config packages shipped in the template.
+      - name: Verify published generator writes workspace configs
         run: |
           version=$(node -p "require('./tools/create-app/package.json').version")
-          pnpm dlx "create-ezhana-app@$version" configure --help | grep -q 'Configure options'
+          pnpm dlx "create-ezhana-app@$version" configure --help | grep -q 'shared ESLint config package'
 
       - name: Export template
         run: pnpm export:template --install
