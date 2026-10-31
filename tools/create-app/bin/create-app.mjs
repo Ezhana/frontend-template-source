@@ -13,6 +13,7 @@ const usage = `Usage: create-app [template] [name] [options]
        create-app configure [target] [options]
 
 Create a React or Vue app under ./apps/<name> by default.
+The Ezhana theme overlay is applied by default; pass --no-theme to keep the plain official scaffold.
 Configuration files are not written unless a feature flag is given; run "configure" later for an
 existing app.
 
@@ -25,6 +26,7 @@ Create options:
   --root <path>      Workspace root used for the default apps/<name> path
   --eslint           Write eslint.config.mjs and add the shared ESLint config package
   --prettier         Write prettier.config.mjs/.prettierignore and add the shared Prettier config
+  --no-theme         Skip the Ezhana theme overlay and theme dependencies
   --no-install       Scaffold and overlay only; do not add dependencies or verify
   --no-verify        Add dependencies but skip lint/build verification
   --keep-temp        Keep the staging directory when generation fails
@@ -43,6 +45,7 @@ Examples:
   pnpm create:app
   pnpm create:app react my-app
   pnpm create:app react my-app --eslint --prettier
+  pnpm create:app react my-app --no-theme
   pnpm create:app configure apps/my-app --eslint --prettier
   pnpm create:app vue my-app --no-verify
 `
@@ -52,6 +55,7 @@ const parseCreateArgs = (argv) => {
   const options = {
     install: true,
     verify: true,
+    theme: true,
     keepTemp: false,
     features: { eslint: false, prettier: false },
   }
@@ -74,6 +78,8 @@ const parseCreateArgs = (argv) => {
       options.features.eslint = true
     } else if (arg === '--prettier') {
       options.features.prettier = true
+    } else if (arg === '--no-theme') {
+      options.theme = false
     } else if (arg === '--no-install') {
       options.install = false
       options.verify = false

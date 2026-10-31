@@ -1,7 +1,8 @@
 # create-ezhana-app
 
 Scaffolds a React or Vue app inside an Ezhana `frontend-template` workspace. It wraps the official
-`create-vite` / `create-vue` scaffolders and applies the `@ezhana` theme overlay.
+`create-vite` / `create-vue` scaffolders and applies the `@ezhana` theme overlay by default; pass
+`--no-theme` to keep the plain official scaffold.
 
 The generated app keeps the official scaffold's own tooling. Lint and format configuration is
 **opt-in**: use the `configure` subcommand on an existing app, or pass `--eslint` / `--prettier` when
@@ -12,13 +13,19 @@ those packages.
 ```bash
 pnpm install
 pnpm create:app                              # choose React or Vue, then enter an app name
-pnpm create:app react my-app                 # no lint/format files are written
+pnpm create:app react my-app                 # themed app, no lint/format files written
 pnpm create:app react my-app --eslint --prettier
+pnpm create:app react my-app --no-theme      # plain official scaffold, no theme packages
 pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 Apps are created under `apps/<name>` and become part of the pnpm workspace. Run create from the
 workspace root; `--target <path>` generates somewhere else.
+
+`--no-theme` is the escape hatch for the theme overlay: the app keeps the official scaffold, the
+generator does not copy the overlay, inject the theme init script, rewrite the page title or add the
+`@ezhana` theme packages. The metadata patch, optional lint/format configs and verification still
+run.
 
 ## Workspace requirement
 
@@ -36,7 +43,8 @@ before writing files.
 | -------------- | ----------------------------------------------------------------------- |
 | `--eslint`     | Write `eslint.config.mjs` and add the shared ESLint config package      |
 | `--prettier`   | Write `prettier.config.mjs` / `.prettierignore` and the Prettier config |
-| `--no-install` | scaffold + theme overlay + config files only (no dependency add)        |
+| `--no-theme`   | Skip the theme overlay and theme packages; keep the plain scaffold      |
+| `--no-install` | scaffold + theme overlay (unless `--no-theme`) + config files only      |
 | `--no-verify`  | add dependencies but skip lint/build verification                       |
 | `--keep-temp`  | keep the staging directory when generation fails                        |
 | `--target`     | explicit output path instead of `apps/<name>`                           |

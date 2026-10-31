@@ -43,6 +43,10 @@ jobs:
             features: '--eslint --prettier'
           - template: vue
             features: '--eslint --prettier'
+          - template: react
+            features: '--no-theme'
+          - template: vue
+            features: '--no-theme --eslint --prettier'
 
     steps:
       - name: Checkout
@@ -73,17 +77,34 @@ jobs:
           fi
 
       - name: Check configured generated files
-        if: matrix.features != ''
+        if: contains(matrix.features, '--eslint')
         run: |
           test -f apps/generated-app/eslint.config.mjs
           test -f apps/generated-app/prettier.config.mjs
           test -f apps/generated-app/.prettierignore
-          test -f apps/generated-app/src/theme/registry.ts
-          test -f apps/generated-app/src/theme/useTheme.ts
+          if [ "${{ contains(matrix.features, '--no-theme') }}" != "true" ]; then
+            test -f apps/generated-app/src/theme/registry.ts
+            test -f apps/generated-app/src/theme/useTheme.ts
+          fi
           grep -q "@ezhana/eslint-config-${{ matrix.template }}" apps/generated-app/eslint.config.mjs
           grep -q '@ezhana/prettier-config' apps/generated-app/prettier.config.mjs
           grep -q '"@ezhana/eslint-config-${{ matrix.template }}": "workspace:' apps/generated-app/package.json
           grep -q '"@ezhana/prettier-config": "workspace:' apps/generated-app/package.json
+
+      # --no-theme is the escape hatch: no overlay files, no theme init script, no @ezhana theme
+      # dependencies (the optional lint/format config packages are still allowed).
+      - name: Check no-theme generated files
+        if: contains(matrix.features, '--no-theme')
+        run: |
+          test ! -e apps/generated-app/src/theme
+          if grep -q 'ezhana-theme' apps/generated-app/index.html; then
+            echo 'index.html still contains the theme init script'
+            exit 1
+          fi
+          if grep -Eq '"@ezhana/(design-tokens|theme|design-theme-)' apps/generated-app/package.json; then
+            echo 'the app still depends on @ezhana theme packages'
+            exit 1
+          fi
 
       - name: Pack generator
         run: |

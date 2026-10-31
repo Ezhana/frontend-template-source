@@ -18,8 +18,8 @@ They are **workspace packages**, not published npm dependencies. The root `eslin
 and the app lint/format setup.
 
 Themes do not live here: the published `@ezhana/design-theme-*` theme packages are npm dependencies
-that generated apps install directly. Use this directory for your own shared code, alongside the
-config packages.
+that themed generated apps install directly (apps created with `--no-theme` do not). Use this
+directory for your own shared code, alongside the config packages.
 
 ## Changing rules
 

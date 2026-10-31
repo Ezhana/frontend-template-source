@@ -215,7 +215,8 @@ Theme design narratives live with the theme package, e.g.
 2. `pnpm test` → builds, then runs the core contract/contrast suite, the theme-builder suite, the
    theme runtime suite and every theme package's generated-artifact suite.
 3. `pnpm create:app react|vue <name>` → scaffolds into `apps/<name>` with the pinned external
-   generator, applies the theme overlay, adds theme dependencies and builds the generated app. Lint
+   generator, applies the theme overlay, adds theme dependencies and builds the generated app. Pass
+   `--no-theme` to skip the overlay and theme packages and keep the plain official scaffold. Lint
    and format files are written only with `--eslint` / `--prettier`; the scaffold's own tooling is
    preserved by default. `pnpm create:app configure apps/<name> --eslint --prettier` writes thin app
    configs and adds the workspace config packages (`workspace:*`) plus `eslint`/`typescript` (or
@@ -225,11 +226,12 @@ Theme design narratives live with the theme package, e.g.
    lint/format config packages into its `packages/`, pins the published `create-ezhana-app`
    devDependency and creates its root lockfile.
 5. CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `test`; the
-   `.github/workflows/create-app.yml` matrix generates React/Vue apps with and without config
-   features inside the workspace (so the `workspace:*` config dependencies resolve) through
-   lint/build, asserts the configured app config imports the workspace config package, and packs
-   the generator tarball; the generated template's own CI smoke-tests `pnpm create:app` and
-   `pnpm create:app configure`.
+   `.github/workflows/create-app.yml` matrix generates React/Vue apps inside the workspace (default
+   themed app, opt-in lint/format configs, and `--no-theme` incl. one combined no-theme+configs
+   case) through lint/build, asserts the configured app config imports the workspace config package,
+   asserts the no-theme apps carry no theme artifacts or theme packages, and packs the generator
+   tarball; the generated template's own CI smoke-tests `pnpm create:app`, `pnpm create:app
+configure` and `--no-theme`.
 6. Publishing: Changesets bumps `@ezhana/design-tokens`, `@ezhana/theme-builder`,
    `@ezhana/design-theme-*`, `@ezhana/theme` and `create-ezhana-app`. The shared ESLint/Prettier
    config packages are private and are not published; the export copies them into the template.

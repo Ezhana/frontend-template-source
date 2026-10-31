@@ -1,10 +1,11 @@
 # Creating an app from external scaffolders
 
 `tools/create-app` is a thin wrapper around the official framework scaffolders. It generates an app
-with `create-vite` / `create-vue`, applies the `@ezhana` theme overlay, and can optionally write
-ESLint/Prettier configuration that composes the shared config packages in the workspace. The same
-code is published as [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) and
-pinned by the generated template; this repository runs it from `tools/create-app` directly.
+with `create-vite` / `create-vue`, applies the `@ezhana` theme overlay (skip it with `--no-theme`),
+and can optionally write ESLint/Prettier configuration that composes the shared config packages in
+the workspace. The same code is published as
+[`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) and pinned by the generated
+template; this repository runs it from `tools/create-app` directly.
 
 ```bash
 pnpm create:app
@@ -14,6 +15,7 @@ pnpm create:app react my-react-app
 pnpm create:app vue my-vue-app
 
 pnpm create:app react my-react-app --eslint --prettier
+pnpm create:app react my-react-app --no-theme
 pnpm create:app configure apps/my-react-app --eslint --prettier
 ```
 
@@ -32,6 +34,11 @@ preflight → scaffold (external CLI, pinned version) → prepare metadata → t
           → move → add theme dependencies → optional configure → verify
 ```
 
+Steps 4 and 6 are skipped when `--no-theme` is passed; the rest of the lifecycle is unchanged.
+Without the theme packages there is no `pnpm add` that installs the scaffold's own dependencies and
+registers the new app in the workspace lockfile, so step 6 is then replaced by
+`pnpm install --no-frozen-lockfile` before verification.
+
 1. **preflight**: resolve the template (interactive prompt or arguments) and the target
    (`apps/<name>` by default); the target directory must be empty.
 2. **scaffold**: run the pinned external scaffolder in a staging directory next to the target.
@@ -40,7 +47,7 @@ preflight → scaffold (external CLI, pinned version) → prepare metadata → t
 3. **prepare metadata**: remove generated lockfiles, `node_modules` and `.git`; set the app
    `name` and `private` fields. The scaffold's dependencies, scripts and lint/format configuration
    are left untouched.
-4. **theme overlay**: copy `overlays/<framework>` into the app:
+4. **theme overlay** (skipped with `--no-theme`): copy `overlays/<framework>` into the app:
    - `src/theme/*` runtime integration (`registry.ts`, `manager.ts`, `useTheme.ts`);
    - `ThemeSwitcher` + `ThemeRoot` wrapper;
    - entry file importing the core tokens CSS and each theme package's `./style` entry;
@@ -48,8 +55,9 @@ preflight → scaffold (external CLI, pinned version) → prepare metadata → t
 5. **move**: rename the staging app to the target. This happens _before_ dependency installation on
    purpose: inside the template workspace the app has to exist at `apps/<name>` when pnpm resolves
    the workspace.
-6. **add theme dependencies**: `pnpm add @ezhana/design-tokens @ezhana/theme
-@ezhana/design-theme-ocean @ezhana/design-theme-cerulean` with versions from `versions.json`.
+6. **add theme dependencies** (skipped with `--no-theme`): `pnpm add @ezhana/design-tokens
+@ezhana/theme @ezhana/design-theme-ocean @ezhana/design-theme-cerulean` with versions from
+   `versions.json`.
 7. **optional configure**: when `--eslint` / `--prettier` is passed, write the thin app configs and
    run `pnpm add -D` for their dependencies (same implementation as the `configure` subcommand).
 8. **verify**: if ESLint was configured, run `pnpm exec eslint .`; otherwise run `pnpm lint` when
@@ -125,7 +133,8 @@ In practice `--target` outside the workspace can be used for a plain scaffold, b
 | -------------- | ------------------------------------------------------------------ |
 | `--eslint`     | write `eslint.config.mjs` and add the shared ESLint config package |
 | `--prettier`   | write `prettier.config.mjs` / `.prettierignore` and add Prettier   |
-| `--no-install` | scaffold + theme overlay + config files only                       |
+| `--no-theme`   | skip the theme overlay and theme packages; keep the plain scaffold |
+| `--no-install` | scaffold + theme overlay (unless `--no-theme`) + config files only |
 | `--no-verify`  | add dependencies but skip lint/build                               |
 | `--keep-temp`  | keep the staging directory when generation fails                   |
 | `--target`     | explicit output path instead of `apps/<name>`                      |
@@ -156,6 +165,18 @@ The generator does not own the scaffold's lint/format state by default:
   `"lint": "oxlint"`; these are preserved.
 - `create-vue@3.24.0` with `--ts --force` generates no ESLint/Prettier configuration; nothing is
   added.
+
+## Skipping the theme overlay
+
+`--no-theme` is the escape hatch for the theme layer: the app stays the plain official scaffold.
+The generator still applies the metadata patch (`name`/`private`), writes the optional `--eslint` /
+`--prettier` configs and runs the lint/build verification, but it does not copy
+`overlays/<framework>`, does not inject the theme init script, does not rewrite the page title and
+does not add the `@ezhana` theme packages.
+
+Use it when the overlay does not fit a scaffold version or when a plain app is wanted. The theme
+integration can be added later by regenerating a themed app or copying the overlay by hand. The
+theme overlay is still the default behavior.
 
 ## Configuration files
 
@@ -198,12 +219,15 @@ import and one entry in `src/theme/registry.ts`.
 
 ## CI
 
-`.github/workflows/create-app.yml` runs the generator matrix: React and Vue, each with and without
-`--eslint --prettier`. The configured cases generate the app inside the workspace, because the
-written configs import the workspace config packages and pnpm has to resolve their `workspace:*`
+`.github/workflows/create-app.yml` runs the generator matrix: React and Vue, covering the default
+themed app, `--eslint --prettier`, and `--no-theme` (including one combined `--no-theme --eslint
+--prettier` case). The configured cases generate the app inside the workspace, because the written
+configs import the workspace config packages and pnpm has to resolve their `workspace:*`
 dependencies; the workflow also asserts that the app config imports the framework config package and
-that the app manifest carries the `workspace:*` devDependencies. It also packs the tarball and checks
-the published file set, including `templates/`, so the package layout cannot break silently.
+that the app manifest carries the `workspace:*` devDependencies. The `--no-theme` cases assert that no
+theme overlay files, theme init script or `@ezhana` theme dependencies are present. The workflow also
+packs the tarball and checks the published file set, including `templates/`, so the package layout
+cannot break silently.
 
 ## Distribution
 

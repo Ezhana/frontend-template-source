@@ -43,7 +43,8 @@ jobs:
         run: pnpm build
 
   # Exercises the published create-ezhana-app package pinned in devDependencies: official
-  # scaffolders, theme overlay, the opt-in config writer and the configure subcommand.
+  # scaffolders, theme overlay (and the --no-theme escape hatch), the opt-in config writer and the
+  # configure subcommand.
   #
   # One app is generated per job on purpose. The generator adds apps/<name> to the workspace; a
   # second `pnpm create:app` in the same job would make pnpm verify the (now stale) lockfile before
@@ -66,6 +67,10 @@ jobs:
             mode: configured
           - template: react
             mode: configure-command
+          - template: react
+            mode: no-theme
+          - template: vue
+            mode: no-theme
 
     steps:
       - name: Checkout
@@ -85,6 +90,8 @@ jobs:
         run: |
           if [ "${{ matrix.mode }}" = "configured" ]; then
             pnpm create:app ${{ matrix.template }} generated-app --no-install --eslint --prettier
+          elif [ "${{ matrix.mode }}" = "no-theme" ]; then
+            pnpm create:app ${{ matrix.template }} generated-app --no-install --no-theme
           else
             pnpm create:app ${{ matrix.template }} generated-app --no-install
           fi
@@ -107,7 +114,7 @@ jobs:
           fi
 
       - name: Check configured generated files
-        if: matrix.mode != 'default'
+        if: matrix.mode == 'configured' || matrix.mode == 'configure-command'
         run: |
           test -f apps/generated-app/eslint.config.mjs
           test -f apps/generated-app/prettier.config.mjs
@@ -116,3 +123,13 @@ jobs:
           test -f apps/generated-app/src/theme/useTheme.ts
           grep -q "@ezhana/eslint-config-${{ matrix.template }}" apps/generated-app/eslint.config.mjs
           grep -q '@ezhana/prettier-config' apps/generated-app/prettier.config.mjs
+
+      # Escape hatch: the app is the plain official scaffold.
+      - name: Check no-theme generated files
+        if: matrix.mode == 'no-theme'
+        run: |
+          test ! -e apps/generated-app/src/theme
+          if grep -q 'ezhana-theme' apps/generated-app/index.html; then
+            echo 'index.html still contains the theme init script'
+            exit 1
+          fi

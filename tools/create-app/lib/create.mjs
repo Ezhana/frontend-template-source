@@ -129,6 +129,18 @@ const installThemeDependencies = async (appDir, versions) => {
   await removeAppWorkspaceFile(appDir)
 }
 
+// Without the theme dependencies there is no `pnpm add` that registers the new app in the
+// workspace lockfile, so install the scaffold's own dependencies before verifying it.
+const installAppDependencies = async (appDir) => {
+  await run(
+    'pnpm',
+    ['install', '--no-frozen-lockfile'],
+    appDir,
+    'Installing generated app dependencies',
+  )
+  await removeAppWorkspaceFile(appDir)
+}
+
 const verify = async (appDir, features) => {
   if (features.eslint) {
     await run('pnpm', ['exec', 'eslint', '.'], appDir, 'Linting generated app')
@@ -144,6 +156,7 @@ export const createApp = async ({
   target,
   install: shouldInstall = true,
   verify: shouldVerify = true,
+  theme: shouldTheme = true,
   keepTemp = false,
   features = {},
 }) => {
@@ -166,9 +179,8 @@ export const createApp = async ({
   const stagingDir = await mkdtemp(join(dirname(targetPath), '.create-app-'))
   const appDir = join(stagingDir, 'app')
   const title = basename(targetPath)
-  const { versions } = await readVersionManifest()
+  const versions = shouldTheme ? (await readVersionManifest()).versions : null
   const meta = {
-    versions,
     packageName: slugify(title),
     title,
   }
@@ -176,9 +188,10 @@ export const createApp = async ({
   let movedTarget = false
   try {
     process.stdout.write(`Creating ${recipe.label} app in ${targetPath}\n`)
+    if (!shouldTheme) process.stdout.write('Skipping the theme overlay (--no-theme).\n')
     await scaffold(recipe, stagingDir)
     await prepareApp(appDir, meta)
-    await applyOverlay(recipe, appDir, meta)
+    if (shouldTheme) await applyOverlay(recipe, appDir, meta)
 
     // Move before installing so that, inside a template workspace, the new app is part of
     // apps/* when pnpm resolves the workspace and installs its dependencies.
@@ -186,7 +199,8 @@ export const createApp = async ({
     movedTarget = true
 
     if (shouldInstall) {
-      await installThemeDependencies(targetPath, versions)
+      if (shouldTheme) await installThemeDependencies(targetPath, versions)
+      else await installAppDependencies(targetPath)
       if (hasFeatures(selected)) {
         await configureApp({
           target: targetPath,
@@ -201,10 +215,16 @@ export const createApp = async ({
         await removeAppWorkspaceFile(targetPath)
       }
     } else {
-      process.stdout.write(
-        `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n` +
-          `  pnpm add ${themeSpecs(versions).join(' ')}\n`,
-      )
+      if (shouldTheme) {
+        process.stdout.write(
+          `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n` +
+            `  pnpm add ${themeSpecs(versions).join(' ')}\n`,
+        )
+      } else if (!hasFeatures(selected)) {
+        process.stdout.write(
+          `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n  pnpm install\n`,
+        )
+      }
       if (hasFeatures(selected)) {
         await configureApp({
           target: targetPath,
@@ -220,6 +240,12 @@ export const createApp = async ({
         `  cd ${relative(process.cwd(), targetPath) || targetPath}\n` +
         '  pnpm dev\n',
     )
+    if (!shouldTheme) {
+      process.stdout.write(
+        '\nTheme overlay and theme dependencies were skipped (--no-theme): the app is the plain ' +
+          'official scaffold.\n',
+      )
+    }
   } catch (error) {
     if (keepTemp) {
       process.stderr.write(`\nGeneration failed. Staging directory kept at: ${stagingDir}\n`)

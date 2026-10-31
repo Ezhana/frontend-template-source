@@ -74,7 +74,8 @@ The generated root `package.json` has:
 - no changeset scripts or publishing configuration.
 
 `pnpm create:app` chooses React or Vue, creates the app under `apps/<name>`, applies the theme
-overlay, adds the theme dependencies and verifies lint/build. Lint/format configuration is opt-in:
+overlay, adds the theme dependencies and verifies lint/build; `--no-theme` skips the overlay and the
+theme packages and keeps the plain official scaffold. Lint/format configuration is opt-in:
 `pnpm create:app --eslint --prettier` writes thin config files that compose the workspace config
 packages, and `pnpm create:app configure apps/<name> --eslint --prettier` does the same for an
 existing app. The official scaffold's own tooling is preserved by default and by configure.
@@ -135,9 +136,10 @@ this repository.
 1. installs this workspace,
 2. verifies that the `create-ezhana-app` version pinned by the export exists on npm
    (`pnpm view create-ezhana-app@<version> version`),
-3. verifies that the **published** generator writes workspace-composing configs by running
-   `pnpm dlx create-ezhana-app@<version> configure --help` and matching the `shared ESLint config
-package` wording in its help text; this blocks an export that would pin an older release,
+3. verifies that the **published** generator supports the template workflow by running
+   `pnpm dlx create-ezhana-app@<version> configure --help` and matching both the `shared ESLint
+config package` and `--no-theme` help text; this blocks an export that would pin an older
+   release and break the template CI matrix,
 4. runs `pnpm export:template --install`,
 5. initializes a git repository in `dist-template/frontend-template`,
 6. force-pushes it to the repository configured by:

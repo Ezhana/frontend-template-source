@@ -9,9 +9,9 @@
 pnpm create:app
 ```
 
-命令会询问框架和应用名，调用官方 `create-vite` / `create-vue` 生成项目，套用主题集成，最后把应用
-安装到 `apps/<name>`。生成器本身是已发布的 `create-ezhana-app` 包，以普通 devDependency 精确锁定，
-随 workspace 一起版本化和审计。非交互用法：
+命令会询问框架和应用名，调用官方 `create-vite` / `create-vue` 生成项目，套用主题集成（传
+`--no-theme` 可保留官方脚手架原样），最后把应用安装到 `apps/<name>`。生成器本身是已发布的
+`create-ezhana-app` 包，以普通 devDependency 精确锁定，随 workspace 一起版本化和审计。非交互用法：
 
 ```bash
 pnpm create:app react my-app
@@ -19,6 +19,9 @@ pnpm create:app vue my-app
 
 # 创建时写入组合共享包的轻量 ESLint/Prettier 配置
 pnpm create:app react my-app --eslint --prettier
+
+# 保留官方脚手架原样，不套用主题覆盖
+pnpm create:app react my-app --no-theme
 
 # 或稍后配置已有应用
 pnpm create:app configure apps/my-app --eslint --prettier
@@ -93,8 +96,8 @@ npm 依赖：根目录和应用的配置通过 workspace 解析它们，因此�
 
 ## 主题
 
-生成的应用从 npm 安装已发布的设计令牌、主题包与主题运行时；样式在入口文件中引入，本地不需要
-构建令牌。
+生成的应用（默认套用主题）从 npm 安装已发布的设计令牌、主题包与主题运行时；样式在入口文件中引入，
+本地不需要构建令牌。
 
 - `@ezhana/design-tokens` 提供核心令牌、语义契约和默认主题。
 - `@ezhana/design-theme-ocean`、`@ezhana/design-theme-cerulean` 和 `@ezhana/design-theme-quest`
@@ -103,6 +106,7 @@ npm 依赖：根目录和应用的配置通过 workspace 解析它们，因此�
 - 颜色模式默认跟随操作系统（`prefers-color-scheme`）。
 - `data-theme` 选择主题；只有显式选择颜色模式时才写 `data-color-mode`。
 - React 和 Vue 应用都会生成主题切换器。
+- 创建应用时传 `--no-theme` 可跳过主题覆盖：不会加入主题运行时、切换器或 `@ezhana` 主题依赖。
 
 每个应用在 `src/theme/registry.ts` 注册主题，并从注册表推导 `AppTheme`，因此切换器和主题管理器
 始终与已安装的主题包一致：

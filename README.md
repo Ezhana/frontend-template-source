@@ -21,7 +21,7 @@ repository; no full sample apps are committed here.
 - Framework-agnostic theme runtime with a typed theme registry, persistence and system color-scheme support
 - Token contract, reference, and WCAG AA contrast validation for every theme package
 - On-demand React/Vue app generation from pinned `create-vite` / `create-vue` versions
-- Theme overlay applied to generated apps
+- Theme overlay applied to generated apps by default (`--no-theme` keeps the plain scaffold)
 - Opt-in ESLint/Prettier configuration via `create:app --eslint` / `--prettier` or `create:app configure`
 - Generated `frontend-template` repository export, including the shared config packages under its
   `packages/`
@@ -235,6 +235,9 @@ pnpm create:app vue my-vue-app
 # write thin ESLint/Prettier configs that compose the shared packages
 pnpm create:app react my-react-app --eslint --prettier
 
+# keep the plain official scaffold instead of applying the theme overlay
+pnpm create:app react my-react-app --no-theme
+
 # or configure an existing app later
 pnpm create:app configure apps/my-react-app --eslint --prettier
 ```
@@ -243,8 +246,9 @@ The generator then:
 
 1. scaffolds with the pinned `create-vite` / `create-vue` version, keeping the scaffold's own
    dependencies, scripts and lint/format configuration;
-2. applies the theme runtime, theme switcher and anti-flash script;
-3. moves the app into `apps/<name>` and adds the `@ezhana` theme dependencies with `pnpm add`;
+2. applies the theme runtime, theme switcher and anti-flash script (skipped with `--no-theme`);
+3. moves the app into `apps/<name>` and adds the `@ezhana` theme dependencies with `pnpm add`
+   (skipped with `--no-theme`);
 4. when `--eslint` / `--prettier` is passed, writes thin config files that compose the shared
    workspace config packages and adds their dependencies as `workspace:*` (the same code as
    `configure`);
@@ -300,9 +304,10 @@ pnpm lint
 pnpm check
 ```
 
-The command uses the official `create-vite` / `create-vue` CLI and applies the theme integration.
-Lint/format configuration is opt-in with `--eslint` / `--prettier` or `create:app configure`; by
-default the scaffold's own tooling is preserved. The generated app appears under `apps/<name>`.
+The command uses the official `create-vite` / `create-vue` CLI and applies the theme integration
+(pass `--no-theme` to keep the plain official scaffold). Lint/format configuration is opt-in with
+`--eslint` / `--prettier` or `create:app configure`; by default the scaffold's own tooling is
+preserved. The generated app appears under `apps/<name>`.
 
 To add your own package, create `packages/<name>`, reference it with `"workspace:*"` from an app,
 and run `pnpm build:packages` before `pnpm build`. Keep the shared config packages: the root and app

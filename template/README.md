@@ -11,9 +11,10 @@ pnpm create:app
 ```
 
 The command prompts for the framework and app name, scaffolds with the official
-`create-vite` / `create-vue` version, applies the theme integration, then installs the app under
-`apps/<name>`. The generator itself is the published `create-ezhana-app` package, pinned as a regular
-devDependency, so it is versioned and audited together with the rest of the workspace tooling.
+`create-vite` / `create-vue` version, applies the theme integration (pass `--no-theme` to keep the
+plain official scaffold), then installs the app under `apps/<name>`. The generator itself is the
+published `create-ezhana-app` package, pinned as a regular devDependency, so it is versioned and
+audited together with the rest of the workspace tooling.
 Non-interactive usage:
 
 ```bash
@@ -22,6 +23,9 @@ pnpm create:app vue my-app
 
 # write thin ESLint/Prettier configs that compose the shared packages
 pnpm create:app react my-app --eslint --prettier
+
+# keep the plain official scaffold instead of applying the theme overlay
+pnpm create:app react my-app --no-theme
 
 # or configure an existing app later
 pnpm create:app configure apps/my-app --eslint --prettier
@@ -113,6 +117,8 @@ stylesheets are imported in each app entry file; no local token build step is re
 - The color mode follows the operating system by default (`prefers-color-scheme`).
 - `data-theme` selects the theme; `data-color-mode` is written only for an explicit color mode.
 - A theme switcher is generated into both React and Vue apps.
+- Pass `--no-theme` when creating an app to skip the overlay: no theme runtime, switcher or
+  `@ezhana` theme dependencies are added.
 
 Each app registers its themes in `src/theme/registry.ts` and derives `AppTheme` from that registry, so
 the switcher and the theme manager always match the installed theme packages:
