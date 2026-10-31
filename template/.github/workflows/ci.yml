@@ -89,9 +89,11 @@ jobs:
             pnpm create:app ${{ matrix.template }} generated-app --no-install
           fi
 
+      # Run the installed bin directly. A second pnpm script invocation would make pnpm validate the
+      # lockfile after apps/generated-app was added as an importer, and fail on the frozen lockfile.
       - name: Write configs through configure
         if: matrix.mode == 'configure-command'
-        run: pnpm create:app configure apps/generated-app --eslint --prettier --no-install
+        run: node node_modules/create-ezhana-app/bin/create-app.mjs configure apps/generated-app --eslint --prettier --no-install
 
       - name: Check default generated files
         if: matrix.mode == 'default'
