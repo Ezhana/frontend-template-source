@@ -272,19 +272,21 @@ Then verify:
 1. `pnpm check` in this repository.
 2. Run `pnpm changeset version` + `pnpm changeset publish` for package changes. Publish in
    dependency order: `@ezhana/design-tokens` first, then the official theme packages
-   (`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`, `@ezhana/design-theme-quest`) and
-   `@ezhana/theme`, then `create-ezhana-app` (the template pins the published versions; a version
-   that is not on npm makes `--install` fail). The generator's `prepack` hook refreshes `versions.json` before packing. From
-   GitHub Actions, publish with provenance (`pnpm publish --provenance`, or trusted publishing, which
-   attaches it automatically); local publishes omit provenance. The `create-ezhana-app` minor bump
-   containing the workspace-config change must be **published** before exporting; the export
-   workflow's capability check verifies the published release supports `configure`.
+   (`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`, `@ezhana/design-theme-onyx` and
+   `@ezhana/design-theme-quest`) and `@ezhana/theme`, then `create-ezhana-app` (the template pins
+   the published versions; a version that is not on npm makes `--install` fail). The generator's
+   `prepack` hook refreshes `versions.json` before packing. From GitHub Actions, publish with
+   provenance (`pnpm publish --provenance`, or trusted publishing, which attaches it automatically);
+   local publishes omit provenance. The `create-ezhana-app` minor bump containing the workspace-config
+   change must be **published** before exporting; the export workflow's capability check verifies the
+   published release supports `configure`.
 3. Run `pnpm sync:create-app` locally to keep the committed `versions.json` in sync (CI verifies it).
    The shared ESLint/Prettier config packages are private, so they are excluded automatically; they
    reach the template through the export, not through npm.
 4. Verify the published packages with `pnpm view @ezhana/design-tokens version`,
    `pnpm view @ezhana/design-theme-cerulean version`, `pnpm view @ezhana/design-theme-ocean version`,
-   `pnpm view @ezhana/design-theme-quest version`, `pnpm view create-ezhana-app version`.
+   `pnpm view @ezhana/design-theme-onyx version`, `pnpm view @ezhana/design-theme-quest version`,
+   `pnpm view create-ezhana-app version`.
 5. Run `pnpm export:template --install` (or dispatch the export workflow) only after publishing the
    new `create-ezhana-app` version, then let the generated template's own CI pass. The generated
    `dist-template/` directory is an untracked intermediate artifact and is not committed.

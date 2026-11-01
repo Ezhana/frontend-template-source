@@ -100,8 +100,9 @@ npm 依赖：根目录和应用的配置通过 workspace 解析它们，因此�
 本地不需要构建令牌。
 
 - `@ezhana/design-tokens` 提供核心令牌、语义契约和默认主题。
-- `@ezhana/design-theme-ocean`、`@ezhana/design-theme-cerulean` 和 `@ezhana/design-theme-quest`
-  是各自独立发布的主题包。QuestUI 仅提供暗色模式，因此注册表和运行时支持主题声明颜色模式的子集。
+- `@ezhana/design-theme-ocean`、`@ezhana/design-theme-cerulean`、`@ezhana/design-theme-quest` 和
+  `@ezhana/design-theme-onyx` 是各自独立发布的主题包。QuestUI（奇幻风）与 Onyx（黑金商务风）仅提供暗色
+  模式，因此注册表和运行时支持主题声明颜色模式的子集。
 - `@ezhana/theme` 管理主题与颜色模式状态。
 - 颜色模式默认跟随操作系统（`prefers-color-scheme`）。
 - `data-theme` 选择主题；只有显式选择颜色模式时才写 `data-color-mode`。
@@ -133,6 +134,7 @@ export type AppTheme = (typeof themeRegistry.themes)[number]
 - [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
 - [`@ezhana/design-theme-cerulean`](https://www.npmjs.com/package/@ezhana/design-theme-cerulean)
 - [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
+- [`@ezhana/design-theme-onyx`](https://www.npmjs.com/package/@ezhana/design-theme-onyx)
 - [`@ezhana/design-theme-quest`](https://www.npmjs.com/package/@ezhana/design-theme-quest)
 
 ## CI

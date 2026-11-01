@@ -1,0 +1,124 @@
+{
+  "$description": "Onyx semantic overrides. Onyx is a fixed dark-mode identity: the base section carries the typography and the moderately soft shape scale, the dark section carries the soft warm-graphite palette, the champagne-gold accent, the muted status roles and warm near-black elevation.",
+  "base": {
+    "font": {
+      "family": {
+        "sans": {
+          "$value": "\"Public Sans Variable\", \"Public Sans\", system-ui, 'Segoe UI', Roboto, sans-serif",
+          "$type": "fontFamily",
+          "$description": "Body copy and labels: Public Sans, a neutral, business-grade humanist sans."
+        },
+        "heading": {
+          "$value": "\"Public Sans Variable\", \"Public Sans\", system-ui, 'Segoe UI', Roboto, sans-serif",
+          "$type": "fontFamily",
+          "$description": "Headlines use the same family at a heavier weight and tighter leading; identity comes from colour and shape, not a novelty display face."
+        }
+      },
+      "letterSpacing": {
+        "label": {
+          "$value": "0.08em",
+          "$type": "dimension",
+          "$description": "Wide tracking for eyebrow labels, table headers and uppercase chips: the business-document cue."
+        }
+      }
+    },
+    "radius": {
+      "small": { "$value": "0.25rem", "$type": "dimension" },
+      "control": {
+        "$value": "0.5rem",
+        "$type": "dimension",
+        "$description": "Moderately soft controls: softer than the compact default, never pill-shaped."
+      },
+      "surface": {
+        "$value": "0.75rem",
+        "$type": "dimension",
+        "$description": "Cards and panels: a calmer radius than the controls, so containers read as surfaces rather than buttons."
+      },
+      "modal": { "$value": "1rem", "$type": "dimension" },
+      "panel": { "$value": "1rem", "$type": "dimension" },
+      "pill": { "$value": "9999px", "$type": "dimension" }
+    }
+  },
+  "dark": {
+    "color": {
+      "bg": { "$value": "{theme.color.onyx.graphite.950}", "$type": "color" },
+      "bg-subtle": { "$value": "{theme.color.onyx.graphite.900}", "$type": "color" },
+      "surface": { "$value": "{theme.color.onyx.graphite.850}", "$type": "color" },
+      "surface-elevated": { "$value": "{theme.color.onyx.graphite.800}", "$type": "color" },
+      "fg": { "$value": "{theme.color.onyx.ivory.200}", "$type": "color" },
+      "fg-muted": { "$value": "{theme.color.onyx.ivory.400}", "$type": "color" },
+      "fg-strong": { "$value": "{theme.color.onyx.ivory.100}", "$type": "color" },
+      "border": { "$value": "{theme.color.onyx.graphite.600}", "$type": "color" },
+      "border-subtle": { "$value": "{theme.color.onyx.graphite.700}", "$type": "color" },
+      "accent": {
+        "$value": "{theme.color.onyx.gold.500}",
+        "$type": "color",
+        "$description": "Champagne gold: primary actions, links, selection and focus."
+      },
+      "accent-hover": { "$value": "{theme.color.onyx.gold.300}", "$type": "color" },
+      "on-accent": { "$value": "{theme.color.onyx.graphite.950}", "$type": "color" },
+      "accent-subtle": {
+        "$value": "#d4af371a",
+        "$type": "color",
+        "$description": "Secondary button fill and tinted gold surface."
+      },
+      "accent-border": {
+        "$value": "#d4af3759",
+        "$type": "color",
+        "$description": "Gold border at 35%: elevated cards, tooltips and gold top-border accents."
+      },
+      "focus-ring": { "$value": "{theme.color.onyx.gold.300}", "$type": "color" },
+      "danger": {
+        "$value": "{theme.color.onyx.rose.500}",
+        "$type": "color",
+        "$description": "Accessible destructive text/icon color."
+      },
+      "danger-solid": {
+        "$value": "{theme.color.onyx.rose.600}",
+        "$type": "color",
+        "$description": "Destructive button fill: deep muted claret."
+      },
+      "on-danger": { "$value": "{theme.color.onyx.ivory.100}", "$type": "color" },
+      "danger-subtle": { "$value": "#e28f871a", "$type": "color" },
+      "success": { "$value": "{theme.color.onyx.jade.500}", "$type": "color" },
+      "success-subtle": { "$value": "#8ac7a41a", "$type": "color" },
+      "warning": { "$value": "{theme.color.onyx.amber.500}", "$type": "color" },
+      "warning-subtle": { "$value": "#e8a94f1a", "$type": "color" },
+      "info": { "$value": "{theme.color.onyx.steel.500}", "$type": "color" },
+      "info-solid": {
+        "$value": "{theme.color.onyx.steel.600}",
+        "$type": "color",
+        "$description": "Solid informational surface; pair with on-info."
+      },
+      "on-info": { "$value": "{theme.color.onyx.ivory.100}", "$type": "color" },
+      "info-subtle": { "$value": "#8fb8db1a", "$type": "color" }
+    },
+    "shadow": {
+      "sm": {
+        "$value": "0 1px 2px rgb(9 8 6 / 0.35)",
+        "$type": "string",
+        "$description": "Buttons and small items."
+      },
+      "md": {
+        "$value": "0 8px 20px -8px rgb(9 8 6 / 0.45)",
+        "$type": "string",
+        "$description": "Cards and panels."
+      },
+      "lg": {
+        "$value": "0 20px 44px -12px rgb(9 8 6 / 0.55)",
+        "$type": "string",
+        "$description": "Elevated panels and dialogs."
+      },
+      "xl": {
+        "$value": "0 32px 72px -16px rgb(9 8 6 / 0.65)",
+        "$type": "string",
+        "$description": "Modals and overlays."
+      },
+      "glow": {
+        "$value": "0 0 24px rgb(212 175 55 / 0.2)",
+        "$type": "string",
+        "$description": "Reserved for the active/selected state: a restrained champagne halo, not a neon glow."
+      }
+    }
+  }
+}

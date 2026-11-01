@@ -17,6 +17,7 @@ import {
 } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { theme as onyx } from '@ezhana/design-theme-onyx'
 import { theme as quest } from '@ezhana/design-theme-quest'
 import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
 import {
@@ -28,18 +29,26 @@ import {
 } from '@ezhana/theme-builder'
 
 /* Theme packages expose a ThemeDefinition with a literal id. */
-const definitions: readonly ThemeDefinition[] = [defaultThemeDefinition, ocean, cerulean, quest]
+const definitions: readonly ThemeDefinition[] = [
+  defaultThemeDefinition,
+  ocean,
+  cerulean,
+  quest,
+  onyx,
+]
 export const ceruleanId: 'cerulean' = cerulean.id
 export const oceanId: 'ocean' = ocean.id
 export const questId: 'quest' = quest.id
+export const onyxId: 'onyx' = onyx.id
 export const modeNames: readonly Mode[] = cerulean.modes
 
 /* A fixed-mode theme declares the subset it supports; the shape stays a ThemeDefinition. */
 export const questModes: readonly Mode[] = quest.modes
+export const onyxModes: readonly Mode[] = onyx.modes
 export const definitionLabels: readonly string[] = definitions.map((definition) => definition.label)
 
 /* The registry narrows ids and modes to literal unions. */
-export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean, quest])
+export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean, quest, onyx])
 export type AppTheme = (typeof registry.themes)[number]
 
 export const defaultThemeIsValid: AppTheme = registry.defaultTheme

@@ -17,7 +17,8 @@ repository; no full sample apps are committed here.
 - Layered design tokens (primitive → semantic, optional component layer) compiled with Style Dictionary
 - Themes as standalone, independently versioned packages built with a validating theme builder
 - Multi-theme switching (`data-theme` + optional `data-color-mode`) through semantic-token overrides
-- Themes may support a subset of color modes (e.g. a dark-only fantasy theme), with per-theme mode metadata and clamped runtime mode resolution
+- Themes may support a subset of color modes (e.g. the dark-only QuestUI fantasy theme or the Onyx
+  black-gold business theme), with per-theme mode metadata and clamped runtime mode resolution
 - Framework-agnostic theme runtime with a typed theme registry, persistence and system color-scheme support
 - Token contract, reference, and WCAG AA contrast validation for every theme package
 - On-demand React/Vue app generation from pinned `create-vite` / `create-vue` versions
@@ -45,6 +46,7 @@ frontend-template-source/
 │   ├── theme-builder/        # build tool for theme packages
 │   ├── design-theme-cerulean/  # official theme package
 │   ├── design-theme-ocean/     # official theme package
+│   ├── design-theme-onyx/      # official Onyx black-gold business theme package (dark-only)
 │   ├── design-theme-quest/     # official QuestUI fantasy theme package (dark-only)
 │   ├── theme/                # theme/mode state machine + theme registry
 │   ├── eslint-config-base/          # shared config package (not published)
@@ -166,11 +168,11 @@ See [`packages/theme-builder/README.md`](packages/theme-builder/README.md).
 
 #### Official theme packages
 
-`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean` and `@ezhana/design-theme-quest` are
-regular theme packages built with `@ezhana/theme-builder`: each owns its palette, its typeface and
-its overrides, and depends on `@ezhana/design-tokens` but not on `@ezhana/theme`. QuestUI is
-dark-only, which is why the builder accepts a theme that declares a subset of the contract's color
-modes.
+`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`, `@ezhana/design-theme-onyx` and
+`@ezhana/design-theme-quest` are regular theme packages built with `@ezhana/theme-builder`: each
+owns its palette, its typeface and its overrides, and depends on `@ezhana/design-tokens` but not on
+`@ezhana/theme`. QuestUI and Onyx are dark-only, which is why the builder accepts a theme that
+declares a subset of the contract's color modes.
 
 ```ts
 import '@ezhana/design-theme-ocean/style' // core CSS + theme overrides
@@ -180,6 +182,10 @@ import '@ezhana/design-theme-ocean/style' // core CSS + theme overrides
   Public Sans, level-2 controls, with a full [design narrative](packages/design-theme-cerulean/docs/DESIGN.md)
 - [`packages/design-theme-ocean`](packages/design-theme-ocean/README.md) — indigo-blue accent,
   pill-shaped controls
+- [`packages/design-theme-onyx`](packages/design-theme-onyx/README.md) — Onyx black-gold business
+  identity: champagne gold on soft warm graphite (deliberately not near-black), Public Sans,
+  moderate 8px/12px radii, warm near-black elevation, dark-only, with a full
+  [design narrative](packages/design-theme-onyx/docs/DESIGN.md)
 - [`packages/design-theme-quest`](packages/design-theme-quest/README.md) — QuestUI fantasy RPG
   identity: gold, parchment and royal purple on deep brown, Cinzel + Spectral + Fira Code,
   dark-only, with a full [design narrative](packages/design-theme-quest/docs/DESIGN.md)
@@ -199,16 +205,23 @@ Usage:
 import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { theme as onyx } from '@ezhana/design-theme-onyx'
 import { theme as quest } from '@ezhana/design-theme-quest'
 import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
 
-export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean, quest])
+export const themeRegistry = defineThemeRegistry([
+  defaultThemeDefinition,
+  ocean,
+  cerulean,
+  quest,
+  onyx,
+])
 export type AppTheme = (typeof themeRegistry.themes)[number]
 
 export const themeManager = createThemeManager<AppTheme, Mode>({
   themes: [...themeRegistry.themes],
   modes: [...themeRegistry.modes], // union of every theme's modes
-  themeModes: themeRegistry.themeModes, // e.g. quest → ['dark']
+  themeModes: themeRegistry.themeModes, // e.g. quest and onyx → ['dark']
   defaultTheme: themeRegistry.defaultTheme,
 })
 
@@ -411,7 +424,10 @@ A theme is a package built with `@ezhana/theme-builder`; see
 The official themes are the worked examples:
 [`design-theme-cerulean`](packages/design-theme-cerulean/README.md) (custom palette, Public Sans,
 design narrative with measured contrast),
-[`design-theme-ocean`](packages/design-theme-ocean/README.md) (pill-shaped controls) and
+[`design-theme-ocean`](packages/design-theme-ocean/README.md) (pill-shaped controls),
+[`design-theme-onyx`](packages/design-theme-onyx/README.md) (a dark-only black-gold business
+identity: champagne gold on soft warm graphite, moderate 8px/12px radii, warm elevation with a
+restrained gold glow) and
 [`design-theme-quest`](packages/design-theme-quest/README.md) (a dark-only fantasy theme built on a
 mode subset, with tokenized component recipes).
 

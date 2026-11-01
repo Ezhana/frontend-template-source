@@ -360,6 +360,11 @@ that prefer a binary.
   variable font, measured contrast table in [`docs/DESIGN.md`](../design-theme-cerulean/docs/DESIGN.md).
 - [`@ezhana/design-theme-ocean`](../design-theme-ocean/README.md) — pill-shaped controls, no custom
   font.
+- [`@ezhana/design-theme-onyx`](../design-theme-onyx/README.md) — a fixed-mode (dark-only)
+  black-gold business theme: champagne gold on soft warm graphite (deliberately not near-black),
+  Public Sans, a moderate 8px/12px shape scale and warm near-black elevation with a restrained gold
+  glow. Its [`docs/DESIGN.md`](../design-theme-onyx/docs/DESIGN.md) records the palette, shape, type
+  and elevation decisions.
 - [`@ezhana/design-theme-quest`](../design-theme-quest/README.md) — a fixed-mode (dark-only) theme
   with a custom palette, three font families and tokenized component recipes. It is the reference for
   `modes` and fixed-mode output.

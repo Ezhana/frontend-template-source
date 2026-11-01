@@ -14,6 +14,7 @@ The architecture decision behind this split is [ADR 0003](adr/0003-themes-as-pac
 | [`@ezhana/theme-builder`](../packages/theme-builder/README.md)                 | build-time tool | validate a theme package against the contract; generate its CSS, metadata, types and JSON                                            | runtime state, app wiring      |
 | [`@ezhana/design-theme-cerulean`](../packages/design-theme-cerulean/README.md) | theme package   | Cerulean palette, Public Sans, semantic overrides, design narrative                                                                  | other themes, app code         |
 | [`@ezhana/design-theme-ocean`](../packages/design-theme-ocean/README.md)       | theme package   | Ocean palette, pill-shaped controls, semantic overrides                                                                              | other themes, app code         |
+| [`@ezhana/design-theme-onyx`](../packages/design-theme-onyx/README.md)         | theme package   | Onyx black-gold business palette, Public Sans, moderate radii, warm near-black elevation, dark-only fixed mode                       | other themes, app code         |
 | [`@ezhana/design-theme-quest`](../packages/design-theme-quest/README.md)       | theme package   | QuestUI fantasy palette, Cinzel/Spectral/Fira Code, gold-glow elevation, dark-only fixed mode                                        | other themes, app code         |
 | [`@ezhana/theme`](../packages/theme/README.md)                                 | runtime         | theme/mode state machine: `data-theme` (+ optional `data-color-mode`), persistence, `prefers-color-scheme`, cross-tab sync, registry | CSS, token values, components  |
 | self-hosted fonts (`@fontsource*`)                                             | static assets   | fonts imported by a theme's `./style` entry (Public Sans, Cinzel, Spectral, Fira Code)                                               | theme logic                    |
@@ -38,7 +39,7 @@ preference only; it is never written to `data-color-mode`.
 Theme CSS is `:root`-prefixed, so it wins over the core stylesheet regardless of import order.
 
 A theme may support only a subset of the app's color modes. A fixed-mode theme (one declared mode,
-such as QuestUI's `['dark']`) emits a single unconditional `:root[data-theme]` rule with
+such as QuestUI's or Onyx's `['dark']`) emits a single unconditional `:root[data-theme]` rule with
 `color-scheme` pinned; the runtime still writes `data-theme`, but clamps `resolvedMode` (and any
 `data-color-mode`) to a mode the active theme actually supports.
 
@@ -85,6 +86,7 @@ such as QuestUI's `['dark']`) emits a single unconditional `:root[data-theme]` r
 import '@ezhana/design-tokens/css/tokens.css'
 import '@ezhana/design-theme-ocean/style'
 import '@ezhana/design-theme-cerulean/style'
+import '@ezhana/design-theme-onyx/style'
 import '@ezhana/design-theme-quest/style'
 import './index.css'
 ```
@@ -100,6 +102,7 @@ extra import above costs nothing at runtime; it documents the dependency.
 import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
+import { theme as onyx } from '@ezhana/design-theme-onyx'
 import { theme as quest } from '@ezhana/design-theme-quest'
 import { defineThemeRegistry } from '@ezhana/theme'
 
@@ -108,6 +111,7 @@ export const themeRegistry = defineThemeRegistry([
   ocean,
   cerulean,
   quest, // fixed-mode: modes: ['dark']
+  onyx, // fixed-mode: modes: ['dark']
 ])
 export type AppTheme = (typeof themeRegistry.themes)[number]
 ```
@@ -204,7 +208,9 @@ example.
 
 Theme design narratives live with the theme package, e.g.
 [`packages/design-theme-cerulean/docs/DESIGN.md`](../packages/design-theme-cerulean/docs/DESIGN.md)
-(a measured palette/contrast narrative) and
+(a measured palette/contrast narrative),
+[`packages/design-theme-onyx/docs/DESIGN.md`](../packages/design-theme-onyx/docs/DESIGN.md)
+(a black-gold business identity: palette, shape, type and elevation decisions) and
 [`packages/design-theme-quest/docs/DESIGN.md`](../packages/design-theme-quest/docs/DESIGN.md)
 (tokenized component recipes and composited-contrast checks).
 
@@ -278,5 +284,6 @@ Release order matters: core → theme packages → generator → template export
 | `packages/eslint-config-*`, `packages/prettier-config`       | shared lint/format config packages (not published; copied into the template)      |
 | `tools/create-app/snippets/theme-init.html`                  | pre-paint inline script                                                           |
 | `packages/design-theme-cerulean/docs/DESIGN.md`              | worked example of a theme's design narrative                                      |
+| `packages/design-theme-onyx/docs/DESIGN.md`                  | black-gold business theme narrative: palette, shape, type and elevation           |
 | `packages/design-theme-quest/docs/DESIGN.md`                 | dark-only theme narrative + tokenized component recipes                           |
 | `docs/adr/0003-themes-as-packages.md`                        | the architecture decision for theme packages                                      |

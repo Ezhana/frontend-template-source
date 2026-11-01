@@ -1,0 +1,52 @@
+{
+  "theme": {
+    "color": {
+      "$type": "color",
+      "$description": "Onyx theme-private palette. Resolved at build time and never emitted as CSS custom properties. Surfaces are warm graphite, not black; text is warm ivory, not pure white; the metal is champagne gold, never a saturated yellow.",
+      "onyx": {
+        "graphite": {
+          "$description": "Layered warm graphite surfaces. The darkest step is a soft charcoal, deliberately lighter than a pure-black page; borders are one step lighter than the surface they sit on.",
+          "600": { "$value": "#534c42" },
+          "700": { "$value": "#423d36" },
+          "800": { "$value": "#3f3a34" },
+          "850": { "$value": "#36322d" },
+          "900": { "$value": "#302d29" },
+          "950": { "$value": "#292623" }
+        },
+        "ivory": {
+          "$description": "Warm text colors. Never pure white.",
+          "100": { "$value": "#f6f1e7" },
+          "200": { "$value": "#ede6d9" },
+          "400": { "$value": "#b6ac9c" }
+        },
+        "gold": {
+          "$description": "Champagne gold. The 500 step is the solid interactive fill; 300 is the brighter text-on-tint variant used on translucent gold surfaces.",
+          "300": { "$value": "#e8c566" },
+          "500": { "$value": "#d4af37" }
+        },
+        "rose": {
+          "$description": "Muted rose: destructive actions and error text. The 600 step is the solid destructive fill, 300 the text-on-tint variant.",
+          "300": { "$value": "#f2a8a0" },
+          "500": { "$value": "#e28f87" },
+          "600": { "$value": "#7e2f2c" }
+        },
+        "jade": {
+          "$description": "Soft jade: success and completion states. The 300 step is the text-on-tint variant.",
+          "300": { "$value": "#a3d6b9" },
+          "500": { "$value": "#8ac7a4" }
+        },
+        "amber": {
+          "$description": "Soft amber: warnings and pending states. The 300 step is the text-on-tint variant.",
+          "300": { "$value": "#f0be72" },
+          "500": { "$value": "#e8a94f" }
+        },
+        "steel": {
+          "$description": "Desaturated steel blue: informational roles. The 600 step is the solid informational fill.",
+          "300": { "$value": "#afcfe9" },
+          "500": { "$value": "#8fb8db" },
+          "600": { "$value": "#2f4a61" }
+        }
+      }
+    }
+  }
+}
