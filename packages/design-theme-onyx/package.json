@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/design-theme-onyx",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Official Onyx theme for @ezhana/design-tokens: a black-gold business identity with champagne-gold accents on warm graphite surfaces, Public Sans, dark-only.",
   "type": "module",
   "exports": {
