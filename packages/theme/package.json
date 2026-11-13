@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/theme",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "Optional, SSR-safe theme-state runtime for Ezhana: validated theme/mode preferences, persistence, system color mode and cross-tab sync. Styling does not need it.",
   "type": "module",
   "exports": {

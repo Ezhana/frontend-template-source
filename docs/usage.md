@@ -418,7 +418,7 @@ required. A minimal project installs only the theme and Astro:
 ```json
 {
   "dependencies": {
-    "@ezhana/design-theme-cerulean": "^0.1.0",
+    "@ezhana/design-theme-cerulean": "^1.0.0",
     "astro": "^7.4.11"
   }
 }

@@ -78,10 +78,10 @@ await buildTheme(new URL('../theme.config.mjs', import.meta.url))
     "prepack": "pnpm build"
   },
   "dependencies": {
-    "@ezhana/design-tokens": "^1.1.0"
+    "@ezhana/design-tokens": "^2.0.0"
   },
   "devDependencies": {
-    "@ezhana/theme-builder": "^0.2.0",
+    "@ezhana/theme-builder": "^1.0.0",
     "@fontsource-variable/inter": "^5.3.0"
   }
 }

@@ -344,5 +344,5 @@ belong in this source repository and reach users through a new export.
   generator, so `pnpm install --frozen-lockfile` fails if it is not published.
 - Template CI installs with `--frozen-lockfile`, catching missing files/exports in published
   packages.
-- For 0.x packages, `^0.2.0` accepts patch releases only; review minor releases manually if you
-  want tighter control.
+- All published packages are 1.x or later; a caret range such as `^2.0.0` accepts minor and patch
+  releases. Pin exact versions when a template snapshot must stay frozen.

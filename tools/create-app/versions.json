@@ -1,13 +1,13 @@
 {
   "packages": {
-    "@ezhana/design-theme-cerulean": "0.1.0",
-    "@ezhana/design-theme-obsidian": "0.0.0",
-    "@ezhana/design-theme-ocean": "0.1.0",
-    "@ezhana/design-theme-onyx": "0.1.0",
-    "@ezhana/design-theme-quest": "0.1.0",
-    "@ezhana/design-tokens": "1.1.0",
-    "@ezhana/theme": "0.4.0",
-    "@ezhana/theme-builder": "0.2.0"
+    "@ezhana/design-theme-cerulean": "1.0.0",
+    "@ezhana/design-theme-obsidian": "1.0.0",
+    "@ezhana/design-theme-ocean": "1.0.0",
+    "@ezhana/design-theme-onyx": "1.0.0",
+    "@ezhana/design-theme-quest": "1.0.0",
+    "@ezhana/design-tokens": "2.0.0",
+    "@ezhana/theme": "1.0.0",
+    "@ezhana/theme-builder": "1.0.0"
   },
   "catalog": {
     "@eslint/js": "10.0.1",

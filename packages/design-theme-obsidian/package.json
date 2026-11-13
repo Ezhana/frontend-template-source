@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/design-theme-obsidian",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Official Obsidian theme for @ezhana/design-tokens: the Obsidian & Gold business identity — 24K gold on warm near-black obsidian, Inter body with Playfair Display headings, hairline-led hierarchy, dark-only.",
   "type": "module",
   "exports": {

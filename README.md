@@ -115,7 +115,7 @@ config is written: the official scaffold's own output is preserved.
 
 ### Design system packages
 
-#### `@ezhana/design-tokens` (core, v1.1.0)
+#### `@ezhana/design-tokens` (core, v2.0.0)
 
 The CSS-first core: DTCG primitive and semantic sources compiled with
 [Style Dictionary](https://styledictionary.com/) into a complete core stylesheet, resolved values, a
