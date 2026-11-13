@@ -103,7 +103,7 @@ const normalizeContrast = (value) => {
  * @property {string} [description] Optional one-line description.
  * @property {readonly string[]} [tokens] Theme-private DTCG files, all tokens under `theme.*`.
  * @property {string} overrides DTCG file with `base` and one section per color mode.
- * @property {readonly string[]} [fonts] Font CSS entry points imported by the style entry.
+ * @property {readonly string[]} [fonts] Font CSS entry points inlined into the generated stylesheet.
  * @property {{ pairs?: readonly (readonly [string, string])[], min?: number }} [contrast]
  * @property {readonly string[]} [modes] Color modes the theme supports, in order. Defaults to
  *   every color mode of the core contract; a single mode makes the theme a fixed-mode theme.

@@ -233,7 +233,7 @@ monospace`) for code, IDs and tabular readouts. Onyx does not override `font.fam
 The font is self-hosted as a variable font via
 [`@fontsource-variable/public-sans`](https://fontsource.org/fonts/public-sans) (weights 100–900,
 `font-display: swap`). It is listed in `fonts` in [`theme.config.mjs`](../theme.config.mjs), so the
-generated `dist/style.js` imports it after the core stylesheet and before the theme overrides.
+generated `dist/fonts.css` declares the self-hosted `@font-face` rules (inlined by `dist/style.css`) and the font files are copied into `dist/fonts/`.
 Because the `@font-face` is only referenced by the Onyx font tokens, browsers only download Public
 Sans when a theme that uses it is active — Onyx or the Cerulean theme, which shares the family; the
 other themes keep their own stacks.
@@ -710,33 +710,28 @@ runtime. `@ezhana/theme` clamps a light preference or a light OS preference to O
 `dark` mode, so the switcher can stay visible without producing a broken light Onyx:
 
 ```ts
-import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
 import { theme as onyx } from '@ezhana/design-theme-onyx'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+import { createThemeManager } from '@ezhana/theme'
 
-export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean, onyx])
-export type AppTheme = (typeof registry.themes)[number]
-
-export const manager = createThemeManager<AppTheme, Mode>({
-  themes: [...registry.themes],
-  modes: [...registry.modes],
-  themeModes: registry.themeModes, // onyx → ['dark']
-  defaultTheme: registry.defaultTheme,
+export const themeManager = createThemeManager({
+  themes: [defaultThemeDefinition, ocean, cerulean, onyx],
 })
 
-manager.setTheme('onyx')
-manager.getState().resolvedMode // 'dark', even when the OS prefers light
+themeManager.setTheme('onyx')
+themeManager.getState().resolvedMode // 'dark', even when the OS prefers light
 ```
 
 `data-color-mode` is written only for explicit preferences and always holds a mode the active theme
 supports; in `system` mode the attribute is removed and the fixed-mode theme stylesheet applies
-unconditionally. The switcher UI can read `registry.themeModes` to disable unsupported mode options.
+unconditionally. The switcher UI can read the active theme definition's `modes` to disable unsupported mode options.
 
-Loading the theme itself: `import '@ezhana/design-theme-onyx/style'` (core stylesheet + Public Sans +
-overrides), or the split `@ezhana/design-tokens/css/tokens.css` +
-`@ezhana/design-theme-onyx/theme.css` entries.
+Loading the theme itself: `import '@ezhana/design-theme-onyx/style.css'` (complete preset: core
+tokens + overrides), or the split `@ezhana/design-tokens/style.css` +
+`@ezhana/design-theme-onyx/fonts.css` + `@ezhana/design-theme-onyx/theme.css` entries for
+multi-theme apps.
 
 ## Implementation Notes
 
@@ -745,10 +740,11 @@ overrides), or the split `@ezhana/design-tokens/css/tokens.css` +
 | Theme identity, label, description, single supported mode, font entry                      | [`theme.config.mjs`](../theme.config.mjs)                            |
 | Onyx palette (graphite, ivory, gold, rose, jade, amber, steel)                             | [`tokens/palette.json`](../tokens/palette.json) (`theme.color.onyx`) |
 | Semantic overrides (font families, label tracking, shape, warm palette, status, elevation) | [`tokens/theme.json`](../tokens/theme.json) (`base`, `dark`)         |
-| Generated CSS overrides (fixed-mode selector) and standalone bundle                        | `dist/css/theme.css`, `dist/css/standalone.css`                      |
-| Generated bundler entry (core CSS + Public Sans + overrides)                               | `dist/style.js`                                                      |
-| Generated metadata (`themeId`, `themeLabel`, `theme.modes = ['dark']`)                     | `dist/js/index.js`, `dist/js/index.d.ts`                             |
-| Resolved values for the supported mode (used by tests and tooling)                         | `dist/json/theme.json`                                               |
+| Complete preset (fonts + core tokens + overrides)                                          | `dist/style.css`                                                     |
+| Theme overrides only                                                                       | `dist/theme.css`                                                     |
+| Self-hosted `@font-face` rules and font files                                              | `dist/fonts.css`, `dist/fonts/`                                      |
+| Generated metadata (`themeId`, `themeLabel`, `theme`) + types                              | `dist/index.js`, `dist/index.d.ts`                                   |
+| Resolved values per mode (used by tests and tooling)                                       | `dist/theme.json`                                                    |
 | Generation + validation                                                                    | `pnpm --filter @ezhana/design-theme-onyx build`                      |
 | Tests (selectors, contract, no leaked variables, WCAG AA)                                  | `pnpm --filter @ezhana/design-theme-onyx test`                       |
 
@@ -758,7 +754,7 @@ Underlying capabilities this package relies on (all already in place; Onyx added
   full type/line-height scale, label tracking, modal/panel radii and the deep elevation levels.
 - **`@ezhana/theme-builder`** — `modes` in the theme config and fixed-mode CSS emission, so a theme
   may support a subset of the contract's color modes (here: dark only).
-- **`@ezhana/theme`** — per-theme mode metadata (`themeModes`) and `resolvedMode` clamping, so a
+- **`@ezhana/theme`** — per-theme supported modes and `resolvedMode` clamping, so a
   dark-only theme can be registered next to light+dark themes.
 
 Adding Onyx required **no application-specific theming code** beyond registering it in the app's

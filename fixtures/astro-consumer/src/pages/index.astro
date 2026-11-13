@@ -1,0 +1,26 @@
+---
+import TokenProbe from '../components/TokenProbe.astro'
+import Layout from '../layouts/Layout.astro'
+
+const probes = [
+  ['--color-bg', 'var(--color-bg)'],
+  ['--color-surface', 'var(--color-surface)'],
+  ['--color-fg', 'var(--color-fg)'],
+  ['--color-accent', 'var(--color-accent)'],
+  ['--color-info', 'var(--color-info)'],
+  ['--color-danger', 'var(--color-danger)'],
+]
+---
+
+<Layout title="Cerulean — system color mode">
+  <main class="page">
+    <h1 class="accent">Cerulean</h1>
+    <section class="surface">
+      <p>System color mode: the data-color-mode attribute is absent.</p>
+      <ul>
+        {probes.map(([label, value]) => <TokenProbe label={label} value={value} />)}
+      </ul>
+      <p><button class="button" type="button">Accent action</button></p>
+    </section>
+  </main>
+</Layout>

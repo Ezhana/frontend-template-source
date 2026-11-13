@@ -2,15 +2,13 @@
  * Locate and read the core `@ezhana/design-tokens` artifacts a theme is built against.
  *
  * Resolution starts at the theme package, not at this package: a theme package declares
- * `@ezhana/design-tokens` itself, so `require.resolve` from the theme's directory yields the exact
- * version the theme was developed against. This is what allows several themes (and several
- * versions of the core package) to coexist in one workspace.
+ * `@ezhana/design-tokens` itself, so resolution yields the exact version the theme was developed
+ * against. That is what allows several themes (and several core versions) to coexist in a workspace.
  */
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 
-/** Contract versions this builder understands. */
 const SUPPORTED_CONTRACT_VERSIONS = [1]
 
 const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'))
@@ -38,9 +36,9 @@ export const loadCoreTokens = async (cwd) => {
   let valuesPath
   let cssPath
   try {
-    contractPath = require.resolve('@ezhana/design-tokens/contract')
-    valuesPath = require.resolve('@ezhana/design-tokens/json')
-    cssPath = require.resolve('@ezhana/design-tokens/css/tokens.css')
+    contractPath = require.resolve('@ezhana/design-tokens/contract.json')
+    valuesPath = require.resolve('@ezhana/design-tokens/tokens.json')
+    cssPath = require.resolve('@ezhana/design-tokens/style.css')
   } catch (error) {
     throw new Error(
       `@ezhana/design-tokens is installed (${dirname(packageJsonPath)}) but its generated ` +

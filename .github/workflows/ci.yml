@@ -48,3 +48,6 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Verify packed packages in a real consumer
+        run: pnpm test:consumer

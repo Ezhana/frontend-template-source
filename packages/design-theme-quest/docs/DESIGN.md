@@ -170,7 +170,7 @@ CDN:
 | Fira Code | `@fontsource-variable/fira-code` | variable 300–700   |
 
 The `fonts` array in [`theme.config.mjs`](../theme.config.mjs) puts those imports in the generated
-`dist/style.js` after the core stylesheet and before the theme overrides. Because the `@font-face`
+`dist/fonts.css` after the theme overrides, and the font files are copied into `dist/fonts/`. Because the `@font-face`
 rules are only referenced by QuestUI font tokens, a browser downloads them only when QuestUI is the
 active theme.
 
@@ -575,33 +575,28 @@ runtime. `@ezhana/theme` clamps a light preference or a light OS preference to Q
 `dark` mode, so the switcher can stay visible without producing a broken light QuestUI:
 
 ```ts
-import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
 import { theme as quest } from '@ezhana/design-theme-quest'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+import { createThemeManager } from '@ezhana/theme'
 
-export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean, quest])
-export type AppTheme = (typeof registry.themes)[number]
-
-export const manager = createThemeManager<AppTheme, Mode>({
-  themes: [...registry.themes],
-  modes: [...registry.modes],
-  themeModes: registry.themeModes, // quest → ['dark']
-  defaultTheme: registry.defaultTheme,
+export const themeManager = createThemeManager({
+  themes: [defaultThemeDefinition, ocean, cerulean, quest],
 })
 
-manager.setTheme('quest')
-manager.getState().resolvedMode // 'dark', even when the OS prefers light
+themeManager.setTheme('quest')
+themeManager.getState().resolvedMode // 'dark', even when the OS prefers light
 ```
 
 `data-color-mode` is written only for explicit preferences and always holds a mode the active theme
 supports; in `system` mode the attribute is removed and the fixed-mode theme stylesheet applies
-unconditionally. The switcher UI can read `registry.themeModes` to disable unsupported mode options.
+unconditionally. The switcher UI can read the active theme definition's `modes` to disable unsupported mode options.
 
-Loading the theme itself: `import '@ezhana/design-theme-quest/style'` (core stylesheet + Cinzel /
-Spectral / Fira Code + overrides), or the split `@ezhana/design-tokens/css/tokens.css` +
-`@ezhana/design-theme-quest/theme.css` entries.
+Loading the theme itself: `import '@ezhana/design-theme-quest/style.css'` (complete preset: core
+tokens + overrides), or the split `@ezhana/design-tokens/style.css` +
+`@ezhana/design-theme-quest/fonts.css` + `@ezhana/design-theme-quest/theme.css` entries for
+multi-theme apps.
 
 ## Implementation Notes
 
@@ -610,10 +605,11 @@ Spectral / Fira Code + overrides), or the split `@ezhana/design-tokens/css/token
 | Theme identity, label, description, single supported mode, font entries | [`theme.config.mjs`](../theme.config.mjs)                             |
 | QuestUI palette (gold, parchment, crimson, royal, browns, green)        | [`tokens/palette.json`](../tokens/palette.json) (`theme.color.quest`) |
 | Semantic overrides (type scale, shape, warm palette, status, elevation) | [`tokens/theme.json`](../tokens/theme.json) (`base`, `dark`)          |
-| Generated CSS overrides (fixed-mode selector) and standalone bundle     | `dist/css/theme.css`, `dist/css/standalone.css`                       |
-| Generated bundler entry (core CSS + 8 font imports + overrides)         | `dist/style.js`                                                       |
-| Generated metadata (`themeId`, `themeLabel`, `theme.modes = ['dark']`)  | `dist/js/index.js`, `dist/js/index.d.ts`                              |
-| Resolved values for the supported mode (used by tests and tooling)      | `dist/json/theme.json`                                                |
+| Complete preset (fonts + core tokens + overrides)                       | `dist/style.css`                                                      |
+| Theme overrides only                                                    | `dist/theme.css`                                                      |
+| Self-hosted `@font-face` rules and font files                           | `dist/fonts.css`, `dist/fonts/`                                       |
+| Generated metadata (`themeId`, `themeLabel`, `theme`) + types           | `dist/index.js`, `dist/index.d.ts`                                    |
+| Resolved values per mode (used by tests and tooling)                    | `dist/theme.json`                                                     |
 | Generation + validation                                                 | `pnpm --filter @ezhana/design-theme-quest build`                      |
 | Tests (selectors, contract, no leaked variables, WCAG AA)               | `pnpm --filter @ezhana/design-theme-quest test`                       |
 
@@ -624,7 +620,7 @@ Underlying capabilities added for this package (changed at the source, not patch
   default values and contract contrast pairs for every color mode.
 - **`@ezhana/theme-builder`** — `modes` in the theme config and fixed-mode CSS emission, so a theme
   may support a subset of the contract's color modes (here: dark only).
-- **`@ezhana/theme`** — per-theme mode metadata (`themeModes`) and `resolvedMode` clamping, so a
+- **`@ezhana/theme`** — per-theme supported modes and `resolvedMode` clamping, so a
   dark-only theme can be registered next to light+dark themes.
 
 Adding QuestUI required **no application-specific theming code** beyond registering it in the app's

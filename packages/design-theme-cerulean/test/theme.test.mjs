@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -12,7 +11,6 @@ const read = (path) => readFile(dist(path), 'utf8')
 
 const THEME_ID = 'cerulean'
 const THEME_LABEL = 'Cerulean'
-const FONT_PACKAGE = '@fontsource-variable/public-sans'
 const BASE_SELECTOR = `:root[data-theme="${THEME_ID}"]`
 const DARK_SELECTOR = `${BASE_SELECTOR}[data-color-mode="dark"]`
 const SYSTEM_MEDIA = '@media (prefers-color-scheme: dark)'
@@ -27,12 +25,12 @@ const REQUIRED_MODE = [
   '--color-focus-ring',
 ]
 
-const themeCss = await read('css/theme.css')
-const standaloneCss = await read('css/standalone.css')
-const styleJs = await read('style.js')
-const themeJson = JSON.parse(await read('json/theme.json'))
-const metadata = await import(pathToFileURL(dist('js/index.js')).href)
-const dts = await read('js/index.d.ts')
+const themeCss = await read('theme.css')
+const styleCss = await read('style.css')
+const fontsCss = await read('fonts.css')
+const themeJson = JSON.parse(await read('theme.json'))
+const metadata = await import(pathToFileURL(dist('index.js')).href)
+const dts = await read('index.d.ts')
 
 /* -------------------------------------------------------------------------- */
 /* Helpers                                                                    */
@@ -80,17 +78,17 @@ const systemBlocks = blocks.filter(
   (block) => inSystemBlock(block) && block.selector.includes(`[data-theme="${THEME_ID}"]`),
 )
 
-/** dist/json/theme.json is the documented envelope: `{ resolved: { <mode>: { <path>: … } } }`. */
+/** dist/theme.json is the documented envelope: `{ resolved: { <mode>: { <path>: … } } }`. */
 const modeMap = themeJson.resolved
 assert.ok(
   modeMap !== null && typeof modeMap === 'object',
-  'dist/json/theme.json must expose a `resolved` object',
+  'dist/theme.json must expose a `resolved` object',
 )
 for (const mode of ['light', 'dark']) {
   assert.equal(
     typeof modeMap[mode],
     'object',
-    `dist/json/theme.json must expose resolved values for the "${mode}" mode`,
+    `dist/theme.json must expose resolved values for the "${mode}" mode`,
   )
 }
 
@@ -247,55 +245,56 @@ test('theme.css contains only resolved overrides', () => {
   }
 })
 
-test('standalone.css bundles the core stylesheet and the theme overrides', () => {
+test('complete style.css embeds the fonts, core tokens and theme overrides', () => {
+  assert.ok(styleCss.length > themeCss.length, 'style.css must include the core stylesheet')
+  assert.match(styleCss, /@layer design-tokens/)
+  assert.ok(styleCss.includes('--color-bg:'), 'style.css is missing core semantic tokens')
+  assert.ok(styleCss.includes(BASE_SELECTOR), 'style.css is missing the theme block')
   assert.ok(
-    standaloneCss.length > themeCss.length,
-    'standalone.css must include the core stylesheet',
+    styleCss.indexOf('--color-bg:') < styleCss.indexOf(BASE_SELECTOR),
+    'core tokens must come before the theme overrides in style.css',
   )
-  assert.match(standaloneCss, /@layer design-tokens/)
-  assert.ok(standaloneCss.includes('--color-bg:'), 'standalone.css is missing core semantic tokens')
-  assert.ok(standaloneCss.includes(BASE_SELECTOR), 'standalone.css is missing the theme block')
-  assert.ok(
-    standaloneCss.indexOf('--color-bg:') < standaloneCss.indexOf(BASE_SELECTOR),
-    'core tokens must come before the theme overrides in standalone.css',
-  )
+
+  // The published preset resolves its own dependencies: no CSS imports remain, and every font URL
+  // points at a file shipped next to the stylesheet.
+  assert.doesNotMatch(styleCss, /@import\s/)
+  const fontUrls = [...styleCss.matchAll(/url\("([^"]+)"\)/g)].map((match) => match[1])
+  if (styleCss.includes('@font-face {')) {
+    assert.ok(fontUrls.length > 0, 'style.css declares fonts but no font files')
+  }
+  for (const url of fontUrls) {
+    assert.match(url, /^\.\/fonts\/[^/]+\.woff2?$/)
+    assert.ok(existsSync(join(packageRoot, 'dist', url)), `Missing font file ${url}`)
+  }
+})
+
+test('the package ships CSS-first entries and no JavaScript CSS imports', async () => {
+  const pkg = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'))
+  assert.ok(pkg.files.includes('dist'))
+  assert.deepEqual(pkg.sideEffects, ['**/*.css'])
+  assert.match(await read('index.js'), /export const theme/, 'Expected theme metadata')
+  assert.doesNotMatch(await read('index.js'), /\.css['"]/, 'Metadata must not import CSS')
+  assert.match(fontsCss, /@font-face \{|ships no font assets/)
 })
 
 /* -------------------------------------------------------------------------- */
 /* JavaScript entry                                                           */
 /* -------------------------------------------------------------------------- */
 
-test('style.js imports the core stylesheet, the font and the theme CSS in order', () => {
-  const styleBody = stripComments(styleJs)
-  const imports = [...styleBody.matchAll(/import\s+['"]([^'"]+)['"]/g)].map((match) => match[1])
-  assert.equal(imports[0], '@ezhana/design-tokens/css/tokens.css')
-  assert.equal(imports.at(-1), './css/theme.css')
-  assert.deepEqual(
-    imports.filter((specifier) => specifier === './css/theme.css'),
-    ['./css/theme.css'],
-    'theme.css must be imported exactly once',
-  )
-
-  const fontIndex = imports.indexOf(FONT_PACKAGE)
-  assert.notEqual(fontIndex, -1, `style.js must import "${FONT_PACKAGE}"`)
-  assert.ok(
-    fontIndex > 0 && fontIndex < imports.length - 1,
-    'font imports come between the two CSS imports',
-  )
-
-  // Self-sufficiency: every specifier must resolve from THIS package, so a consumer that installs
-  // only this theme gets its dependencies and not a hoisted accident.
-  const require = createRequire(join(packageRoot, 'package.json'))
-  for (const specifier of imports) {
-    if (specifier.startsWith('.')) {
-      const target = new URL(specifier, pathToFileURL(dist('style.js')))
-      assert.ok(existsSync(fileURLToPath(target)), `${specifier} does not exist in the tarball`)
-      continue
-    }
-    assert.doesNotThrow(
-      () => require.resolve(specifier),
-      `${specifier} must be resolvable from ${packageRoot} (declare it as a dependency)`,
-    )
+test('every package export points at a generated file', async () => {
+  const pkg = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'))
+  assert.deepEqual(Object.keys(pkg.exports).sort(), [
+    '.',
+    './fonts.css',
+    './package.json',
+    './style.css',
+    './theme.css',
+    './theme.json',
+  ])
+  for (const subpath of ['./style.css', './theme.css', './fonts.css', './theme.json']) {
+    const target = pkg.exports[subpath]
+    assert.match(target, /^\.\/dist\//, `${subpath} must point inside dist/`)
+    assert.ok(existsSync(join(packageRoot, target)), `${subpath} points at a missing file`)
   }
 })
 

@@ -1,9 +1,9 @@
 /**
  * The theme build: read the theme sources, validate them against the core contract, resolve every
- * value with Style Dictionary and emit the theme package artifacts.
+ * value and write the theme package artifacts. The complete `style.css` inlines the core stylesheet
+ * and the theme's font faces, so importing one file is enough to use the theme.
  */
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -12,13 +12,14 @@ import StyleDictionary from 'style-dictionary'
 import { defineTheme } from './config.js'
 import { loadCoreTokens } from './core.js'
 import {
+  createFontsCss,
   createMetadataDts,
   createMetadataJs,
-  createStandaloneCss,
-  createStyleEntry,
+  createStyleCss,
   createThemeCss,
   createThemeJson,
 } from './emit.js'
+import { inlineFonts } from './fonts.js'
 import { cssVariableName, expandFlatTokens, mergeTrees, readJson, stripRootMeta } from './tokens.js'
 import {
   DEFAULT_CONTRAST_PAIRS,
@@ -57,13 +58,9 @@ const DEPENDENCY_FIELDS = [
 ]
 
 /**
- * Read the theme package manifest. A theme build always runs inside a publishable package, so the
- * manifest is required: it names the package in the generated documentation and proves that
- * `@ezhana/design-tokens` and the configured font entries are declared dependencies instead of
- * accidental hoisting.
- *
- * @param {string} cwd
- * @returns {Promise<{ name: string } & Record<string, unknown>>}
+ * Read the theme package manifest. A theme build always runs inside a publishable package: the
+ * manifest names the package in generated documentation and proves the core token package is a
+ * declared dependency instead of an accidental hoisted install.
  */
 const loadThemePackage = async (cwd) => {
   const packageJsonPath = join(cwd, 'package.json')
@@ -90,27 +87,8 @@ const assertCoreDependency = (packageJson, cwd) => {
   if (!declared) {
     throw new Error(
       `The theme package in "${cwd}" does not declare @ezhana/design-tokens. ` +
-        'Add it to "dependencies": the theme is built against — and its stylesheet is layered ' +
-        'on — that package, so relying on hoisting breaks consumers.',
+        'Add it as a dependency: the theme stylesheet is layered on that package.',
     )
-  }
-}
-
-const assertFontsResolve = (fonts, cwd) => {
-  if (fonts.length === 0) return
-  const require = createRequire(join(cwd, 'package.json'))
-  for (const font of fonts) {
-    try {
-      require.resolve(font)
-    } catch (error) {
-      throw new Error(
-        `The font entry "${font}" cannot be resolved from "${cwd}". ` +
-          'Add the font package to the theme package dependencies; the generated "style" entry ' +
-          'imports it for consumers.\n' +
-          `Cause: ${error.message}`,
-        { cause: error },
-      )
-    }
   }
 }
 
@@ -188,23 +166,21 @@ const declarationsFor = (paths, values) =>
     .sort()
     .map((path) => [cssVariableName(path), String(values[path].value)])
 
+const writeText = (path, content) => writeFile(path, content)
+
 /**
  * Build a theme package.
  *
  * @param {object | string | URL} configOrFile A config object, a path to `theme.config.mjs`, or a URL.
  * @param {{ cwd?: string }} [options] Base directory when a config object is passed.
- * @returns {Promise<{ id: string, label: string, cwd: string, outputs: Record<string, string> }>}
  */
 export const buildTheme = async (configOrFile, options = {}) => {
   const { config, cwd } = await resolveConfigSource(configOrFile, options)
   const packageJson = await loadThemePackage(cwd)
   assertCoreDependency(packageJson, cwd)
-  assertFontsResolve(config.fonts, cwd)
 
   const { contract, values, cssPath } = await loadCoreTokens(cwd)
 
-  // A theme may support a subset of the contract's color modes (for example a dark-only theme).
-  // `modes: []` means "every contract mode", which keeps full-mode themes unchanged.
   const contractModeIds = contract.modes.map((mode) => mode.id)
   const themeModes = config.modes.length > 0 ? [...config.modes] : contractModeIds
   for (const mode of themeModes) {
@@ -253,8 +229,6 @@ export const buildTheme = async (configOrFile, options = {}) => {
       [overrides.base ?? {}, overrides[mode]],
       `theme "${config.id}" ${mode} override`,
     )
-    // `primitiveTree` and `localTokens` are already rooted (`primitive.*` / `theme.*`), and the
-    // override sections are rooted at their semantic path, so they can be merged at the top level.
     const flat = await resolveTokenTree(
       { ...primitiveTree, ...localTokens, ...modeTree },
       config.id,
@@ -271,9 +245,8 @@ export const buildTheme = async (configOrFile, options = {}) => {
     }
   }
 
-  // Built-in defaults are filtered to the tokens the installed core contract knows, so a newer
-  // builder remains compatible with an older v1 core. A theme-supplied contrast.pairs list is used
-  // as-is and still fails when it names a token the contract does not have.
+  // Built-in contrast defaults are filtered to the tokens the installed core contract knows, so a
+  // newer builder remains compatible with an older core; explicit theme pairs still fail loudly.
   const contrastPairs =
     config.contrast.pairs.length > 0
       ? config.contrast.pairs
@@ -289,13 +262,11 @@ export const buildTheme = async (configOrFile, options = {}) => {
   })
 
   const packageName = packageJson.name
-  const specifier = packageName
   const coreCss = await readFile(cssPath, 'utf8')
+  const fontAssets = await inlineFonts({ fonts: config.fonts, cwd })
 
-  // Every non-default mode block re-declares *all* mode-varying overrides the theme makes, with
-  // the value that applies in that mode. Without this, a token overridden only in the default mode
-  // would be emitted on the unconditional base selector and leak into the other modes (the theme
-  // base rule is more specific than core's mode rules), making the CSS disagree with `resolved`.
+  // Every non-default mode block re-declares every mode-varying override the theme makes, so a
+  // token overridden only in the default mode cannot leak into another mode from the base rule.
   const themeModePaths = [
     ...new Set(validated.modeIds.flatMap((mode) => validated.modePaths.get(mode))),
   ]
@@ -305,9 +276,6 @@ export const buildTheme = async (configOrFile, options = {}) => {
     [...validated.basePaths, ...validated.modePaths.get(validated.defaultMode)],
     resolved[validated.defaultMode],
   )
-  // A fixed-mode theme declares just one color mode, so it also pins the native color scheme on its
-  // single rule: form controls and scrollbars then match the theme even when the OS prefers the
-  // other scheme. Full-mode and multi-mode themes keep selecting it with data-color-mode instead.
   const fixedMode = validated.modeIds.length === 1
   if (fixedMode) {
     const colorScheme = colorSchemes[validated.modeIds[0]]
@@ -329,15 +297,22 @@ export const buildTheme = async (configOrFile, options = {}) => {
   }
 
   const themeCss = createThemeCss(cssOptions)
-  const standaloneCss = createStandaloneCss({
+  const themeCssBody = createThemeCss({ ...cssOptions, banner: false })
+  const fontsCss = createFontsCss({
     config,
     packageName,
+    fontFaceCss: fontAssets.fontFaceCss,
+    fontCount: fontAssets.fontFiles.size,
+  })
+  const styleCss = createStyleCss({
+    config,
+    packageName,
+    fontFaceCss: fontAssets.fontFaceCss,
     coreCss,
-    themeCss: createThemeCss({ ...cssOptions, banner: false }),
+    themeCss: themeCssBody,
   })
   const metadataJs = createMetadataJs({ config, packageName, modeIds: validated.modeIds })
   const metadataDts = createMetadataDts({ config, packageName, modeIds: validated.modeIds })
-  const styleEntry = createStyleEntry({ config, packageName, specifier })
   const themeJson = createThemeJson({
     config,
     validated,
@@ -346,31 +321,47 @@ export const buildTheme = async (configOrFile, options = {}) => {
     contractVersion: contract.version,
   })
 
-  // Fixed layout: the documented exports map points at dist/, so the build writes there and
-  // nowhere else.
   const outputDir = join(cwd, 'dist')
   await rm(outputDir, { recursive: true, force: true })
-  await mkdir(join(outputDir, 'css'), { recursive: true })
-  await mkdir(join(outputDir, 'js'), { recursive: true })
-  await mkdir(join(outputDir, 'json'), { recursive: true })
+  await mkdir(join(outputDir, 'fonts', 'licenses'), { recursive: true })
 
   const outputs = {
-    css: join(outputDir, 'css', 'theme.css'),
-    standaloneCss: join(outputDir, 'css', 'standalone.css'),
-    style: join(outputDir, 'style.js'),
-    metadata: join(outputDir, 'js', 'index.js'),
-    types: join(outputDir, 'js', 'index.d.ts'),
-    json: join(outputDir, 'json', 'theme.json'),
+    styleCss: join(outputDir, 'style.css'),
+    themeCss: join(outputDir, 'theme.css'),
+    fontsCss: join(outputDir, 'fonts.css'),
+    metadata: join(outputDir, 'index.js'),
+    types: join(outputDir, 'index.d.ts'),
+    json: join(outputDir, 'theme.json'),
   }
 
+  const fontOutputs = [...fontAssets.fontFiles.entries()].map(([source, target]) => ({
+    source,
+    target: join(outputDir, target),
+  }))
+  const licenseOutputs = [...fontAssets.licenseFiles.entries()].map(([source, target]) => ({
+    source,
+    target: join(outputDir, target),
+  }))
+
   await Promise.all([
-    writeFile(outputs.css, themeCss),
-    writeFile(outputs.standaloneCss, standaloneCss),
-    writeFile(outputs.style, styleEntry),
-    writeFile(outputs.metadata, metadataJs),
-    writeFile(outputs.types, metadataDts),
-    writeFile(outputs.json, `${JSON.stringify(themeJson, null, 2)}\n`),
+    writeText(outputs.styleCss, styleCss),
+    writeText(outputs.themeCss, themeCss),
+    writeText(outputs.fontsCss, fontsCss),
+    writeText(outputs.metadata, metadataJs),
+    writeText(outputs.types, metadataDts),
+    writeText(outputs.json, `${JSON.stringify(themeJson, null, 2)}\n`),
+    ...fontOutputs.map(async ({ source, target }) => writeFile(target, await readFile(source))),
+    ...licenseOutputs.map(async ({ source, target }) => writeFile(target, await readFile(source))),
   ])
 
-  return { id: config.id, label: config.label, cwd, contractVersion: contract.version, outputs }
+  return {
+    id: config.id,
+    label: config.label,
+    cwd,
+    contractVersion: contract.version,
+    outputs: {
+      ...outputs,
+      fonts: fontOutputs.map(({ target }) => target),
+    },
+  }
 }

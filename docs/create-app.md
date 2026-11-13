@@ -48,9 +48,13 @@ registers the new app in the workspace lockfile, so step 6 is then replaced by
    `name` and `private` fields. The scaffold's dependencies, scripts and lint/format configuration
    are left untouched.
 4. **theme overlay** (skipped with `--no-theme`): copy `overlays/<framework>` into the app:
-   - `src/theme/*` runtime integration (`registry.ts`, `manager.ts`, `useTheme.ts`);
-   - `ThemeSwitcher` + `ThemeRoot` wrapper;
-   - entry file importing the core tokens CSS and each theme package's `./style` entry;
+   - `src/theme/registry.ts` exporting the `themeDefinitions` array plus the derived `themeIds`
+     and `themeLabels`;
+   - `src/theme/manager.ts` calling `createThemeManager({ themes: themeDefinitions })`, and the
+     framework adapter in `src/theme/useTheme.ts`;
+   - `ThemeSwitcher` + `ThemeRoot` wrapper; the switcher reads `themeIds` / `themeLabels`;
+   - the entry file importing `@ezhana/design-tokens/style.css` once, then each installed theme's
+     `fonts.css` and `theme.css` (one shared core stylesheet, no `./style` JavaScript entries);
    - theme init script in `index.html` (no flash of wrong theme).
 5. **move**: rename the staging app to the target. This happens _before_ dependency installation on
    purpose: inside the template workspace the app has to exist at `apps/<name>` when pnpm resolves
@@ -199,23 +203,56 @@ range operator, so `typescript` can end up as e.g. `~6.0.2`).
 
 ## Theme packages
 
-Themes are consumed as standalone packages, per
-[ADR 0003](adr/0003-themes-as-packages.md). The generator installs `@ezhana/design-tokens`,
-`@ezhana/theme`, `@ezhana/design-theme-cerulean` and `@ezhana/design-theme-ocean`; versions come from
-`versions.json`, so theme packages release independently of the core token package.
+Themes are static CSS presets installed as normal packages, per
+[ADR 0005](adr/0005-css-first-theme-presets.md). The generator installs `@ezhana/design-tokens`,
+`@ezhana/theme` (the optional runtime), `@ezhana/design-theme-cerulean` and
+`@ezhana/design-theme-ocean`; versions come from `versions.json`, so theme packages release
+independently of the core token package.
 
-The app owns its theme set: `src/theme/registry.ts` calls
-`defineThemeRegistry([defaultThemeDefinition, ...themeDefinitions])` and derives
-`AppTheme = (typeof themeRegistry.themes)[number]`; `manager.ts` and the switcher read from that
-registry, so they can never drift from the installed theme packages. Theme packages own their
-palette, fonts and CSS overrides — the app neither imports `@fontsource-*` directly nor contains any
-theme-specific token — and each package's `./style` entry pulls in the core stylesheet, the theme's
-fonts if any and its overrides.
+The app owns its theme set in `src/theme/registry.ts`:
 
-To change the default theme set, update both overlays (registry array + entry-file `./style` imports)
-and the theme package list in [`lib/create.mjs`](../tools/create-app/lib/create.mjs). Adding a theme
-in a generated app only needs `pnpm --filter ./apps/<name> add <theme-package>`, its stylesheet
-import and one entry in `src/theme/registry.ts`.
+```ts
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
+import { theme as cerulean } from '@ezhana/design-theme-cerulean'
+import { theme as ocean } from '@ezhana/design-theme-ocean'
+import type { ThemeDefinition } from '@ezhana/theme'
+
+export const themeDefinitions = [
+  defaultThemeDefinition,
+  ocean,
+  cerulean,
+] as const satisfies readonly ThemeDefinition[]
+
+export type AppTheme = (typeof themeDefinitions)[number]['id']
+export const themeIds = themeDefinitions.map((definition) => definition.id) as AppTheme[]
+export const themeLabels = Object.fromEntries(
+  themeDefinitions.map((definition) => [definition.id, definition.label]),
+) as Record<AppTheme, string>
+```
+
+`src/theme/manager.ts` passes that array straight to the runtime:
+`createThemeManager({ themes: themeDefinitions })`. The switcher reads `themeIds` / `themeLabels`, so
+it always matches the installed theme packages.
+
+The entry file loads the CSS separately from the metadata:
+
+```ts
+import '@ezhana/design-tokens/style.css'
+import '@ezhana/design-theme-ocean/fonts.css'
+import '@ezhana/design-theme-ocean/theme.css'
+import '@ezhana/design-theme-cerulean/fonts.css'
+import '@ezhana/design-theme-cerulean/theme.css'
+```
+
+Theme packages own their palette, fonts and CSS overrides — the app neither imports `@fontsource-*`
+directly nor contains any theme-specific token. Fonts are build-time devDependencies of the theme
+package and their files are copied into its `dist/fonts/`, so the app only imports `fonts.css`.
+
+To change the default theme set, update both overlays (the `themeDefinitions` array and the entry
+CSS imports) and the theme package list in
+[`lib/create.mjs`](../tools/create-app/lib/create.mjs). Adding a theme in a generated app needs only
+`pnpm --filter ./apps/<name> add <theme-package>`, its `fonts.css`/`theme.css` imports and one entry
+in `themeDefinitions`.
 
 ## CI
 

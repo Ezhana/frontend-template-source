@@ -9,12 +9,13 @@
     "skipLibCheck": true,
     "types": [],
     "paths": {
-      "@ezhana/design-tokens": ["../../packages/design-tokens/dist/js/index.d.ts"],
+      "@ezhana/design-tokens": ["../../packages/design-tokens/dist/index.d.ts"],
       "@ezhana/theme": ["../../packages/theme/index.d.ts"],
-      "@ezhana/design-theme-cerulean": ["../../packages/design-theme-cerulean/dist/js/index.d.ts"],
-      "@ezhana/design-theme-ocean": ["../../packages/design-theme-ocean/dist/js/index.d.ts"],
-      "@ezhana/design-theme-onyx": ["../../packages/design-theme-onyx/dist/js/index.d.ts"],
-      "@ezhana/design-theme-quest": ["../../packages/design-theme-quest/dist/js/index.d.ts"],
+      "@ezhana/design-theme-cerulean": ["../../packages/design-theme-cerulean/dist/index.d.ts"],
+      "@ezhana/design-theme-obsidian": ["../../packages/design-theme-obsidian/dist/index.d.ts"],
+      "@ezhana/design-theme-ocean": ["../../packages/design-theme-ocean/dist/index.d.ts"],
+      "@ezhana/design-theme-onyx": ["../../packages/design-theme-onyx/dist/index.d.ts"],
+      "@ezhana/design-theme-quest": ["../../packages/design-theme-quest/dist/index.d.ts"],
       "@ezhana/theme-builder": ["../../packages/theme-builder/index.d.ts"]
     }
   },

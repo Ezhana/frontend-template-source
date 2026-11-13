@@ -1,0 +1,21 @@
+---
+import TokenProbe from '../components/TokenProbe.astro'
+import Layout from '../layouts/Layout.astro'
+
+const probes = [
+  ['--color-bg', 'var(--color-bg)'],
+  ['--color-accent', 'var(--color-accent)'],
+]
+---
+
+<Layout theme={null} title="Core default theme">
+  <main class="page">
+    <h1 class="accent">Default theme</h1>
+    <section class="surface">
+      <p>No data-theme attribute: the core default theme applies.</p>
+      <ul>
+        {probes.map(([label, value]) => <TokenProbe label={label} value={value} />)}
+      </ul>
+    </section>
+  </main>
+</Layout>

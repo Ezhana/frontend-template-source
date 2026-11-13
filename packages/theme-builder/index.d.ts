@@ -21,13 +21,13 @@ export interface ThemeConfig {
   readonly id: string
   /** Human-readable label for switcher UIs. */
   readonly label: string
-  /** Optional one-line description, copied into `dist/json/theme.json`. */
+  /** Optional one-line description, copied into `dist/theme.json`. */
   readonly description?: string
   /** Theme-private DTCG files. Every token must live under `theme.*`. */
   readonly tokens?: readonly string[]
   /** DTCG file with a `base` section and one section per declared color mode. */
   readonly overrides: string
-  /** Font CSS entry points imported by the generated `style` entry. */
+  /** Font CSS entry points inlined into the generated stylesheet (a font package or CSS file). */
   readonly fonts?: readonly string[]
   /** Contrast requirements. */
   readonly contrast?: ThemeContrastOptions
@@ -58,17 +58,19 @@ export interface ResolvedThemeConfig {
 
 /** Artifacts written by {@link buildTheme}, keyed by kind. */
 export interface ThemeBuildOutputs {
-  /** `dist/css/theme.css` — semantic overrides only. */
-  readonly css: string
-  /** `dist/css/standalone.css` — core stylesheet + overrides. */
-  readonly standaloneCss: string
-  /** `dist/style.js` — self-sufficient bundler entry: core CSS, fonts, overrides. */
-  readonly style: string
-  /** `dist/js/index.js` — `theme`, `themeId`, `themeLabel`, `modes` (declared modes). */
+  /** `dist/style.css` — complete, self-contained preset: fonts + core tokens + theme overrides. */
+  readonly styleCss: string
+  /** `dist/theme.css` — theme overrides only (use with `@ezhana/design-tokens/style.css`). */
+  readonly themeCss: string
+  /** `dist/fonts.css` — rewritten `@font-face` rules for the self-hosted font assets. */
+  readonly fontsCss: string
+  /** Absolute paths of the font files copied into `dist/fonts/`. */
+  readonly fonts: readonly string[]
+  /** `dist/index.js` — `theme`, `themeId`, `themeLabel`, `modes` (declared modes). */
   readonly metadata: string
-  /** `dist/js/index.d.ts` — literal types for the metadata. */
+  /** `dist/index.d.ts` — literal types for the metadata. */
   readonly types: string
-  /** `dist/json/theme.json` — resolved values per mode, for tooling and tests. */
+  /** `dist/theme.json` — resolved values per mode, for tooling and tests. */
   readonly json: string
 }
 

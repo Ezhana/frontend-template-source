@@ -95,7 +95,7 @@ export const cssVariableName = (tokenPath) => `--${tokenPath.split('.').map(toKe
 
 /**
  * Expand a flat `{ "a.b.c": { value, type } }` map (as published in
- * `@ezhana/design-tokens/json`) into a DTCG token tree.
+ * `@ezhana/design-tokens/tokens.json`) into a DTCG token tree.
  */
 export const expandFlatTokens = (flat) => {
   const tree = {}

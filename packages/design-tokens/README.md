@@ -1,32 +1,144 @@
 # @ezhana/design-tokens
 
-Core design tokens for the Ezhana templates: a primitive scale, a semantic contract and a default
-theme, compiled with [Style Dictionary](https://styledictionary.com/) into one stylesheet of CSS
-custom properties plus generated metadata, types and a machine-readable theme contract.
+CSS-first core design tokens for the Ezhana frontend templates: a primitive scale, a semantic
+contract and a default theme, compiled with [Style Dictionary](https://styledictionary.com/) into a
+complete stylesheet of CSS custom properties plus resolved values, a versioned theme contract and
+typed ESM metadata.
 
-The package follows the standard layering — **primitive → semantic → component** — with two
-important rules:
+The package is the foundation of the theme system:
 
-- **Themes are not a layer and not a token namespace.** A theme is a separate package that
-  overrides semantic tokens; it is built with [`@ezhana/theme-builder`](../theme-builder/README.md).
-  This package ships the contract those themes are validated against, and the default theme.
-- **The color mode is orthogonal to the theme identity.** Themes are selected by `data-theme`,
-  modes by the optional `data-color-mode` attribute, and the system preference by CSS.
-
-```html
-<!-- default theme, follow the OS color mode -->
-<html data-theme="default"></html>
-
-<!-- a theme package with an explicit color mode -->
-<html data-theme="cerulean" data-color-mode="dark"></html>
-```
+- **The core stylesheet is complete.** `style.css` contains the primitives, the default theme and the
+  light/dark/system color-mode rules. Import it once and the default theme works with no
+  `data-theme` attribute.
+- **Themes are separate packages.** A theme overrides semantic tokens and is selected with
+  `data-theme="<id>"`. It is built against this package's contract with
+  [`@ezhana/theme-builder`](../theme-builder/README.md).
+- **Color modes are orthogonal to theme identity.** An optional `data-color-mode` attribute forces
+  `light` or `dark`; when absent, the stylesheet follows the OS through `prefers-color-scheme`.
+- **Theming is zero-JS.** The stylesheet alone handles theme selection, explicit modes and system
+  mode. [`@ezhana/theme`](../theme/README.md) is an optional runtime for switcher state.
 
 ## Installation
 
 ```sh
 pnpm add @ezhana/design-tokens
-# optional: the official themes
-pnpm add @ezhana/design-theme-cerulean @ezhana/design-theme-ocean
+```
+
+For a ready-made visual identity, install a theme package instead — it depends on this package, so a
+single install is enough:
+
+```sh
+pnpm add @ezhana/design-theme-cerulean
+```
+
+## Usage
+
+### Core only: the default theme
+
+Import the core stylesheet once, before application CSS:
+
+```css
+/* src/styles/global.css */
+@import '@ezhana/design-tokens/style.css';
+```
+
+No `data-theme` attribute is needed: the default theme is emitted on `:root`. Consume semantic
+custom properties in application CSS — never hex values, never `--primitive-*` for themeable
+properties:
+
+```css
+.card {
+  color: var(--color-fg);
+  background: var(--color-surface);
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-sm);
+}
+```
+
+### Use a theme package
+
+A theme's `style.css` is self-contained (fonts + the full core stylesheet + theme overrides), so
+installing and importing just the theme package is enough:
+
+```ts
+// main.ts / main.tsx
+import '@ezhana/design-theme-cerulean/style.css'
+import './index.css'
+```
+
+```html
+<html data-theme="cerulean"></html>
+```
+
+Do not also import `@ezhana/design-tokens/style.css` in this setup; the theme preset already contains
+it. For multi-theme apps, import the core stylesheet once and each theme's `theme.css`/`fonts.css`
+instead — see [`docs/usage.md`](../../docs/usage.md).
+
+### Zero-JS color modes
+
+```html
+<!-- follow the OS (data-color-mode absent) -->
+<html data-theme="cerulean"></html>
+
+<!-- explicit mode; always wins over the OS preference -->
+<html data-theme="cerulean" data-color-mode="dark"></html>
+```
+
+### Metadata and types
+
+```ts
+import {
+  defaultTheme,
+  defaultThemeDefinition,
+  modeLabels,
+  modes,
+  primitiveTokenNames,
+  semanticTokenNames,
+  tokenNames,
+  type Mode,
+  type ModePreference,
+  type PrimitiveTokenName,
+  type SemanticTokenName,
+  type ThemeDefinition,
+  type TokenName,
+} from '@ezhana/design-tokens'
+
+defaultTheme // 'default'
+defaultThemeDefinition // { id: 'default', label: 'Default', modes: ['light', 'dark'] }
+modes // ['light', 'dark']
+```
+
+`defaultThemeDefinition` is what an app adds to the `themes` array of
+[`@ezhana/theme`](../theme/README.md) when the default theme should be selectable. There is no
+`themes` list or `Theme` union in this package: theme identities belong to the theme packages.
+
+## Exports
+
+| Export                                | Kind | Contents                                                                                                                             |
+| ------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `@ezhana/design-tokens`               | JS   | `defaultTheme`, `defaultThemeDefinition`, `modes`, `modeLabels`, `primitiveTokenNames`, `semanticTokenNames`, `tokenNames` and types |
+| `@ezhana/design-tokens/style.css`     | CSS  | complete core stylesheet: primitives + default theme + light/dark/system color modes, inside `@layer design-tokens`                  |
+| `@ezhana/design-tokens/tokens.json`   | JSON | resolved primitive values plus resolved semantic values per color mode                                                               |
+| `@ezhana/design-tokens/contract.json` | JSON | the versioned theme contract consumed by the theme builder                                                                           |
+| `@ezhana/design-tokens/package.json`  | JSON | package manifest                                                                                                                     |
+
+`tokens.json` is the tooling view of the core (abridged):
+
+```json
+{
+  "generator": "@ezhana/design-tokens",
+  "version": 1,
+  "defaultTheme": "default",
+  "modes": ["light", "dark"],
+  "defaultMode": "light",
+  "modeLabels": { "light": "Light", "dark": "Dark" },
+  "primitives": { "primitive.color.neutral.0": { "value": "#ffffff", "type": "color" } },
+  "semantic": {
+    "light": { "color.bg": { "value": "#ffffff", "type": "color" } },
+    "dark": { "color.bg": { "value": "#16171d", "type": "color" } }
+  }
+}
 ```
 
 At the source-repository root, `pnpm build` compiles this package and every theme package, and
@@ -38,89 +150,37 @@ pnpm test            # contract, CSS, metadata and WCAG contrast checks
 ```
 
 Generated applications are consumers, not builders: they install the published packages and import
-the generated CSS, so there is no token build step in an app. Rebuild here whenever you change
-`tokens/`, and the theme packages are rebuilt after the core package because they read its contract
-and stylesheet.
+the generated CSS, so there is no token build step in an app.
 
-## Usage
-
-Import the core stylesheet once, before any application CSS, and a theme package entry after it:
-
-```ts
-// main.ts / main.tsx
-import '@ezhana/design-tokens/css/tokens.css'
-import '@ezhana/design-theme-cerulean/style' // core CSS + theme overrides + fonts
-import './index.css'
-```
-
-Import the stylesheet with its full `tokens.css` extension so TypeScript's bundler resolution and
-Vite's `*.css` module typing line up.
-
-Then consume semantic custom properties in application CSS — never hex values, never `--primitive-*`:
-
-```css
-.card {
-  color: var(--color-fg);
-  background: var(--color-bg-subtle);
-  border: var(--border-width-default) solid var(--color-border);
-  border-radius: var(--radius-surface);
-  box-shadow: var(--shadow-sm);
-}
-```
-
-Theme metadata is generated as ESM with literal TypeScript types:
-
-```ts
-import {
-  defaultTheme,
-  defaultThemeDefinition,
-  modeLabels,
-  modes,
-  semanticTokenNames,
-  tokenNames,
-  type Mode,
-  type ModePreference,
-  type ThemeDefinition,
-} from '@ezhana/design-tokens'
-```
-
-There is no `themes` list and no `Theme` union in this package: theme identities belong to theme
-packages, and `defineThemeRegistry` from [`@ezhana/theme`](../theme/README.md#definethemeregistrydefinitions-options)
-assembles them.
-
-## Layer model
+## Token model
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ primitive layer      raw, context-free values. Never themed.                │
-│ --primitive-color-neutral-0     neutral, violet, red, green, amber ramps     │
-│ --primitive-space-4             spacing, radius, border, size, motion       │
-│ --primitive-font-size-md        typography scales                           │
-│        ▲                                                                    │
-│        │ semantic values may only reference primitives                      │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ semantic layer       intent-based tokens. The public API for product code.   │
-│ --color-bg           The default theme lives here (tokens/semantic).        │
-│ --color-accent       Theme packages override these exact names.             │
-│ --font-family-sans   No theme adds new token names.                         │
-│ --radius-control                                                            │
-│        ▲                                                                    │
-│        │ component tokens (optional) live in a separate package             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│ theme packages       semantic-token overrides. Not part of this package.     │
-└─────────────────────────────────────────────────────────────────────────────┘
+tokens/primitive/*.json       raw, context-free values; never themed
+        │
+        ▼
+tokens/semantic/base.json     mode-independent semantic tokens
+tokens/semantic/modes/*.json  color, shadow and mode-specific semantic values
+        │
+        ▼
+dist/style.css                primitives + default theme + light/dark/system rules
 ```
 
-A token in a lower layer never references a higher layer, so adding a theme or a color mode can
-never break component CSS.
+- **Primitive layer** (`--primitive-*`): the shared scale — neutral, violet, red, green and amber
+  ramps, spacing, radii, border widths, typography, motion and content width. Raw material; never
+  theme-specific.
+- **Semantic layer** (`--color-*`, `--font-*`, `--radius-*`, `--shadow-*`, `--border-*`,
+  `--motion-*`, `--size-content`): the public API for product code, and the default theme.
+- **Theme packages**: semantic-token overrides selected by `:root[data-theme="<id>"]`. Theme-private
+  `theme.*` tokens are build-time material only and never become CSS variables.
 
-### What lives where
+A token in a lower layer never references a higher layer, so adding a theme or a color mode cannot
+break component CSS.
 
 | Concern                              | Owner                      | Emitted as CSS variables        |
 | ------------------------------------ | -------------------------- | ------------------------------- |
 | Shared primitive scale               | this package               | yes (`--primitive-*`)           |
 | Semantic tokens + default theme      | this package               | yes (`--color-*`, …)            |
-| Theme contract                       | this package               | no (`dist/json/contract.json`)  |
+| Theme contract                       | this package               | no (`contract.json`)            |
 | Theme-private palette (`theme.*`)    | theme package, build time  | **no**                          |
 | Theme semantic overrides             | theme package              | yes, `:root[data-theme="<id>"]` |
 | Theme + mode state (`data-theme`, …) | `@ezhana/theme` or the app | n/a                             |
@@ -128,47 +188,46 @@ never break component CSS.
 The core primitive scale intentionally contains only shared material: neutrals, the status colors,
 the default theme's violet accent, spacing, radii, borders, type and motion. A brand hue such as
 cerulean blue or ocean blue lives in the theme package that uses it — see
-[ADR 0003](../../docs/adr/0003-themes-as-packages.md).
+[ADR 0005](../../docs/adr/0005-css-first-theme-presets.md).
 
 ## Token reference
 
 Semantic tokens are the public API and are emitted as CSS custom properties for every color mode.
-The tables below list the token name (as used in `dist/json/core.json` and the theme contract), the
-CSS variable product code consumes, and the role the token describes. Values are the default
-theme's; themes may override any of them.
+The tables below group the roles with representative variables; the complete, authoritative set is
+`semanticTokenNames` and `contract.json`. The default theme supplies the values; themes may override
+any of them.
 
-### Surfaces, borders and text
+### Surfaces, text and borders
 
-| Token                    | CSS variable               | Role                                                  |
-| ------------------------ | -------------------------- | ----------------------------------------------------- |
-| `color.bg`               | `--color-bg`               | Page background, the base layer of a mode.            |
-| `color.bg-subtle`        | `--color-bg-subtle`        | Inset surface: code blocks, wells, inactive controls. |
-| `color.surface`          | `--color-surface`          | Raised surface: cards, panels and sheets.             |
-| `color.surface-elevated` | `--color-surface-elevated` | Topmost surface: modals, popovers and menus.          |
-| `color.border`           | `--color-border`           | Hairline borders and dividers.                        |
-| `color.border-subtle`    | `--color-border-subtle`    | Low-contrast divider on raised or tinted surfaces.    |
-| `color.fg`               | `--color-fg`               | Default body text.                                    |
-| `color.fg-muted`         | `--color-fg-muted`         | Secondary / de-emphasized text.                       |
-| `color.fg-strong`        | `--color-fg-strong`        | Headings and high-emphasis text.                      |
+| CSS variable               | Role                                                  |
+| -------------------------- | ----------------------------------------------------- |
+| `--color-bg`               | Page background, the base layer of a mode.            |
+| `--color-bg-subtle`        | Inset surface: code blocks, wells, inactive controls. |
+| `--color-surface`          | Raised surface: cards, panels and sheets.             |
+| `--color-surface-elevated` | Topmost surface: modals, popovers and menus.          |
+| `--color-fg`               | Default body text.                                    |
+| `--color-fg-muted`         | Secondary / de-emphasized text.                       |
+| `--color-fg-strong`        | Headings and high-emphasis text.                      |
+| `--color-border`           | Hairline borders and dividers.                        |
+| `--color-border-subtle`    | Low-contrast divider on raised or tinted surfaces.    |
 
 The three surface levels let a layout stack cards on the page and dialogs on cards without inventing
-ad-hoc colors. Each mode decides how the stack is tinted; the same semantic names work in light and
-dark mode.
+ad-hoc colors. The same semantic names work in light and dark mode.
 
 ### Accent and informational roles
 
-| Token                 | CSS variable            | Role                                                 |
-| --------------------- | ----------------------- | ---------------------------------------------------- |
-| `color.accent`        | `--color-accent`        | Accent text, icons and links.                        |
-| `color.accent-hover`  | `--color-accent-hover`  | Accent hover state.                                  |
-| `color.on-accent`     | `--color-on-accent`     | Content on a solid accent fill.                      |
-| `color.accent-subtle` | `--color-accent-subtle` | Tinted accent surface.                               |
-| `color.accent-border` | `--color-accent-border` | Accent-tinted border for highlighted controls.       |
-| `color.focus-ring`    | `--color-focus-ring`    | Focus outline.                                       |
-| `color.info`          | `--color-info`          | Informational text and icons.                        |
-| `color.info-solid`    | `--color-info-solid`    | Solid informational fill; pair with `color.on-info`. |
-| `color.on-info`       | `--color-on-info`       | Content on a solid informational fill.               |
-| `color.info-subtle`   | `--color-info-subtle`   | Tinted informational surface.                        |
+| CSS variable            | Role                                                   |
+| ----------------------- | ------------------------------------------------------ |
+| `--color-accent`        | Accent text, icons and links.                          |
+| `--color-accent-hover`  | Accent hover state.                                    |
+| `--color-on-accent`     | Content on a solid accent fill.                        |
+| `--color-accent-subtle` | Tinted accent surface.                                 |
+| `--color-accent-border` | Accent-tinted border for highlighted controls.         |
+| `--color-focus-ring`    | Focus outline.                                         |
+| `--color-info`          | Informational text and icons.                          |
+| `--color-info-solid`    | Solid informational fill; pair with `--color-on-info`. |
+| `--color-on-info`       | Content on a solid informational fill.                 |
+| `--color-info-subtle`   | Tinted informational surface.                          |
 
 `info` is deliberately a separate role from `accent`, so a theme can give informational UI its own
 hue while keeping the accent for interactive emphasis. The default theme maps both to the violet
@@ -176,108 +235,116 @@ ramp.
 
 ### Status roles
 
-| Token                  | CSS variable             | Role                                                 |
-| ---------------------- | ------------------------ | ---------------------------------------------------- |
-| `color.danger`         | `--color-danger`         | Danger text and icons; AA against `color.bg`.        |
-| `color.danger-solid`   | `--color-danger-solid`   | Solid destructive fill; pair with `color.on-danger`. |
-| `color.danger-subtle`  | `--color-danger-subtle`  | Tinted destructive surface.                          |
-| `color.on-danger`      | `--color-on-danger`      | Content on a solid destructive fill.                 |
-| `color.success`        | `--color-success`        | Success text and icons.                              |
-| `color.success-subtle` | `--color-success-subtle` | Tinted success surface.                              |
-| `color.warning`        | `--color-warning`        | Warning text and icons.                              |
-| `color.warning-subtle` | `--color-warning-subtle` | Tinted warning surface.                              |
+| CSS variable             | Role                                                   |
+| ------------------------ | ------------------------------------------------------ |
+| `--color-danger`         | Danger text and icons; AA against `--color-bg`.        |
+| `--color-danger-solid`   | Solid destructive fill; pair with `--color-on-danger`. |
+| `--color-danger-subtle`  | Tinted destructive surface.                            |
+| `--color-on-danger`      | Content on a solid destructive fill.                   |
+| `--color-success`        | Success text and icons.                                |
+| `--color-success-subtle` | Tinted success surface.                                |
+| `--color-warning`        | Warning text and icons.                                |
+| `--color-warning-subtle` | Tinted warning surface.                                |
 
-Danger is split into a text role and a fill role: `color.danger` is the accessible danger **text**
-color on the page, while `color.danger-solid` is the destructive **fill** that `color.on-danger` is
-validated against. Themes can retheme each independently, such as a dark-only theme whose danger text
-is light but whose destructive button stays saturated.
+Danger is split into a text role and a fill role: `--color-danger` is the accessible danger **text**
+color on the page, while `--color-danger-solid` is the destructive **fill** that
+`--color-on-danger` is validated against.
 
 ### Typography
 
-| Token                 | CSS variable            | Value                                       |
-| --------------------- | ----------------------- | ------------------------------------------- |
-| `font.family.sans`    | `--font-family-sans`    | Body font stack (theme contract).           |
-| `font.family.heading` | `--font-family-heading` | Display font stack (theme contract).        |
-| `font.family.mono`    | `--font-family-mono`    | Code and numeric font stack.                |
-| `font.size.display`   | `--font-size-display`   | `clamp(2.5rem, 1.9rem + 2.4vw, 4rem)`       |
-| `font.size.h1`        | `--font-size-h1`        | `clamp(2.25rem, 1.5rem + 2.2vw, 3.5rem)`    |
-| `font.size.h2`        | `--font-size-h2`        | `clamp(1.25rem, 1rem + 0.5vw, 1.5rem)`      |
-| `font.size.h3`        | `--font-size-h3`        | `1.25rem`                                   |
-| `font.size.h4`        | `--font-size-h4`        | `1rem`                                      |
-| `font.size.body-lg`   | `--font-size-body-lg`   | `clamp(1.125rem, 0.95rem + 0.4vw, 1.25rem)` |
-| `font.size.body`      | `--font-size-body`      | `clamp(1rem, 0.5rem + 0.78vw, 1.125rem)`    |
-| `font.size.control`   | `--font-size-control`   | `1rem` (fixed control label size)           |
-| `font.size.small`     | `--font-size-small`     | `0.875rem`                                  |
-| `font.size.caption`   | `--font-size-caption`   | `0.75rem`                                   |
-| `font.size.code`      | `--font-size-code`      | `0.9375rem`                                 |
+| CSS variable                                                                                       | Role                                         |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `--font-family-sans`                                                                               | Body font stack (theme contract).            |
+| `--font-family-heading`                                                                            | Display font stack (theme contract).         |
+| `--font-family-mono`                                                                               | Code and numeric font stack.                 |
+| `--font-size-display`                                                                              | Hero display size.                           |
+| `--font-size-h1`, `--font-size-h2`, `--font-size-h3`, `--font-size-h4`                             | Heading scale.                               |
+| `--font-size-body`                                                                                 | Default body size.                           |
+| `--font-size-body-lg`                                                                              | Lead paragraph size.                         |
+| `--font-size-control`                                                                              | Fixed control-label size.                    |
+| `--font-size-small`                                                                                | Small UI text.                               |
+| `--font-size-caption`                                                                              | Captions and metadata.                       |
+| `--font-size-code`                                                                                 | Inline code and code blocks.                 |
+| `--font-weight-body`                                                                               | Regular body weight.                         |
+| `--font-weight-medium`                                                                             | Medium emphasis.                             |
+| `--font-weight-strong`                                                                             | Semibold emphasis.                           |
+| `--font-weight-bold`                                                                               | Bold weight.                                 |
+| `--font-line-height-display`                                                                       | Display line height.                         |
+| `--font-line-height-h1`, `--font-line-height-h2`, `--font-line-height-h3`, `--font-line-height-h4` | Heading line heights.                        |
+| `--font-line-height-body`                                                                          | Body line height.                            |
+| `--font-line-height-small`                                                                         | Small-text line height.                      |
+| `--font-line-height-caption`                                                                       | Caption line height.                         |
+| `--font-line-height-code`                                                                          | Code line height.                            |
+| `--font-line-height-heading`                                                                       | Shared heading line height.                  |
+| `--font-line-height-tight`                                                                         | Tight display/utility line height.           |
+| `--font-letter-spacing-label`                                                                      | Tracking for small-caps labels and eyebrows. |
 
-Weights: `font.weight.body` = 400, `font.weight.medium` = 500, `font.weight.strong` = 600,
-`font.weight.bold` = 700 (`--font-weight-*`).
+The default theme uses fluid `clamp()` sizes for display/H1/body where useful; themes may replace the
+whole type scale (Quest and Obsidian do).
 
-Line heights (`--font-line-height-*`): `display` 1.15, `h1` 1.2, `h2` 1.25, `h3` 1.3, `h4` 1.35,
-`body` 1.45, `small` 1.45, `caption` 1.4, `code` 1.35, `heading` 1.18, `tight` 1.1.
+### Radii and elevation
 
-Label tracking: `font.letterSpacing.label` = `0.05em` (`--font-letter-spacing-label`), used for
-small-caps labels and eyebrow text.
-
-### Radii
-
-| Token            | CSS variable       | Value                       |
-| ---------------- | ------------------ | --------------------------- |
-| `radius.control` | `--radius-control` | `0.375rem` (theme contract) |
-| `radius.small`   | `--radius-small`   | `0.25rem`                   |
-| `radius.surface` | `--radius-surface` | `0.75rem`                   |
-| `radius.modal`   | `--radius-modal`   | `0.5rem`                    |
-| `radius.panel`   | `--radius-panel`   | `0.75rem`                   |
-| `radius.pill`    | `--radius-pill`    | `9999px`                    |
-
-### Elevation
-
-| Token         | CSS variable    | Light mode                                                            | Dark mode                                                             |
-| ------------- | --------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `shadow.sm`   | `--shadow-sm`   | `0 1px 2px rgb(0 0 0 / 0.06)`                                         | `0 1px 2px rgb(0 0 0 / 0.3)`                                          |
-| `shadow.md`   | `--shadow-md`   | `0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)` | `0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -2px rgb(0 0 0 / 0.25)` |
-| `shadow.lg`   | `--shadow-lg`   | `0 24px 48px -12px rgb(0 0 0 / 0.18)`                                 | `0 24px 48px -12px rgb(0 0 0 / 0.5)`                                  |
-| `shadow.xl`   | `--shadow-xl`   | `0 32px 64px -16px rgb(0 0 0 / 0.24)`                                 | `0 32px 64px -16px rgb(0 0 0 / 0.6)`                                  |
-| `shadow.glow` | `--shadow-glow` | `0 0 20px rgb(155 44 235 / 0.4)`                                      | `0 0 20px rgb(192 132 252 / 0.4)`                                     |
-
-`glow` is the only accent-tinted elevation and is meant for featured or focused surfaces. The
-`lg`/`xl` steps carry dialogs and popovers in both modes.
+| CSS variable       | Role                                      |
+| ------------------ | ----------------------------------------- |
+| `--radius-control` | Buttons, inputs and selects (contract).   |
+| `--radius-small`   | Small chips and tags.                     |
+| `--radius-surface` | Cards and panels.                         |
+| `--radius-modal`   | Dialogs.                                  |
+| `--radius-panel`   | Large panels and sheets.                  |
+| `--radius-pill`    | Fully rounded controls.                   |
+| `--shadow-sm`      | Resting card shadow.                      |
+| `--shadow-md`      | Raised card shadow.                       |
+| `--shadow-lg`      | Dialog/popover elevation.                 |
+| `--shadow-xl`      | Topmost overlay elevation.                |
+| `--shadow-glow`    | Accent-tinted glow for featured surfaces. |
 
 ### Layout, borders and motion
 
-| Token                    | CSS variable               | Value                        |
-| ------------------------ | -------------------------- | ---------------------------- |
-| `border.width.default`   | `--border-width-default`   | `1px`                        |
-| `border.width.strong`    | `--border-width-strong`    | `2px`                        |
-| `size.content`           | `--size-content`           | `70.375rem`                  |
-| `motion.duration.fast`   | `--motion-duration-fast`   | `150ms`                      |
-| `motion.duration.normal` | `--motion-duration-normal` | `300ms`                      |
-| `motion.easing.standard` | `--motion-easing-standard` | `cubic-bezier(0.2, 0, 0, 1)` |
+| CSS variable               | Role                                |
+| -------------------------- | ----------------------------------- |
+| `--border-width-default`   | Hairline border.                    |
+| `--border-width-strong`    | Emphasis/focus border.              |
+| `--size-content`           | Max content width for page layouts. |
+| `--motion-duration-fast`   | Hover/press transitions.            |
+| `--motion-duration-normal` | Surface and theme transitions.      |
+| `--motion-easing-standard` | Shared easing curve.                |
 
-The generated `semanticTokenNames` array and `dist/json/contract.json` list the complete,
-authoritative semantic token set for each mode.
+### Primitive material
+
+Primitive values are available as CSS variables and in the typed `primitiveTokenNames` array. Use
+them for raw material only; the important exception is spacing, which has no semantic layer:
+
+```css
+.page {
+  max-width: var(--size-content);
+  padding: var(--primitive-space-8);
+  gap: var(--primitive-space-4);
+}
+```
+
+Representative primitives: `--primitive-color-neutral-0`, `--primitive-color-violet-600`,
+`--primitive-space-4`, `--primitive-font-size-md`, `--primitive-radius-md`,
+`--primitive-border-width-thin`, `--primitive-size-content`.
 
 ## Theme contract
 
-Every theme must override the following semantic tokens in every color mode it declares. A theme may
-declare a subset of the core modes through `modes` in its `theme.config.mjs` (see
-[`@ezhana/theme-builder`](../theme-builder/README.md)); anything else is inherited from the default
-semantic values, which keeps themes small and lets new semantic tokens appear everywhere without
-touching every theme.
+Every theme must override the following semantic tokens in every color mode it declares:
 
 | Section                   | Required overrides                                                                                                        |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `base` (mode-independent) | `font.family.sans`, `font.family.heading`, `radius.control`                                                               |
 | every declared color mode | `color.accent`, `color.accent-hover`, `color.on-accent`, `color.accent-subtle`, `color.accent-border`, `color.focus-ring` |
 
-The contract is published for tooling as `@ezhana/design-tokens/contract`
-(`dist/json/contract.json`) and is versioned: `@ezhana/theme-builder` refuses a contract version it
-does not understand.
+Only this set is enforced. A theme may override more semantic tokens; because themes are independent
+packages, different themes do not have to override the same additional tokens.
+
+The contract is exported as `@ezhana/design-tokens/contract.json` and is versioned:
+`@ezhana/theme-builder` refuses a contract version it does not understand. Its shape:
 
 ```json
 {
   "version": 1,
+  "generator": "@ezhana/design-tokens",
   "modes": [
     { "id": "light", "label": "Light", "colorScheme": "light" },
     { "id": "dark", "label": "Dark", "colorScheme": "dark" }
@@ -285,28 +352,27 @@ does not understand.
   "defaultMode": "light",
   "required": {
     "base": ["font.family.sans", "font.family.heading", "radius.control"],
-    "mode": ["color.accent", "…"]
+    "mode": [
+      "color.accent",
+      "color.accent-hover",
+      "color.on-accent",
+      "color.accent-subtle",
+      "color.accent-border",
+      "color.focus-ring"
+    ]
   },
   "semanticTokens": { "base": ["…"], "modes": { "light": ["…"], "dark": ["…"] } },
   "primitiveTokens": ["primitive.color.neutral.0", "…"],
-  "contrast": {
-    "min": 4.5,
-    "pairs": [["color.fg", "color.bg"], "…"]
-  },
+  "contrast": { "min": 4.5, "pairs": [["color.fg", "color.bg"], "…"] },
   "themeNamespace": "theme",
   "themeIdPattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
 }
 ```
 
-Only the **required** set is enforced. Because themes are independent packages, a theme may override
-additional semantic tokens without other themes having to match — the previous "every theme must
-override exactly the same set" rule cannot be enforced across package boundaries and is dropped.
-
 ### Contrast guarantees
 
-The default theme guarantees WCAG 2.2 AA (≥ 4.5:1) for the following foreground/background pairs in
-every color mode. The list is published as `contract.contrast.pairs` so theme builders validate the
-same pairs instead of maintaining their own copy.
+The default theme guarantees WCAG 2.2 AA (≥ 4.5:1) for the foreground/background pairs published in
+`contract.contrast.pairs`. Theme builds validate the same pairs against the resolved theme values.
 
 | Foreground        | Background               | Role                                       |
 | ----------------- | ------------------------ | ------------------------------------------ |
@@ -319,104 +385,89 @@ same pairs instead of maintaining their own copy.
 | `color.fg-strong` | `color.surface-elevated` | Strong text in modals, popovers and menus. |
 | `color.accent`    | `color.bg`               | Accent text and links.                     |
 | `color.on-accent` | `color.accent`           | Content on a solid accent fill.            |
-| `color.on-danger` | `color.danger-solid`     | Content on a solid destructive fill.       |
 | `color.danger`    | `color.bg`               | Danger text on the page.                   |
+| `color.on-danger` | `color.danger-solid`     | Content on a solid destructive fill.       |
 | `color.success`   | `color.bg`               | Success text on the page.                  |
 | `color.warning`   | `color.bg`               | Warning text on the page.                  |
 | `color.info`      | `color.bg`               | Informational text on the page.            |
 | `color.on-info`   | `color.info-solid`       | Content on a solid informational fill.     |
 
-`color.on-danger` is checked against `color.danger-solid`, the destructive **fill** it is meant to sit
-on — not `color.danger`, which is the danger **text** role validated against `color.bg`. This keeps
-both roles independently themable: a dark-only theme can use light danger text on the page and a
-saturated destructive button without breaking the AA guarantee.
+`on-danger` is checked against the destructive **fill** (`danger-solid`) it sits on, not against
+`danger`, which is the danger **text** role validated against `bg`. This keeps both roles
+independently themable.
 
-## Generated artifacts
+## CSS shape
 
-`dist/` is rebuilt from `tokens/` and is not committed.
-
-| artifact                  | contents                                                                                                                |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `dist/css/tokens.css`     | primitive tokens, default-theme semantic tokens for every mode, `color-scheme` rules                                    |
-| `dist/json/core.json`     | resolved primitive values plus resolved semantic values per mode (tooling, tests, theme baseline)                       |
-| `dist/json/contract.json` | the theme contract described above                                                                                      |
-| `dist/js/index.js`        | `defaultTheme`, `defaultThemeDefinition`, `modes`, `modeLabels`, token-name arrays                                      |
-| `dist/js/index.d.ts`      | literal unions (`Mode`, `ModePreference`, `PrimitiveTokenName`, `SemanticTokenName`, `TokenName`) and `ThemeDefinition` |
-
-Public subpath exports: `@ezhana/design-tokens/css/tokens.css`, `@ezhana/design-tokens/json`,
-`@ezhana/design-tokens/contract` and `@ezhana/design-tokens` (metadata).
-
-### One core stylesheet, one stylesheet per theme
-
-The core stylesheet contains the primitive layer and the default theme. A theme package adds one
-small stylesheet that only remaps semantic custom properties, so the payload grows by a few
-kilobytes per installed theme instead of shipping every theme to every app.
-
-Themes ship as static CSS rather than lazily loaded files: a network round trip, a loading state and
-a flash of the wrong theme are worse than a few kilobytes the bundler already has to serve. Because
-each theme only overrides semantic properties, an app that installs two themes pays for two small
-files, not for a per-theme bundle.
-
-The core stylesheet also declares fallbacks so the app is usable before JavaScript runs and for
-users without JavaScript:
-
-- the `default` theme + `light` mode are emitted for `:root`;
-- the stylesheet includes `color-scheme` for each mode, so native scrollbars and form controls match.
-
-For a flash-free _dark_ first paint when the user explicitly chose dark, resolve the stored
-preference in an inline `<head>` script before the stylesheet is parsed. The snippet is documented in
-[`@ezhana/theme`](../theme/README.md#avoiding-flash-of-wrong-theme).
-
-### Selector strategy
-
-Core:
+All token declarations live in `@layer design-tokens`:
 
 ```css
-:root {
-  /* default theme + light semantics, no-JS fallback */
-}
-[data-color-mode='dark'] {
-  /* dark semantics (explicit mode) */
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-color-mode]),
+@layer design-tokens;
+
+@layer design-tokens {
+  :root {
+    /* primitives + mode-independent semantics + default light values */
+  }
+
   :root[data-color-mode='dark'] {
-    /* dark semantics (system preference) */
+    /* explicit dark */
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-color-mode]) {
+      /* system dark; explicit light/dark above always wins */
+    }
+  }
+
+  :root {
+    color-scheme: light dark;
+  }
+  :root[data-color-mode='dark'] {
+    color-scheme: dark;
+  }
+  :root[data-color-mode='light'] {
+    color-scheme: light;
   }
 }
 ```
 
-A theme package adds blocks with higher specificity, so it wins regardless of import order:
-
-```css
-:root[data-theme='ocean'] {
-  /* mode-independent overrides + ocean values for the default color mode */
-}
-:root[data-theme='ocean'][data-color-mode='dark'] {
-  /* ocean values for the explicit dark mode */
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-theme='ocean']:not([data-color-mode]) {
-    /* ocean values for the system dark mode */
-  }
-}
-```
-
-`data-theme` is never "resolved" to a mode value; it always names the theme. The color mode is
-either explicit (`data-color-mode`) or inherited from the OS through CSS.
-
-### Cascade layer
-
-All token declarations live inside a single
-[`@layer design-tokens`](https://developer.mozilla.org/en-US/docs/Web/CSS/@layer), in the core
-package and in every theme package. The consequence is useful: any **unlayered** application CSS can
-override a token — no specificity battles, no `!important`:
+- The core stylesheet has **no** `data-theme` selectors; theme packages add
+  `:root[data-theme="<id>"]` rules.
+- `color-scheme` makes native form controls and scrollbars match the selected mode.
+- Because every declaration is layered, unlayered application CSS can override a token directly:
 
 ```css
 .checkout {
   --radius-control: 0; /* wins over the layered theme token */
 }
 ```
+
+## Generated artifacts
+
+`dist/` is rebuilt from `tokens/` by `scripts/build.mjs` and is not committed.
+
+| Artifact             | Contents                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `dist/style.css`     | complete core stylesheet: primitives, default theme, light/dark/system rules, `color-scheme`                       |
+| `dist/tokens.json`   | resolved primitive values and resolved semantic values per mode                                                    |
+| `dist/contract.json` | the theme contract described above                                                                                 |
+| `dist/index.js`      | `defaultTheme`, `defaultThemeDefinition`, `modes`, `modeLabels`, token-name arrays                                 |
+| `dist/index.d.ts`    | literal types: `Mode`, `ModePreference`, `ThemeDefinition`, `PrimitiveTokenName`, `SemanticTokenName`, `TokenName` |
+
+## Build pipeline
+
+`scripts/build.mjs` is a strict orchestrator around Style Dictionary's programmatic API:
+
+1. **Load** the primitive and semantic token files, stripping file-level metadata.
+2. **Validate the contract** before generating anything:
+   - every color mode declares exactly the same semantic token set;
+   - every `{reference}` resolves and only points at the primitive layer;
+   - every required theme-contract token exists in the semantic layer;
+   - no duplicate declarations.
+3. **Build one Style Dictionary instance per color mode** to resolve and validate every value, plus
+   one instance per CSS section.
+4. **Assemble the stylesheet** in a deterministic order with fallback selectors, wrapped in
+   `@layer design-tokens`.
+5. **Emit** CSS, resolved JSON, the contract, ESM metadata and `.d.ts` declarations.
 
 ## Authoring tokens
 
@@ -434,23 +485,6 @@ full token lineage, and consumers can override a primitive without touching sema
 packages are the exception: they emit resolved values, because their private palette is build-time
 material that must not become a CSS variable.
 
-### Naming rules
-
-- **Primitive layer**: `primitive.<category>.<scale>` → `--primitive-color-violet-600`,
-  `--primitive-space-4`. Raw values only; no intent in the name.
-- **Semantic layer**: `<category>.<role>[.<state>]` → `--color-fg-muted`, `--color-accent-hover`,
-  `--font-size-body`. Names describe **intent**, never appearance (never `--color-blue-text`).
-  Semantic values may only reference primitive tokens.
-- **Theme-private tokens** (theme packages only): `theme.<category>.<name>` — build-time material,
-  never emitted, never consumable by product CSS.
-- **Component layer** (optional, separate package): `<component>.<property>[.<state>]` →
-  `--button-bg`, `--card-padding`. Values must reference semantic tokens, never primitives or raw
-  values. See [Component layer](#component-layer-optional).
-
-Layout primitives such as spacing may be consumed directly from the primitive scale
-(`--primitive-space-4`); colors, typography, radii and elevation should always go through semantic
-tokens so a theme can change them.
-
 ### Directory layout
 
 ```text
@@ -461,19 +495,29 @@ tokens/
 │   └── typography.json     #   font stacks, size scale, weights, line heights, label tracking
 └── semantic/
     ├── base.json           # mode-independent semantic defaults
-    ├── light.json          # default theme, light mode (color + shadow)
-    └── dark.json           # default theme, dark mode
+    └── modes/
+        ├── light.json      # default theme, light mode (color + shadow)
+        └── dark.json       # default theme, dark mode
 ```
 
-Theme sources live in their own packages — see
-[`@ezhana/design-theme-cerulean`](../design-theme-cerulean/README.md) for the canonical layout.
+### Naming rules
+
+- **Primitive layer**: `primitive.<category>.<scale>` → `--primitive-color-violet-600`,
+  `--primitive-space-4`. Raw values only; no intent in the name.
+- **Semantic layer**: `<category>.<role>[.<state>]` → `--color-fg-muted`, `--color-accent-hover`,
+  `--font-size-body`. Names describe **intent**, never appearance (never `--color-blue-text`).
+- **Theme-private tokens** (theme packages only): `theme.<category>.<name>` — build-time material,
+  never emitted, never consumable by product CSS.
+- **Component layer** (optional, separate package): `<component>.<property>[.<state>]` →
+  `--button-bg`, `--card-padding`. Values must reference semantic tokens, never primitives or raw
+  values. See [Component layer](#component-layer-optional).
 
 ### Adding a color mode
 
-1. Add `tokens/semantic/<mode>.json` with the same semantic token set as `light.json`
-   (start by copying it) and your values.
-2. Add a `<mode>` block to every theme package; their build fails with an actionable message listing
-   what is missing.
+1. Add `tokens/semantic/modes/<mode>.json` with the same semantic token set as `light.json` (start
+   by copying it) and your values.
+2. Add a `<mode>` block to every theme package that should support it; their builds fail with an
+   actionable message listing what is missing.
 3. Optionally add `$extensions.ezhana.label` / `colorScheme` metadata.
 4. Run `pnpm build`.
 
@@ -496,20 +540,18 @@ A theme is a separate, independently versioned package built with
 
 ```text
 my-theme/
-├── theme.config.mjs        # id, label, tokens, overrides, fonts
+├── package.json            # dependency: @ezhana/design-tokens; devDependencies: builder + fonts
+├── theme.config.mjs        # id, label, tokens, overrides, fonts, optional modes
 ├── tokens/palette.json     # theme-private palette, under `theme.*`
 ├── tokens/theme.json       # semantic overrides: base + one section per declared color mode
 └── scripts/build.mjs       # await buildTheme(new URL('../theme.config.mjs', import.meta.url))
 ```
 
 The builder validates the required overrides, rejects unknown references and non-semantic overrides,
-checks WCAG AA contrast for the resolved values, and generates the theme stylesheet, standalone
-stylesheet, style entry, metadata and types. Nothing in this package changes when a theme is added.
-
-Two official theme packages demonstrate the pattern:
-[`@ezhana/design-theme-cerulean`](../design-theme-cerulean/README.md) (custom palette, Public Sans,
-full [design narrative](../design-theme-cerulean/docs/DESIGN.md)) and
-[`@ezhana/design-theme-ocean`](../design-theme-ocean/README.md).
+checks WCAG AA contrast for the resolved values, and generates the complete preset plus metadata.
+Nothing in this package changes when a theme is added. See the
+[worked example](../design-theme-cerulean/theme.config.mjs) and the
+[builder reference](../theme-builder/README.md).
 
 ## Component layer (optional)
 
@@ -517,8 +559,8 @@ Component tokens are intentionally **not** part of this package. They describe a
 and belong to a component API; keeping them out keeps `@ezhana/design-tokens` stable and
 theme-agnostic.
 
-When a component layer is needed, add it as a **separate package** (e.g. `@ezhana/component-tokens`)
-that depends on this one:
+When a component layer is needed, add it as a **separate package** (e.g.
+`@ezhana/component-tokens`) that depends on this one:
 
 ```text
 packages/component-tokens/
@@ -537,38 +579,19 @@ Rules:
 4. Reuse the same validation approach: every token must resolve, no dangling references, no raw
    values where a semantic token exists.
 
-## Build pipeline
-
-`scripts/build.mjs` is a thin, strict orchestrator around Style Dictionary's programmatic API:
-
-1. **Load** primitive and semantic token files, stripping file-level metadata.
-2. **Validate the contract** before generating anything:
-   - every color mode declares exactly the same semantic token set;
-   - every `{reference}` resolves and only points at the primitive layer;
-   - every required theme-contract token exists in the semantic layer (otherwise the published
-     contract would be unsatisfiable);
-   - no duplicate declarations.
-3. **Build one Style Dictionary instance per color mode** to resolve and validate every value, plus
-   one instance per CSS section.
-4. **Capture outputs in memory** with `styleDictionary.formatPlatform()`, assemble sections in a
-   deterministic order with fallback selectors, and wrap everything in `@layer design-tokens`.
-5. **Emit** CSS, resolved JSON, the contract, ESM metadata and `.d.ts` declarations. The resolved
-   JSON is also what the accessibility tests consume.
-
 ## Tests
 
 `pnpm --filter @ezhana/design-tokens test` builds the tokens and then checks, among other things:
 
 - the layer model: primitives are emitted once, never themed, and the core stylesheet contains no
   theme selectors;
-- the semantic contract across every color mode, in the core JSON and in `contract.json`;
+- the semantic contract across every color mode, in the resolved JSON and in `contract.json`;
 - that `contract.json` and the resolved values describe exactly the same token sets;
 - that every `var()` reference is declared, no `{token}` placeholder leaked and no custom property is
   declared twice in a block;
 - the CSS selector strategy for explicit and system color modes, and `color-scheme`;
 - **WCAG AA contrast (≥ 4.5:1)** for every foreground/background pair published in
-  `contract.contrast.pairs` (the default theme's roles are listed under
-  [Contrast guarantees](#contrast-guarantees)), in every color mode.
+  `contract.contrast.pairs`, in every color mode.
 
 Theme packages run their own suites with the same contrast assertion for the tokens they override.
 
@@ -576,6 +599,8 @@ Theme packages run their own suites with the same contrast assertion for the tok
 
 - **Design tokens are data, not runtime code.** The build produces static artifacts; apps pay zero
   runtime cost for token resolution.
+- **Complete core stylesheet.** It can be imported alone (default theme) or embedded by a theme
+  preset. The default theme is real, not a placeholder.
 - **Semantic layer is the public API.** Primitive tokens are exported for tooling and layout scales,
   but themed properties must use semantic tokens.
 - **Themes are packages, not layers.** A theme does not introduce new token names (theme-private
@@ -584,8 +609,6 @@ Theme packages run their own suites with the same contrast assertion for the tok
   HTML, and they compose with a second `data-color-mode` axis.
 - **Both axes are orthogonal.** Theme identities are added without touching color modes and vice
   versa.
-- **One core stylesheet, one small stylesheet per theme.** No per-theme bundling, no runtime CSS
-  loading, no flash of the wrong theme.
 - **No component layer in this package.** Component tokens belong to a component API and are better
   versioned separately.
 

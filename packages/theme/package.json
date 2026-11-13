@@ -1,7 +1,7 @@
 {
   "name": "@ezhana/theme",
   "version": "0.4.0",
-  "description": "Framework-agnostic theme state manager: theme, color mode, system preference and persistence.",
+  "description": "Optional, SSR-safe theme-state runtime for Ezhana: validated theme/mode preferences, persistence, system color mode and cross-tab sync. Styling does not need it.",
   "type": "module",
   "exports": {
     ".": {
@@ -22,7 +22,8 @@
     "theme",
     "dark-mode",
     "color-scheme",
-    "design-tokens"
+    "design-tokens",
+    "runtime"
   ],
   "author": "Ezhana",
   "license": "MIT",
@@ -31,5 +32,6 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "sideEffects": false
 }

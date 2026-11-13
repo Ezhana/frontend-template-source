@@ -1,19 +1,24 @@
 # @ezhana/theme
 
-Framework-agnostic theme runtime for the Ezhana frontend templates. It owns the theme / color-mode
-state machine behind the token and theme packages: the user preference, `prefers-color-scheme`
-resolution, `localStorage` persistence, frozen state snapshots and cross-tab synchronisation.
+Optional, framework-agnostic theme-state runtime for the Ezhana design system. It owns the switcher
+state behind the CSS-first token packages: the user preference, `prefers-color-scheme` resolution,
+`localStorage` persistence, frozen state snapshots and cross-tab synchronisation.
 
+**Styling does not need this package.** The CSS contract is `data-theme` plus the optional
+`data-color-mode` attribute on the document root; the token and theme stylesheets do all visual work
+without JavaScript. Use this package only when an app needs a theme switcher with validated,
+persisted state.
+
+- **No CSS.** This package never imports or emits styles.
 - **Zero runtime dependencies**, plain ESM, no build step.
-- **Framework-agnostic** — the Vue and React apps build tiny adapters on top.
+- **Framework-agnostic** — React and Vue apps add a tiny adapter.
 - **SSR-safe** — importing the package never touches `window` or `document`.
-- **No theme dependency** — `defineThemeRegistry` accepts theme packages structurally; this package
-  never imports one.
-- **Per-theme mode support** — themes may declare different color-mode lists (for example a
-  dark-only theme next to `light`+`dark` themes); the runtime clamps the resolved mode to what the
-  active theme supports.
-- Written in plain JavaScript with JSDoc types; public types ship as a
-  hand-written [`index.d.ts`](./index.d.ts).
+- **No theme dependency** — it accepts `{ id, label, modes }` definitions structurally, so it never
+  imports a concrete theme package.
+- **Per-theme mode support** — a theme may declare a subset of the app's color modes (for example
+  dark-only); the runtime clamps `resolvedMode` to what the active theme supports.
+- Written in plain JavaScript with JSDoc types; public types ship as a hand-written
+  [`index.d.ts`](./index.d.ts).
 
 ## Installation
 
@@ -24,66 +29,65 @@ pnpm add @ezhana/theme
 Inside this workspace, add `"@ezhana/theme": "workspace:*"` to the app's dependencies and run
 `pnpm install`.
 
-## How theming works: the theme attribute + optional mode attribute
+## The attribute contract
 
-`@ezhana/design-tokens` emits semantic CSS custom properties selected by two attributes on the
-document root:
+The theme runtime writes two attributes on `document.documentElement` (or a supplied root):
 
 | Attribute         | Values                               | Written when                         | Selects                                                            |
 | ----------------- | ------------------------------------ | ------------------------------------ | ------------------------------------------------------------------ |
-| `data-theme`      | any registered theme id              | always                               | theme-package overrides of semantic tokens (`:root[data-theme=…]`) |
+| `data-theme`      | a theme id from the definitions      | always                               | theme-package overrides of semantic tokens (`:root[data-theme=…]`) |
 | `data-color-mode` | a mode supported by the active theme | only for an explicit mode preference | semantic tokens for that mode (`[data-color-mode]`)                |
 
 The mode attribute is **optional**. If it is absent, the stylesheet follows the operating system
-through `@media (prefers-color-scheme: dark)`. That makes "follow system" the default and means CSS
-handles it correctly even before JavaScript runs.
-
-The set of color modes is app-wide, but individual themes may support only a subset (see
-[Themes with different color modes](#themes-with-different-color-modes)). The runtime never writes
-an unsupported mode into `data-color-mode`.
+through `@media (prefers-color-scheme: dark)`. That makes "follow system" the default and lets CSS
+handle it correctly even before JavaScript runs. The runtime never writes `"system"` into
+`data-color-mode`; it removes the attribute instead. The effective mode is still available in state
+as `resolvedMode`.
 
 ```html
 <!-- follow the OS color mode (default) -->
 <html data-theme="cerulean"></html>
 
-<!-- explicit color mode -->
+<!-- explicit color mode; wins over the OS preference -->
 <html data-theme="cerulean" data-color-mode="dark"></html>
 ```
 
-The runtime never writes `"system"` into `data-color-mode`; it removes the attribute instead. The
-resolved mode is still available in state as `resolvedMode` for UI purposes.
-
 ## Usage
 
-Theme identities come from theme packages. `defineThemeRegistry` merges their metadata with the
-default theme of `@ezhana/design-tokens` into the options `createThemeManager` consumes:
+Theme identities come from the theme packages. Every theme package exports a frozen `theme` object
+(`{ id, label, modes }`), and `@ezhana/design-tokens` exports `defaultThemeDefinition` for the core
+default theme. Pass the definitions you want to offer directly as `themes`:
 
 ```js
 import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+import { createThemeManager } from '@ezhana/theme'
 
-export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
-
-const theme = createThemeManager({
-  themes: [...registry.themes], // required, unique, non-empty
-  modes: [...registry.modes], // union of every theme's modes, e.g. ['light', 'dark']
-  themeModes: registry.themeModes, // which modes each theme supports
-  defaultTheme: registry.defaultTheme, // 'default' unless overridden
-  root: document.documentElement, // optional in the browser, required in Node/SSR
+export const themeManager = createThemeManager({
+  themes: [defaultThemeDefinition, ocean, cerulean], // first one is the default
 })
 
-theme.setTheme('ocean')
-theme.setMode('dark') // any configured mode, or 'system'
+themeManager.setTheme('ocean')
+themeManager.setMode('dark') // a mode, or 'system'
 ```
 
 After `createThemeManager` returns, `data-theme` is applied and `data-color-mode` is either applied
-for an explicit preference (using the resolved, theme-supported mode) or absent (`system`).
+for an explicit preference (using the resolved, theme-supported mode) or absent (`system`). There is
+no registry builder: the manager derives the ids, labels and mode union from the definitions array.
 
-The registry is optional: pass any theme ids and modes directly if you install themes by hand or
-implement your own lookup. `themeModes` is optional too and defaults to every theme supporting all
-configured `modes`.
+The array can be typed with `as const` to derive the app's theme id union:
+
+```ts
+import type { Mode } from '@ezhana/design-tokens'
+
+const themeDefinitions = [defaultThemeDefinition, cerulean, ocean] as const
+type AppTheme = (typeof themeDefinitions)[number]['id']
+
+export const themeManager = createThemeManager<AppTheme, Mode>({
+  themes: themeDefinitions,
+})
+```
 
 ## State shape
 
@@ -92,13 +96,13 @@ configured `modes`.
 | Field          | Type     | Meaning                                                                                                |
 | -------------- | -------- | ------------------------------------------------------------------------------------------------------ |
 | `theme`        | `string` | Validated theme identity (always one of `themes`).                                                     |
-| `mode`         | `string` | User preference: one of `modes` or `'system'`.                                                         |
+| `mode`         | `string` | Saved preference: a configured mode or `'system'`.                                                     |
 | `resolvedMode` | `string` | Effective color mode for the active theme (preference or OS mode, clamped to what the theme supports). |
-| `systemMode`   | `string` | What the OS currently prefers, mapped into `modes`.                                                    |
+| `systemMode`   | `string` | What the OS currently prefers, mapped into the configured modes.                                       |
 
-The snapshot is **referentially stable**: `getState()` returns the same object until a value
-actually changes, and every change produces a new frozen object. That makes it directly usable with
-React's `useSyncExternalStore`.
+The snapshot is **referentially stable**: `getState()` returns the same object until a value actually
+changes, and every change produces a new frozen object. That makes it directly usable with React's
+`useSyncExternalStore`.
 
 ## API
 
@@ -106,60 +110,31 @@ React's `useSyncExternalStore`.
 
 | Export                    | Value               |
 | ------------------------- | ------------------- |
+| `SYSTEM_MODE`             | `'system'`          |
 | `DEFAULT_STORAGE_KEY`     | `'ezhana-theme'`    |
 | `DEFAULT_THEME_ATTRIBUTE` | `'data-theme'`      |
 | `DEFAULT_MODE_ATTRIBUTE`  | `'data-color-mode'` |
-| `SYSTEM_MODE`             | `'system'`          |
 
 ### `createThemeManager(options)`
 
-| Option           | Default                      | Description                                                                                                                                                                                       |
-| ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `themes`         | — (required)                 | Unique, non-empty array of themes. `themes[0]` is the default theme.                                                                                                                              |
-| `modes`          | `['light', 'dark']`          | Unique, non-empty semantic color modes. `'system'` is reserved.                                                                                                                                   |
-| `themeModes`     | every theme supports `modes` | `Record<themeId, readonly mode[]>` of the modes each theme supports, as returned by `defineThemeRegistry`. Must cover exactly `themes`; each value must be a non-empty, unique subset of `modes`. |
-| `defaultTheme`   | `themes[0]`                  | Theme used when nothing valid is stored.                                                                                                                                                          |
-| `defaultMode`    | `'system'`                   | Initial mode preference: one of `modes` or `'system'`.                                                                                                                                            |
-| `storageKey`     | `DEFAULT_STORAGE_KEY`        | localStorage key.                                                                                                                                                                                 |
-| `themeAttribute` | `DEFAULT_THEME_ATTRIBUTE`    | Attribute receiving the theme identity.                                                                                                                                                           |
-| `modeAttribute`  | `DEFAULT_MODE_ATTRIBUTE`     | Attribute receiving an explicit color mode.                                                                                                                                                       |
-| `root`           | `document.documentElement`   | Element receiving the attributes. **Required** when no DOM exists. Must implement `setAttribute` and `removeAttribute`.                                                                           |
-| `storage`        | `window.localStorage`        | `{ getItem, setItem }`-compatible object; pass `null` to disable persistence.                                                                                                                     |
-| `matchMedia`     | `window.matchMedia`          | `window.matchMedia`-compatible function; `null` disables system tracking.                                                                                                                         |
-| `eventTarget`    | `window`                     | Target for `storage` events; `null` disables cross-tab sync.                                                                                                                                      |
+| Option           | Default                    | Description                                                                                                                                                       |
+| ---------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `themes`         | — (required)               | Non-empty array of theme definitions (`{ id, label, modes }`). Ids must be unique; `themes[0]` is the default theme unless `defaultTheme` is set.                 |
+| `defaultTheme`   | `themes[0].id`             | Theme used when nothing valid is stored.                                                                                                                          |
+| `defaultMode`    | `'system'`                 | Initial mode preference: a mode supported by at least one theme, or `'system'`.                                                                                   |
+| `storageKey`     | `DEFAULT_STORAGE_KEY`      | localStorage key.                                                                                                                                                 |
+| `themeAttribute` | `DEFAULT_THEME_ATTRIBUTE`  | Attribute receiving the theme identity.                                                                                                                           |
+| `modeAttribute`  | `DEFAULT_MODE_ATTRIBUTE`   | Attribute receiving an explicit color mode.                                                                                                                       |
+| `root`           | `document.documentElement` | Element receiving the attributes. Pass `null` for headless/SSR use; a minimal root needs `setAttribute` and performs no work when `null`.                         |
+| `storage`        | `window.localStorage`      | `{ getItem, setItem }`-compatible object; pass `null` to disable persistence.                                                                                     |
+| `matchMedia`     | `window.matchMedia`        | `window.matchMedia`-compatible function; `null` disables system tracking (the OS mode falls back to `light` when available, otherwise the first configured mode). |
+| `eventTarget`    | `window`                   | Target for `storage` events; `null` disables cross-tab sync.                                                                                                      |
 
 Invalid options throw `TypeError`. Invalid `setTheme` / `setMode` values throw `RangeError` whose
 message lists the accepted values.
 
-### `defineThemeRegistry(definitions, options?)`
-
-Combines theme definitions (a theme package's `theme` export plus `defaultThemeDefinition` from
-`@ezhana/design-tokens`) into frozen metadata. It performs no DOM work, imports no CSS and does not
-depend on any theme package.
-
-```js
-const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
-// {
-//   themes: ['default', 'ocean', 'cerulean'],
-//   themeLabels: { default: 'Default', ocean: 'Ocean', cerulean: 'Cerulean' },
-//   defaultTheme: 'default',
-//   modes: ['light', 'dark'], // union, first-seen order
-//   themeModes: {
-//     default: ['light', 'dark'],
-//     ocean: ['light', 'dark'],
-//     cerulean: ['light', 'dark'],
-//   },
-// }
-```
-
-| Concern       | Behaviour                                                                                                                                                                      |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `themes`      | Declaration order, frozen. `themes[0]` is the default unless `options.defaultTheme` is given.                                                                                  |
-| `themeLabels` | `Record<id, label>`, frozen; `label` must be a non-empty string.                                                                                                               |
-| `modes`       | Union of every definition's non-empty mode list in first-seen order, frozen. Lists may differ between themes.                                                                  |
-| `themeModes`  | `Record<id, readonly modes[]>`, frozen (each list frozen too), preserving each theme's declared order.                                                                         |
-| Types         | `themes` and `defaultTheme` are narrowed to the union of the registered literal ids.                                                                                           |
-| Errors        | `TypeError` for empty/non-array input, invalid ids (must match the core `themeIdPattern`), duplicate ids, empty labels, empty/invalid mode lists or an unknown `defaultTheme`. |
+The manager derives the configured mode union from the definitions. A theme's `modes` array must be
+non-empty; `'system'` is reserved and rejected as a declared mode.
 
 ### Manager
 
@@ -170,6 +145,44 @@ const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
 | `setMode(mode)`       | Same, but accepts a configured mode or `'system'`. `system` removes `data-color-mode`; explicit preferences write the resolved mode the active theme supports. |
 | `subscribe(listener)` | Observe changes; returns an idempotent unsubscribe. The listener is **not** called immediately.                                                                |
 | `destroy()`           | Remove media-query and storage listeners, clear subscribers. Idempotent; later setters are no-ops.                                                             |
+
+## Themes with different color modes
+
+Theme packages declare the modes they actually implement, and the lists may differ. A theme can be
+fixed to a single mode — for example a dark-only business theme next to the `light`/`dark` default:
+
+```js
+const themeDefinitions = [
+  { id: 'default', label: 'Default', modes: ['light', 'dark'] },
+  { id: 'quest', label: 'Quest', modes: ['dark'] },
+]
+
+const themeManager = createThemeManager({ themes: themeDefinitions })
+// configured modes -> ['light', 'dark'] (union, first-seen order)
+```
+
+The manager clamps the **resolved** mode to the active theme:
+
+- `resolvedMode` is always a mode the active theme declares. If the preference (or the OS mode, in
+  `system` mode) is not supported, it falls back to the first mode in that theme's own list.
+- An explicit preference is still accepted and persisted, but `data-color-mode` receives the clamped
+  `resolvedMode`. When another configured theme supports `light`, `setMode('light')` on a dark-only
+  theme writes `data-color-mode="dark"` while the stored preference stays `light`; it applies again
+  after switching to a theme that supports it. (If no configured theme supports `light`, `light` is
+  not a configured mode and `setMode('light')` throws `RangeError`.)
+- In `system` mode the attribute stays absent, and `resolvedMode` is clamped to the active theme's
+  supported modes.
+- Switching themes, changing the mode preference, OS color-scheme changes and cross-tab storage syncs
+  all recompute `resolvedMode`.
+
+Because a preference can be unsupported by the active theme, a switcher should disable (or hide) mode
+options the active theme does not support. Each definition is available from the array the app
+already owns:
+
+```js
+const active = themeDefinitions.find((definition) => definition.id === state.theme)
+const canUseLight = active?.modes.includes('light') ?? false // false for a dark-only theme
+```
 
 ## Persistence
 
@@ -185,8 +198,8 @@ payloads are ignored, and each field is validated independently. An unknown them
 sandboxed iframes) are ignored.
 
 Only the **preference** (`theme` + `mode`) is stored, never the clamped `resolvedMode`. Resolution
-happens on load and after every theme/mode change, so the same `light` preference resolves to
-`light` on a full-mode theme and to `dark` on a dark-only theme without rewriting storage.
+happens on load and after every theme/mode change, so a `light` preference resolves to `light` on a
+full-mode theme and to `dark` on a dark-only theme without rewriting storage.
 
 Cross-tab updates are received through the `storage` event: a valid payload from another tab updates
 state and attributes without writing storage again.
@@ -196,47 +209,33 @@ state and attributes without writing storage again.
 - `mode: 'system'` (the default) removes `data-color-mode`. The token stylesheet then applies
   `@media (prefers-color-scheme: dark)` and `color-scheme: light dark`.
 - On OS changes the manager updates `systemMode` / `resolvedMode` and notifies subscribers. No
-  attribute changes are needed — CSS already follows the media query. The UI can still show the
+  attribute change is needed — CSS already follows the media query. The UI can still show the
   effective mode from `resolvedMode`.
 - Explicit `light` / `dark` sets `data-color-mode`, which wins over the media query.
 
-## Themes with different color modes
+## SSR and headless use
 
-Theme packages declare the modes they actually implement, and the lists may differ. A theme can be
-fixed to a single mode — for example a dark-only "Quest" theme next to the `light`/`dark` default:
+- Importing the module is safe in Node/SSR; it never reads `window`/`document` at module scope.
+- `createThemeManager` needs a `root` when no DOM is available. Pass `root: null` to run headless and
+  inject the root on the client; pass `storage: null`, `matchMedia: null` and `eventTarget: null` to
+  make the instance deterministic in tests and on the server.
 
-```js
-const registry = defineThemeRegistry([
-  { id: 'default', label: 'Default', modes: ['light', 'dark'] },
-  { id: 'quest', label: 'Quest', modes: ['dark'] },
-])
-// registry.modes      -> ['light', 'dark']  (union, first-seen order)
-// registry.themeModes -> { default: ['light', 'dark'], quest: ['dark'] }
+```ts
+const headless = createThemeManager({
+  themes: themeDefinitions,
+  root: null,
+  storage: null,
+  matchMedia: null,
+  eventTarget: null,
+})
+
+headless.getState() // { theme: 'default', mode: 'system', resolvedMode: 'light', systemMode: 'light' }
 ```
 
-Pass `registry.themeModes` to `createThemeManager`. The manager then clamps the **resolved** mode to
-the active theme:
-
-- `resolvedMode` is always a mode the active theme declares. If the preference (or the OS mode, in
-  `system` mode) is not supported, it falls back to the first mode in that theme's own list.
-- An explicit preference is still accepted and persisted, but `data-color-mode` receives the clamped
-  `resolvedMode`. On a dark-only theme, `setMode('light')` writes `data-color-mode="dark"` while the
-  stored preference stays `light`; it applies again after switching to a theme that supports it.
-- In `system` mode the attribute stays absent, exactly as before, and `resolvedMode` is clamped to
-  the active theme's supported modes.
-- Switching themes, changing the mode preference, OS color-scheme changes and cross-tab storage
-  syncs all recompute `resolvedMode`.
-
-Because a preference can be unsupported by the active theme, the switcher UI should disable (or
-hide) mode options the active theme does not support:
-
-```js
-const supportedModes = registry.themeModes[state.theme]
-const canUseLight = supportedModes.includes('light') // false for a dark-only theme
-```
-
-If `themeModes` is omitted, every theme is assumed to support all configured `modes`, which keeps
-the previous behaviour for apps whose themes all expose the same modes.
+- A minimal fake root needs `setAttribute` (and optionally `removeAttribute`); in tests pass fake
+  storage / `matchMedia` / `eventTarget` to exercise all behaviour without a browser.
+- For SSR, render the initial `data-theme` / `data-color-mode` on `<html>` from the same preference
+  data, or let the inline script set them before hydration.
 
 ## Avoiding flash of wrong theme
 
@@ -266,9 +265,10 @@ if present, the explicit color mode. It runs before the stylesheet is parsed:
 </script>
 ```
 
-When themes support different mode sets, clamp the restored preference in the inline script too
-(for example against a small copy of `themeModes`), so the pre-hydration attribute never names a
-mode the active theme does not implement.
+The script is deliberately minimal. A fixed-mode theme ignores any explicit `data-color-mode`, so a
+restored `light` attribute cannot make a dark-only theme light; the manager clamps `resolvedMode` and
+rewrites the attribute once it initialises. If the default mode preference is not `system`, set it
+explicitly with `defaultMode` in `createThemeManager`.
 
 ## Framework adapters
 
@@ -312,28 +312,17 @@ export function useTheme() {
 }
 ```
 
-## SSR and testing
-
-- Importing the module is safe in Node/SSR; it never reads `window`/`document` at module scope.
-- `createThemeManager` needs a `root` when no DOM is available. A minimal fake needs `setAttribute`
-  and `removeAttribute`; in tests pass fake storage / `matchMedia` / `eventTarget` to exercise all
-  behaviour without a browser.
-- For SSR, render the initial `data-theme` / `data-color-mode` on `<html>` from the same preference
-  data (or let the inline script set them before hydration).
-
 ## Design decisions
 
 - **Two attributes, one optional.** `data-theme` is always explicit because it is meaningful content
   (which visual identity). The color mode is optional so the default can be "follow the system"
   without JavaScript and without writing a resolved value into the DOM.
-- **Per-theme mode support, app-wide preferences.** The registry exposes the union of every theme's
-  modes (`modes`) for switchers and token generation, plus each theme's own list (`themeModes`) so
-  the runtime can clamp `resolvedMode`. The preference stays the user's choice and is persisted
-  untouched; only the rendered attribute is clamped, so a fixed-mode theme never receives an
-  unsupported `data-color-mode` while a later switch to a full-mode theme still honours the
-  preference.
-- **No CSS in this package.** Token ownership stays in `@ezhana/design-tokens` and the theme
-  packages; this package only writes state onto the root element.
-- **No theme dependencies.** Theme packages export plain `{ id, label, modes }` objects; the
-  registry accepts them structurally, so this package never depends on a concrete theme.
+- **Definitions in, state out.** Theme packages export plain `{ id, label, modes }` objects; the
+  manager derives ids, labels and the mode union. There is no separate registry object to keep in
+  sync, and this package never depends on a concrete theme package.
+- **Per-theme mode support, app-wide preferences.** The saved preference stays the user's choice; only
+  the rendered `data-color-mode` is clamped, so a fixed-mode theme never receives an unsupported mode
+  while a later switch to a full-mode theme still honours the preference.
+- **No CSS in this package.** Token ownership stays in `@ezhana/design-tokens` and the theme packages;
+  this package only writes state onto the root element.
 - **No framework dependencies.** Adapters live in the apps; the core is testable with plain fakes.

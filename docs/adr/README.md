@@ -4,3 +4,4 @@
 - [ADR 0002: Distribute create-app as a published npm package](0002-distribute-create-app-via-npm.md)
 - [ADR 0003: Themes ship as standalone packages](0003-themes-as-packages.md)
 - [ADR 0004: Lint/format configs ship as workspace packages](0004-app-owned-lint-format-configs.md)
+- [ADR 0005: CSS-first theme presets](0005-css-first-theme-presets.md)

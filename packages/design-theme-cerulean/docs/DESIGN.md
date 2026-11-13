@@ -101,7 +101,7 @@ using a single family creates a cohesive experience that emphasises content over
 The font is self-hosted as a variable font via
 [`@fontsource-variable/public-sans`](https://fontsource.org/fonts/public-sans) (weights 100–900,
 `font-display: swap`). It is listed in `fonts` in `theme.config.mjs`, so the generated
-`dist/style.js` imports it after the core stylesheet and before the theme overrides. Because the
+`dist/fonts.css` declares the self-hosted `@font-face` rules (inlined by `dist/style.css`), and the font files are copied into `dist/fonts/`. Because the
 `@font-face` is only referenced by the cerulean theme's font tokens, browsers only download Public
 Sans when the cerulean theme is active — the other themes keep their system stacks.
 
@@ -184,46 +184,42 @@ can be loaded together safely.
 explicit `light` / `dark` preferences; in `system` mode the attribute is removed and CSS follows the
 media query. Components never know which theme is active because they only consume semantic tokens.
 
-Theme identities are assembled by the application's registry. `@ezhana/design-tokens` no longer
-exports a `themes` list or a `Theme` union:
+Theme identities are assembled by the application from the installed theme definitions.
+`@ezhana/design-tokens` does not export a `themes` list or a `Theme` union:
 
 ```ts
-import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+import { createThemeManager } from '@ezhana/theme'
 
-export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
-export type AppTheme = (typeof themeRegistry.themes)[number]
-
-export const themeManager = createThemeManager<AppTheme, Mode>({
-  themes: [...themeRegistry.themes],
-  modes: [...themeRegistry.modes],
-  defaultTheme: themeRegistry.defaultTheme,
+export const themeManager = createThemeManager({
+  themes: [defaultThemeDefinition, ocean, cerulean],
 })
 
 themeManager.setTheme('cerulean')
 themeManager.setMode('system') // no data-color-mode attribute; CSS follows the OS
 ```
 
-Loading the theme itself is a separate, static concern: `import '@ezhana/design-theme-cerulean/style'`
-(core stylesheet + Public Sans + overrides) or the split `@ezhana/design-tokens/css/tokens.css` +
-`@ezhana/design-theme-cerulean/theme.css` entries.
+Loading the theme itself is a separate, static concern: `import '@ezhana/design-theme-cerulean/style.css'` (complete preset: self-hosted fonts + core
+tokens + overrides), or the split `@ezhana/design-tokens/style.css` +
+`@ezhana/design-theme-cerulean/fonts.css` + `@ezhana/design-theme-cerulean/theme.css` entries for multi-theme apps.
 
 ## Implementation Notes
 
-| Concern                                                                    | Location                                                                 |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Theme identity, label, description, palette sources and font entry         | [`theme.config.mjs`](../theme.config.mjs)                                |
-| Cerulean palette ramp                                                      | [`tokens/palette.json`](../tokens/palette.json) (`theme.color.cerulean`) |
-| Semantic overrides (accent set, Public Sans, control radius)               | [`tokens/theme.json`](../tokens/theme.json) (`base`, `light`, `dark`)    |
-| Generated CSS overrides and single-file bundle                             | `dist/css/theme.css`, `dist/css/standalone.css`                          |
-| Generated bundler entry (core stylesheet + Public Sans + overrides)        | `dist/style.js`                                                          |
-| Generated metadata (`themeId`, `themeLabel`, `theme`) and TypeScript types | `dist/js/index.js`, `dist/js/index.d.ts`                                 |
-| Resolved values per mode (used by tests and tooling)                       | `dist/json/theme.json`                                                   |
-| Generation + validation                                                    | `pnpm --filter @ezhana/design-theme-cerulean build`                      |
-| Tests (selectors, contract, no leaked variables, WCAG AA)                  | `pnpm --filter @ezhana/design-theme-cerulean test`                       |
-| Switcher UI (theme options are generated from the app's theme registry)    | React: `ThemeSwitcher.tsx`; Vue: `ThemeSwitcher.vue`                     |
+| Concern                                                                 | Location                                                                 |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Theme identity, label, description, palette sources and font entry      | [`theme.config.mjs`](../theme.config.mjs)                                |
+| Cerulean palette ramp                                                   | [`tokens/palette.json`](../tokens/palette.json) (`theme.color.cerulean`) |
+| Semantic overrides (accent set, Public Sans, control radius)            | [`tokens/theme.json`](../tokens/theme.json) (`base`, `light`, `dark`)    |
+| Complete preset (fonts + core tokens + overrides)                       | `dist/style.css`                                                         |
+| Theme overrides only                                                    | `dist/theme.css`                                                         |
+| Self-hosted `@font-face` rules and font files                           | `dist/fonts.css`, `dist/fonts/`                                          |
+| Generated metadata (`themeId`, `themeLabel`, `theme`) + types           | `dist/index.js`, `dist/index.d.ts`                                       |
+| Resolved values per mode (used by tests and tooling)                    | `dist/theme.json`                                                        |
+| Generation + validation                                                 | `pnpm --filter @ezhana/design-theme-cerulean build`                      |
+| Tests (selectors, contract, no leaked variables, WCAG AA)               | `pnpm --filter @ezhana/design-theme-cerulean test`                       |
+| Switcher UI (theme options are generated from the app's theme registry) | React: `ThemeSwitcher.tsx`; Vue: `ThemeSwitcher.vue`                     |
 
 Adding the theme required **no application-specific theming code** beyond registering it in the
 application's theme registry: the theme package ships its own palette, overrides, metadata and

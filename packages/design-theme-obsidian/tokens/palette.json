@@ -1,0 +1,57 @@
+{
+  "theme": {
+    "color": {
+      "$type": "color",
+      "$description": "Obsidian theme-private palette. Resolved at build time and never emitted as CSS custom properties. The surfaces are warm near-black obsidian, the text is warm ivory, and the metal is 24K gold (#D4AF37) used as a scarce signal.",
+      "obsidian": {
+        "ink": {
+          "$description": "Warm near-black ramp. 950 is the page canvas; 900/800/700 are the raised, elevated and interactive surfaces; 600-300 are borders and de-emphasized text steps. Never pure #000000.",
+          "950": { "$value": "#070606" },
+          "900": { "$value": "#0b0a09" },
+          "800": { "$value": "#111010" },
+          "700": { "$value": "#191715" },
+          "600": { "$value": "#23201d" },
+          "500": { "$value": "#35312c" },
+          "400": { "$value": "#514b43" },
+          "300": { "$value": "#736c62" },
+          "200": { "$value": "#9c9489" },
+          "100": { "$value": "#c9c1b5" },
+          "50": { "$value": "#e9e4da" }
+        },
+        "gold": {
+          "$description": "24K gold ramp. 500 is the solid brand fill and primary action; 400 is emphasis text and hover; 300 is the focus ring and gold text on tinted surfaces; 600 is the pressed state and gradient shadow.",
+          "50": { "$value": "#fbf7ea" },
+          "100": { "$value": "#f7efd4" },
+          "200": { "$value": "#f0e1ac" },
+          "300": { "$value": "#e8d189" },
+          "400": { "$value": "#dfc06a" },
+          "500": { "$value": "#d4af37" },
+          "600": { "$value": "#b8952b" },
+          "700": { "$value": "#96771f" },
+          "800": { "$value": "#6e5717" },
+          "900": { "$value": "#4a3b0f" }
+        },
+        "ivory": {
+          "$description": "Warm text colors. 100 is the primary content color; 50 is a slightly brighter heading tone added so `fg-strong` keeps a visible step above body copy. Never pure white.",
+          "100": { "$value": "#f3efe6" },
+          "50": { "$value": "#faf7f0" }
+        },
+        "claret": {
+          "$description": "Deep warm claret for the destructive solid fill. The source design system defines danger as text only; this fill is derived from it so destructive buttons keep WCAG AA with warm ivory text.",
+          "600": { "$value": "#8f2f2a" }
+        },
+        "steel": {
+          "$description": "Desaturated steel blue for the informational solid fill. Derived for the same reason as claret: the core contract needs an `info-solid` surface and the source document only defines the info text color.",
+          "600": { "$value": "#2f4a61" }
+        },
+        "status": {
+          "$description": "Status text roles from the source design system: success, warning, danger and info. These are AA against the obsidian canvas.",
+          "success": { "$value": "#54c795" },
+          "warning": { "$value": "#e3a94f" },
+          "danger": { "$value": "#e4695f" },
+          "info": { "$value": "#6ea8e0" }
+        }
+      }
+    }
+  }
+}

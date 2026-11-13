@@ -1,289 +1,575 @@
-# Using design tokens and theming in a project
+# Using the Ezhana design system
 
-This guide explains how the pieces fit together end to end: what each package does, how an app is
-wired, what happens at runtime when a user switches a theme or color mode, and how to extend the
-system — including a third-party theme package.
+This is the consumer guide: how to install a theme or the core tokens, how the zero-JavaScript
+theme/mode contract works, when to add the optional runtime, how to build a custom theme, and how to
+wire it into Astro, Vite, Next.js, plain HTML or Tailwind.
 
-The architecture decision behind this split is [ADR 0003](adr/0003-themes-as-packages.md).
+The architecture decision behind the current CSS-first preset design is
+[ADR 0005](adr/0005-css-first-theme-presets.md). The historical theme-package decision is
+[ADR 0003](adr/0003-themes-as-packages.md).
 
 ## Packages at a glance
 
-| Package                                                                        | Kind            | Responsibility                                                                                                                       | Not responsible for            |
-| ------------------------------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| [`@ezhana/design-tokens`](../packages/design-tokens/README.md)                 | build-time data | primitive scale, semantic contract, default theme, core CSS, contract JSON, types                                                    | themes, runtime state, DOM, UI |
-| [`@ezhana/theme-builder`](../packages/theme-builder/README.md)                 | build-time tool | validate a theme package against the contract; generate its CSS, metadata, types and JSON                                            | runtime state, app wiring      |
-| [`@ezhana/design-theme-cerulean`](../packages/design-theme-cerulean/README.md) | theme package   | Cerulean palette, Public Sans, semantic overrides, design narrative                                                                  | other themes, app code         |
-| [`@ezhana/design-theme-ocean`](../packages/design-theme-ocean/README.md)       | theme package   | Ocean palette, pill-shaped controls, semantic overrides                                                                              | other themes, app code         |
-| [`@ezhana/design-theme-onyx`](../packages/design-theme-onyx/README.md)         | theme package   | Onyx black-gold business palette, Public Sans, moderate radii, warm near-black elevation, dark-only fixed mode                       | other themes, app code         |
-| [`@ezhana/design-theme-quest`](../packages/design-theme-quest/README.md)       | theme package   | QuestUI fantasy palette, Cinzel/Spectral/Fira Code, gold-glow elevation, dark-only fixed mode                                        | other themes, app code         |
-| [`@ezhana/theme`](../packages/theme/README.md)                                 | runtime         | theme/mode state machine: `data-theme` (+ optional `data-color-mode`), persistence, `prefers-color-scheme`, cross-tab sync, registry | CSS, token values, components  |
-| self-hosted fonts (`@fontsource*`)                                             | static assets   | fonts imported by a theme's `./style` entry (Public Sans, Cinzel, Spectral, Fira Code)                                               | theme logic                    |
+| Package                                                                        | Kind            | Responsibility                                                                                      | Not responsible for           |
+| ------------------------------------------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------------- | ----------------------------- |
+| [`@ezhana/design-tokens`](../packages/design-tokens/README.md)                 | build-time data | primitive scale, semantic contract, default theme, complete core stylesheet, contract JSON, types   | themes, runtime state, DOM    |
+| [`@ezhana/theme-builder`](../packages/theme-builder/README.md)                 | build-time tool | validate a theme package against the contract; emit the complete preset, split CSS, fonts, metadata | runtime state, app wiring     |
+| [`@ezhana/design-theme-cerulean`](../packages/design-theme-cerulean/README.md) | theme package   | Cerulean palette, Public Sans, semantic overrides, light + dark                                     | other themes, app code        |
+| [`@ezhana/design-theme-ocean`](../packages/design-theme-ocean/README.md)       | theme package   | Ocean palette, pill-shaped controls, light + dark                                                   | other themes, app code        |
+| [`@ezhana/design-theme-onyx`](../packages/design-theme-onyx/README.md)         | theme package   | Onyx black-gold business palette, Public Sans, dark-only                                            | other themes, app code        |
+| [`@ezhana/design-theme-quest`](../packages/design-theme-quest/README.md)       | theme package   | QuestUI fantasy palette, Cinzel/Spectral/Fira Code, dark-only                                       | other themes, app code        |
+| [`@ezhana/design-theme-obsidian`](../packages/design-theme-obsidian/README.md) | theme package   | Obsidian & Gold palette, Inter + Playfair Display, dark-only                                        | other themes, app code        |
+| [`@ezhana/theme`](../packages/theme/README.md)                                 | runtime         | optional theme/mode state: definitions array, persistence, `prefers-color-scheme`, cross-tab sync   | CSS, token values, components |
 
-The split is deliberate: tokens are **data + build**, themes are **data + build**, and the runtime is
-**state + DOM attributes**. No package knows about React or Vue; the apps add tiny adapters.
+The split is deliberate: tokens and themes are **static CSS data**, and the optional runtime is
+**state + DOM attributes**. No package knows about React or Vue; apps add tiny adapters.
 
-## The attribute model
+## Installation
 
-Two attributes on the document root select the visual result:
+### A — one theme package (recommended for a single-theme app)
 
-| attribute         | values                 | written when                         | effect                                               |
+```bash
+pnpm add @ezhana/design-theme-cerulean
+```
+
+```css
+/* src/styles/global.css */
+@import '@ezhana/design-theme-cerulean/style.css';
+```
+
+```html
+<html data-theme="cerulean">
+  <!-- content; color mode follows the OS -->
+</html>
+```
+
+That is the complete setup. The theme package declares `@ezhana/design-tokens` as a normal
+dependency, so the core is installed automatically. `style.css` contains:
+
+1. the theme's `@font-face` rules (fonts are copied into the theme's `dist/fonts/`);
+2. the full core stylesheet (primitives, semantic defaults, light/dark/system rules);
+3. the theme's semantic overrides under `:root[data-theme="cerulean"]`.
+
+Consequences:
+
+- no separate `@ezhana/design-tokens` install;
+- no `@fontsource` install;
+- no JavaScript and no `@ezhana/theme`;
+- no Vite `ssr.noExternal`, Astro plugin or CSS workaround.
+
+### B — the core package only
+
+```bash
+pnpm add @ezhana/design-tokens
+```
+
+```css
+@import '@ezhana/design-tokens/style.css';
+```
+
+With no `data-theme` attribute the core default theme applies. Use this when the default theme fits,
+or as the base for a hand-written custom theme. You can still add `data-color-mode="light"` or
+`"dark"`; leaving it off follows the OS.
+
+### C — several themes
+
+Install the core package and each theme package:
+
+```bash
+pnpm add @ezhana/design-tokens @ezhana/design-theme-cerulean @ezhana/design-theme-ocean
+```
+
+Import the core stylesheet once, then each theme's fonts and overrides:
+
+```css
+/* src/styles/global.css */
+@import '@ezhana/design-tokens/style.css';
+@import '@ezhana/design-theme-cerulean/fonts.css';
+@import '@ezhana/design-theme-cerulean/theme.css';
+@import '@ezhana/design-theme-ocean/fonts.css';
+@import '@ezhana/design-theme-ocean/theme.css';
+```
+
+Select a theme per page/app with the attribute:
+
+```html
+<html data-theme="cerulean"></html>
+<html data-theme="ocean" data-color-mode="light"></html>
+```
+
+Ocean ships no font assets, so its `fonts.css` is just a generated comment; importing it keeps one
+uniform pattern and is harmless.
+
+Importing several complete `style.css` files also works, but each one includes the full core
+stylesheet, so the core block is duplicated in the bundle. Prefer the core + `theme.css` +
+`fonts.css` path for multi-theme apps.
+
+### Which CSS entry do I import?
+
+| Setup                     | Import                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| One theme                 | `@ezhana/design-theme-<id>/style.css`                                                           |
+| Core only                 | `@ezhana/design-tokens/style.css`                                                               |
+| Several themes            | `@ezhana/design-tokens/style.css` then each `@ezhana/design-theme-<id>/fonts.css` + `theme.css` |
+| Plain HTML without bundle | `<link rel="stylesheet" href="…/dist/style.css">` from a theme package                          |
+
+Do not import both a theme's `style.css` and `@ezhana/design-tokens/style.css`; the preset already
+contains the core. If you use `theme.css` directly, import the core and the matching `fonts.css`.
+
+## The attribute contract (no JavaScript)
+
+Two attributes on `<html>` select the visual result:
+
+| Attribute         | Values                 | Written when                         | Effect                                               |
 | ----------------- | ---------------------- | ------------------------------------ | ---------------------------------------------------- |
-| `data-theme`      | any installed theme id | always                               | theme-package overrides (`:root[data-theme="<id>"]`) |
+| `data-theme`      | any installed theme id | always (or absent for the default)   | theme package overrides (`:root[data-theme="<id>"]`) |
 | `data-color-mode` | `light`, `dark`        | only for an explicit mode preference | semantic tokens for that mode (`[data-color-mode]`)  |
 
-`data-color-mode` is **optional**. Without it the stylesheet follows the OS via
-`@media (prefers-color-scheme: dark)`. So the default behavior is "follow the system", works before
-JavaScript runs, and does not require writing a resolved mode value into the DOM. `system` is a
-preference only; it is never written to `data-color-mode`.
+- No `data-theme` attribute (or `data-theme="default"`) means the core default theme.
+- **`data-color-mode` is optional.** Without it the stylesheet follows the OS via
+  `@media (prefers-color-scheme: dark)`.
+- **Explicit light/dark always wins over the OS preference.** The explicit blocks and the system
+  media query are separate and the explicit attribute removes the system-preference selector.
+- `system` is a runtime/UI preference only; it is never written into the DOM.
+- No JavaScript is required for theme selection, explicit modes or system mode.
 
-Theme CSS is `:root`-prefixed, so it wins over the core stylesheet regardless of import order.
+```html
+<!-- default theme, follow the OS -->
+<html></html>
 
-A theme may support only a subset of the app's color modes. A fixed-mode theme (one declared mode,
-such as QuestUI's or Onyx's `['dark']`) emits a single unconditional `:root[data-theme]` rule with
-`color-scheme` pinned; the runtime still writes `data-theme`, but clamps `resolvedMode` (and any
-`data-color-mode`) to a mode the active theme actually supports.
+<!-- theme only, follow the OS -->
+<html data-theme="cerulean"></html>
 
-## The complete flow
+<!-- explicit dark, even if the OS is light -->
+<html data-theme="cerulean" data-color-mode="dark"></html>
 
-```text
-              BUILD TIME                                                    RUNTIME
-┌─────────────────────────────────────┐        ┌──────────────────────────────────────────────┐
-│ @ezhana/design-tokens               │        │ <head> inline script                         │
-│   primitive/  raw values            │        │   restore stored data-theme                  │
-│   semantic/   default theme         │        │   restore explicit data-color-mode (if any)  │
-│            │                        │        │            │                                 │
-│            ▼                        │        │            ▼                                 │
-│ Style Dictionary                    │        │ <html data-theme="cerulean"                  │
-│   contract validation               │        │       [data-color-mode="dark"]>              │
-│   → dist/css/tokens.css             │        │            │                                 │
-│   → dist/json/contract.json         │──ship─▶│            ▼                                 │
-│   → dist/js index.js / .d.ts        │        │ core tokens.css remaps semantic variables    │
-└─────────────────────────────────────┘        │ (mode: attr or prefers-color-scheme)         │
-┌─────────────────────────────────────┐        │            │                                 │
-│ theme package (design-theme-*)      │        │            ▼                                 │
-│   tokens/palette.json  (theme.*)    │        │ theme theme.css remaps accents/fonts/radii   │
-│   tokens/theme.json    overrides    │        │            │                                 │
-│            │                        │        │            ▼                                 │
-│            ▼                        │        │ @ezhana/theme manager (module init)          │
-│ @ezhana/theme-builder               │        │   validate prefs, apply attributes, listen   │
-│   validate + contrast               │──ship─▶│            │                                 │
-│   → dist/css/theme.css              │        │            ▼                                 │
-│   → dist/css/standalone.css         │        │ switcher UI ──setTheme/setMode──▶ manager    │
-│   → dist/style.js, js/, json/       │        │            │                                 │
-└─────────────────────────────────────┘        │   persist + apply attrs + notify ◀───────────┘
-                                               │            │
-                                               │            ▼
-                                               │ components consume semantic tokens only
-                                               └──────────────────────────────────────────────┘
+<!-- explicit light, even if the OS is dark -->
+<html data-theme="cerulean" data-color-mode="light"></html>
 ```
 
-## App wiring
+All token CSS is emitted into `@layer design-tokens`, so unlayered application CSS wins without
+specificity battles:
 
-### 1. Stylesheets
-
-```ts
-// main.ts / main.tsx
-import '@ezhana/design-tokens/css/tokens.css'
-import '@ezhana/design-theme-ocean/style'
-import '@ezhana/design-theme-cerulean/style'
-import '@ezhana/design-theme-onyx/style'
-import '@ezhana/design-theme-quest/style'
-import './index.css'
+```css
+.checkout {
+  --radius-control: 0; /* overrides the layered theme token */
+}
 ```
 
-`./style` is self-sufficient (core CSS + the theme's fonts + overrides), so an app that installs a
-single theme can import just that one entry. The core stylesheet is imported by module id, so the
-extra import above costs nothing at runtime; it documents the dependency.
+### Themes that ignore the mode
 
-### 2. Theme registry
+A fixed-mode theme (Onyx, Quest and Obsidian declare `modes: ['dark']`) always applies its single
+palette. `data-color-mode` is ignored, including a stray `light`, because the generated rule matches
+every attribute state. If a user needs a light option, choose a light+dark theme (Cerulean or Ocean)
+or the default theme.
 
-```ts
-// src/theme/registry.ts
-import { defaultThemeDefinition } from '@ezhana/design-tokens'
-import { theme as cerulean } from '@ezhana/design-theme-cerulean'
-import { theme as ocean } from '@ezhana/design-theme-ocean'
-import { theme as onyx } from '@ezhana/design-theme-onyx'
-import { theme as quest } from '@ezhana/design-theme-quest'
-import { defineThemeRegistry } from '@ezhana/theme'
+## Using the tokens
 
-export const themeRegistry = defineThemeRegistry([
-  defaultThemeDefinition,
-  ocean,
-  cerulean,
-  quest, // fixed-mode: modes: ['dark']
-  onyx, // fixed-mode: modes: ['dark']
-])
-export type AppTheme = (typeof themeRegistry.themes)[number]
+Semantic tokens are the public API. Every documented variable below exists in the core stylesheet
+and is themeable:
+
+- **Surfaces/text:** `--color-bg`, `--color-bg-subtle`, `--color-surface`,
+  `--color-surface-elevated`, `--color-fg`, `--color-fg-muted`, `--color-fg-strong`,
+  `--color-border`, `--color-border-subtle`
+- **Accent/info:** `--color-accent`, `--color-accent-hover`, `--color-on-accent`,
+  `--color-accent-subtle`, `--color-accent-border`, `--color-focus-ring`, `--color-info`,
+  `--color-info-solid`, `--color-on-info`, `--color-info-subtle`
+- **Status:** `--color-danger`, `--color-danger-solid`, `--color-on-danger`,
+  `--color-danger-subtle`, `--color-success`, `--color-success-subtle`, `--color-warning`,
+  `--color-warning-subtle`
+- **Typography:** `--font-family-sans`, `--font-family-heading`, `--font-family-mono`,
+  `--font-size-body`, `--font-size-h1`, `--font-size-caption`, `--font-size-code`,
+  `--font-weight-body`, `--font-weight-bold`, `--font-line-height-body`,
+  `--font-line-height-heading`, `--font-letter-spacing-label`
+- **Shape/elevation:** `--radius-control`, `--radius-small`, `--radius-surface`, `--radius-modal`,
+  `--radius-panel`, `--radius-pill`, `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-xl`,
+  `--shadow-glow`
+- **Layout/motion:** `--border-width-default`, `--border-width-strong`, `--size-content`,
+  `--motion-duration-fast`, `--motion-duration-normal`, `--motion-easing-standard`
+
+Primitive tokens (`--primitive-*`) are raw material. Use them for layout scales that have no semantic
+layer — especially spacing (`--primitive-space-4`) — but use semantic tokens for anything a theme
+should be able to change.
+
+```css
+.card {
+  padding: var(--primitive-space-6);
+  color: var(--color-fg);
+  background: var(--color-surface);
+  border: var(--border-width-default) solid var(--color-border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-sm);
+}
 ```
 
-### 3. Manager
+The full grouped reference, default values, theme contract and contrast guarantees live in
+[`packages/design-tokens/README.md`](../packages/design-tokens/README.md#token-reference).
+
+## Theme switching
+
+### Without JavaScript
+
+Set the attributes wherever the page is rendered — server template, static HTML, Astro layout or a
+front-end framework's root element:
+
+```html
+<html data-theme="ocean" data-color-mode="dark"></html>
+```
+
+The CSS does the rest. There is no CSS-in-JS, no re-render and no loading state.
+
+### With the optional runtime
+
+Use [`@ezhana/theme`](../packages/theme/README.md) when the app needs a switcher with persisted,
+validated state. Install it and pass the theme definitions array directly:
+
+```bash
+pnpm add @ezhana/theme
+```
 
 ```ts
 // src/theme/manager.ts
-import { type Mode } from '@ezhana/design-tokens'
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
+import { theme as cerulean } from '@ezhana/design-theme-cerulean'
+import { theme as ocean } from '@ezhana/design-theme-ocean'
 import { createThemeManager } from '@ezhana/theme'
 
-import { themeRegistry, type AppTheme } from './registry'
+export const themeDefinitions = [defaultThemeDefinition, ocean, cerulean] as const
 
-export const themeManager = createThemeManager<AppTheme, Mode>({
-  themes: [...themeRegistry.themes],
-  modes: [...themeRegistry.modes], // union of all themes' modes
-  themeModes: themeRegistry.themeModes, // per-theme subsets; clamps resolvedMode
-  defaultTheme: themeRegistry.defaultTheme,
+export const themeManager = createThemeManager({
+  themes: themeDefinitions,
 })
 ```
 
-### 4. Switcher UI
+The manager:
 
-The switcher renders `themeRegistry.themes` / `themeRegistry.themeLabels` and
-`themeRegistry.modes`, and calls `setTheme` / `setMode`. It can read `themeRegistry.themeModes` to
-disable mode options the selected theme does not support (for example `light` while QuestUI is
-active). Adding a theme package to the registry is enough for it to appear in the UI.
-
-## Installing a third-party theme
-
-A theme package is a normal dependency; nothing in the app knows how it is built:
-
-```bash
-pnpm add @acme/design-theme
-```
+- derives theme ids/labels and the union of supported modes from the definitions;
+- reads and validates the stored preference (`localStorage` key `ezhana-theme`);
+- applies `data-theme` and writes `data-color-mode` only for an explicit mode;
+- tracks `prefers-color-scheme` while the preference is `system`;
+- clamps `resolvedMode` (and the written `data-color-mode`) to a mode the active theme supports;
+- persists `{ theme, mode }` and syncs across tabs;
+- exposes `getState`, `setTheme`, `setMode`, `subscribe`, `destroy`.
 
 ```ts
-import '@acme/design-theme/style'
+themeManager.getState()
+// { theme: 'default', mode: 'system', resolvedMode: 'dark', systemMode: 'dark' }
 
-import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
-import { theme as acme } from '@acme/design-theme'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
-
-export const registry = defineThemeRegistry([defaultThemeDefinition, acme])
-export type AppTheme = (typeof registry.themes)[number]
-
-export const manager = createThemeManager<AppTheme, Mode>({
-  themes: [...registry.themes],
-  modes: [...registry.modes],
-  defaultTheme: registry.defaultTheme,
-})
+themeManager.setTheme('ocean')
+themeManager.setMode('light') // writes data-color-mode="light"
+themeManager.setMode('system') // removes data-color-mode; CSS follows the OS
 ```
 
-`defineThemeRegistry` validates ids, labels and each definition's mode list; themes may declare
-different (even single-mode) subsets. Pass `themeModes: registry.themeModes` to the manager so
-`resolvedMode` is clamped to a mode the active theme supports. If a theme ships only `./theme.css`
-(no `./style`), import the core stylesheet yourself and load the theme's fonts.
+`getState()` is referentially stable, so it plugs into React's `useSyncExternalStore` or a Vue
+`shallowRef` without extra memoisation. The runtime is SSR-safe: importing it touches no DOM, and
+`root: null` runs it headless.
 
-## Authoring a theme package
+A switcher should list `themeDefinitions` for theme options and disable modes the active theme does
+not support:
+
+```ts
+const active = themeDefinitions.find((definition) => definition.id === state.theme)
+const canUseLight = active?.modes.includes('light') ?? false
+```
+
+### Avoiding a flash of the wrong theme
+
+An inline classic script in `<head>` restores the stored theme before the stylesheet is parsed. The
+template overlay ships this script:
+
+```html
+<script>
+  ;(function () {
+    var root = document.documentElement
+    var stored = null
+    try {
+      stored = JSON.parse(localStorage.getItem('ezhana-theme') || 'null')
+    } catch (error) {
+      stored = null
+    }
+    root.setAttribute(
+      'data-theme',
+      (stored && typeof stored.theme === 'string' && stored.theme) || 'default',
+    )
+    if (stored && (stored.mode === 'light' || stored.mode === 'dark')) {
+      root.setAttribute('data-color-mode', stored.mode)
+    } else {
+      root.removeAttribute('data-color-mode')
+    }
+  })()
+</script>
+```
+
+It must run before the module script and before the stylesheet is parsed. The script is deliberately
+small: it restores the preference, and the theme manager later clamps the resolved mode for
+fixed-mode themes.
+
+## Light, dark and system
+
+The three states are expressed entirely with the CSS contract:
+
+| User choice | DOM state                      | CSS result                                    |
+| ----------- | ------------------------------ | --------------------------------------------- |
+| System      | no `data-color-mode` attribute | `@media (prefers-color-scheme: dark)` decides |
+| Light       | `data-color-mode="light"`      | light values, regardless of the OS            |
+| Dark        | `data-color-mode="dark"`       | dark values, regardless of the OS             |
+
+`color-scheme` follows the same attribute, so native form controls and scrollbars match. The runtime
+stores `system` as the default preference; a persisted `light` or `dark` is explicit. Only the
+preference is stored — never the resolved mode — so a `light` preference can resolve to `dark` on a
+dark-only theme without rewriting storage.
+
+## Creating a custom theme
+
+A custom theme is an npm package built with
+[`@ezhana/theme-builder`](../packages/theme-builder/README.md). Full details are in that package's
+README; the flow is:
 
 ```text
 my-theme/
-├── package.json           # deps: @ezhana/design-tokens; devDeps: @ezhana/theme-builder
-├── theme.config.mjs       # id, label, tokens, overrides, fonts, optional modes
+├── package.json           # dependency: @ezhana/design-tokens; devDeps: builder + fonts
+├── theme.config.mjs       # id, label, description, tokens, overrides, fonts, optional modes
 ├── tokens/
-│   ├── palette.json       # theme-private palette, rooted at `theme.`
-│   └── theme.json         # overrides: base + one section per declared color mode
+│   ├── palette.json       # theme-private DTCG tokens, all under `theme.*`
+│   └── theme.json         # semantic overrides: base + one section per declared color mode
 ├── scripts/build.mjs      # await buildTheme(new URL('../theme.config.mjs', import.meta.url))
-└── dist/                  # generated: css/, js/, json/, style.js
+└── dist/                  # generated: style.css, theme.css, fonts.css, fonts/, index.js, theme.json
 ```
 
-The contract is enforced at build time:
+```js
+// theme.config.mjs
+import { defineTheme } from '@ezhana/theme-builder'
 
-- required overrides must exist in every color mode the theme declares (`modes` may be a subset;
-  one declared mode produces a fixed-mode stylesheet);
-- overrides must target existing semantic tokens;
-- references may only use core primitives (`{primitive.*}`) or the theme's own tokens (`{theme.*}`);
-- WCAG AA contrast is checked for the tokens the theme can change.
+export default defineTheme({
+  id: 'acme',
+  label: 'ACME',
+  description: 'ACME brand theme.',
+  tokens: ['tokens/palette.json'],
+  overrides: 'tokens/theme.json',
+  fonts: ['@fontsource-variable/inter'], // optional, devDependency only
+})
+```
 
-See [`packages/theme-builder/README.md`](../packages/theme-builder/README.md) for the full reference
-and [`packages/design-theme-cerulean/tokens`](../packages/design-theme-cerulean/tokens) for a worked
-example.
+```json
+// tokens/theme.json (abridged)
+{
+  "base": {
+    "font": {
+      "family": {
+        "sans": { "$value": "Inter, sans-serif", "$type": "fontFamily" },
+        "heading": { "$value": "Inter, sans-serif", "$type": "fontFamily" }
+      }
+    },
+    "radius": { "control": { "$value": "8px", "$type": "dimension" } }
+  },
+  "light": {
+    "color": {
+      "accent": { "$value": "{theme.color.acme.600}", "$type": "color" },
+      "accent-hover": { "$value": "{theme.color.acme.700}", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.0}", "$type": "color" },
+      "accent-subtle": { "$value": "#0057b81a", "$type": "color" },
+      "accent-border": { "$value": "#0057b880", "$type": "color" },
+      "focus-ring": { "$value": "{theme.color.acme.600}", "$type": "color" }
+    }
+  },
+  "dark": {
+    "color": {
+      "accent": { "$value": "#69aaff", "$type": "color" },
+      "accent-hover": { "$value": "#93c5fd", "$type": "color" },
+      "on-accent": { "$value": "{primitive.color.neutral.950}", "$type": "color" },
+      "accent-subtle": { "$value": "#69aaff26", "$type": "color" },
+      "accent-border": { "$value": "#69aaff80", "$type": "color" },
+      "focus-ring": { "$value": "#69aaff", "$type": "color" }
+    }
+  }
+}
+```
 
-## Extending the core package
+Build-time validation enforces:
 
-| Change                | What to do                                                                                                                            | Build/test                                                   |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Add a semantic token  | add it to `tokens/semantic/base.json` or the mode files, referencing primitives only; consume it in CSS                               | `pnpm build && pnpm test`; contract/contrast tests must pass |
-| Add a color mode      | add `tokens/semantic/<mode>.json` with the same semantic set as `light.json`, add the mode block to every theme package               | builds list exactly what each file/theme is missing          |
-| Add a primitive       | add it to `tokens/primitive/*.json`; only add what more than one theme needs — brand ramps belong to the theme package that uses them | `pnpm build`                                                 |
-| Add a theme           | create a theme package with `@ezhana/theme-builder` (see above) and register it in the app; declare `modes` for a fixed-mode theme    | theme build + `pnpm test`                                    |
-| Add a theme typeface  | set `fonts` in `theme.config.mjs` and override `font.family.*` in the theme; the generated `./style` entry loads the font             | theme build; check the font import in `dist/style.js`        |
-| Add a component layer | create a separate `@ezhana/component-tokens` package that consumes semantic tokens only                                               | own tests/contract; no changes to `design-tokens`            |
+- the required overrides in every declared mode (`base`: `font.family.sans`,
+  `font.family.heading`, `radius.control`; each mode: `color.accent`, `color.accent-hover`,
+  `color.on-accent`, `color.accent-subtle`, `color.accent-border`, `color.focus-ring`);
+- overrides target existing semantic tokens;
+- references only use core primitives (`{primitive.*}`) or the theme's own tokens (`{theme.*}`);
+- WCAG AA contrast (4.5:1) for the resolved foreground/background pairs;
+- `@ezhana/design-tokens` is declared as a dependency; fonts are devDependencies and are copied into
+  `dist/fonts/`.
 
-Theme design narratives live with the theme package, e.g.
-[`packages/design-theme-cerulean/docs/DESIGN.md`](../packages/design-theme-cerulean/docs/DESIGN.md)
-(a measured palette/contrast narrative),
-[`packages/design-theme-onyx/docs/DESIGN.md`](../packages/design-theme-onyx/docs/DESIGN.md)
-(a black-gold business identity: palette, shape, type and elevation decisions) and
-[`packages/design-theme-quest/docs/DESIGN.md`](../packages/design-theme-quest/docs/DESIGN.md)
-(tokenized component recipes and composited-contrast checks).
+Declare `modes: ['dark']` for a fixed dark-only identity; omit `modes` to support every contract
+mode. Publish the package, then consumers can use it exactly like an official theme:
 
-## Build, CI and release flow
+```css
+@import '@acme/design-theme/style.css';
+```
 
-1. `pnpm build` → builds the core package, then every `packages/design-theme-*` package. The core
-   must be built first: theme packages resolve its contract and stylesheet.
-2. `pnpm test` → builds, then runs the core contract/contrast suite, the theme-builder suite, the
-   theme runtime suite and every theme package's generated-artifact suite.
-3. `pnpm create:app react|vue <name>` → scaffolds into `apps/<name>` with the pinned external
-   generator, applies the theme overlay, adds theme dependencies and builds the generated app. Pass
-   `--no-theme` to skip the overlay and theme packages and keep the plain official scaffold. Lint
-   and format files are written only with `--eslint` / `--prettier`; the scaffold's own tooling is
-   preserved by default. `pnpm create:app configure apps/<name> --eslint --prettier` writes thin app
-   configs and adds the workspace config packages (`workspace:*`) plus `eslint`/`typescript` (or
-   `prettier`) from the catalog. Both commands require a pnpm workspace that ships the config
-   packages under `packages/`; outside it they stop with an error.
-4. `pnpm export:template --install` → assembles the empty-apps `frontend-template`, copies the five
-   lint/format config packages into its `packages/`, pins the published `create-ezhana-app`
-   devDependency and creates its root lockfile.
-5. CI (`.github/workflows/ci.yml`) runs `format:check`, `lint`, `test`; the
-   `.github/workflows/create-app.yml` matrix generates React/Vue apps inside the workspace (default
-   themed app, opt-in lint/format configs, and `--no-theme` incl. one combined no-theme+configs
-   case) through lint/build, asserts the configured app config imports the workspace config package,
-   asserts the no-theme apps carry no theme artifacts or theme packages, and packs the generator
-   tarball; the generated template's own CI smoke-tests `pnpm create:app`, `pnpm create:app
-configure` and `--no-theme`.
-6. Publishing: Changesets bumps `@ezhana/design-tokens`, `@ezhana/theme-builder`,
-   `@ezhana/design-theme-*`, `@ezhana/theme` and `create-ezhana-app`. The shared ESLint/Prettier
-   config packages are private and are not published; the export copies them into the template.
-   Publish the packages before the template export: the generated apps and `versions.json` reference
-   published versions. The token and theme packages rebuild `dist/` in their `prepack` hooks, and the
-   generator's `prepack` refreshes `versions.json`.
+```html
+<html data-theme="acme"></html>
+```
 
-Release order matters: core → theme packages → generator → template export.
+Add `{ id: 'acme', label: 'ACME', modes: [...] }` (the package's `theme` export) to the definitions
+array only if the app uses the optional runtime.
 
-## Debugging checklist
+## Astro integration
 
-| Symptom                                | Check                                                                                                            |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Wrong theme on load                    | `document.documentElement.dataset` — is `theme` set? `localStorage.getItem('ezhana-theme')`                      |
-| Mode does not follow the OS            | is `data-color-mode` absent? (if present, an explicit mode is active)                                            |
-| Theme does not change                  | is the theme package's CSS imported? is the id registered in `defineThemeRegistry`? is `data-theme` updating?    |
-| Theme package rejected                 | run its build: it lists the missing required override, unknown reference or failing contrast pair                |
-| Token is undefined                     | `getComputedStyle(document.documentElement).getPropertyValue('--color-accent')`; run `pnpm build`                |
-| Custom font missing                    | is the theme's `./style` entry (not `./theme.css`) imported, or the font package imported manually?              |
-| Broken token reference                 | the build fails with the missing token path — fix the source, never the generated file                           |
-| Flash of wrong theme                   | inline `<head>` script present and before the module script?                                                     |
-| Generated app has no lint config       | pass `--eslint` (and `--prettier`) to `create:app`, or run `create:app configure`                                |
-| `configure` errors about the workspace | run it inside the `frontend-template` / source workspace: the app configs compose packages that only exist there |
-| `pnpm lint` still runs Oxlint          | `configure` does not change scripts; update `package.json` manually or remove the Oxlint config                  |
+Astro works with a plain CSS import; no integration, Vite `ssr.noExternal` entry or plugin is
+required. A minimal project installs only the theme and Astro:
 
-## File map
+```json
+{
+  "dependencies": {
+    "@ezhana/design-theme-cerulean": "^0.1.0",
+    "astro": "^7.4.11"
+  }
+}
+```
 
-| File                                                         | Purpose                                                                           |
-| ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `packages/design-tokens/tokens/**`                           | core token sources (primitive / semantic)                                         |
-| `packages/design-tokens/scripts/build.mjs`                   | Style Dictionary build + contract validation                                      |
-| `packages/design-tokens/dist/**`                             | generated core CSS / JSON / contract / JS + d.ts (not committed)                  |
-| `packages/theme-builder/lib/**`                              | validation, resolution and artifact generation for themes                         |
-| `packages/design-theme-*/tokens/**`                          | theme-private palette + semantic overrides                                        |
-| `packages/design-theme-*/theme.config.mjs`                   | theme identity, sources, fonts, contrast options                                  |
-| `packages/theme/index.js`                                    | framework-agnostic theme runtime + `defineThemeRegistry`                          |
-| `tools/create-app/overlays/*/src/theme/registry.ts`          | app theme registry                                                                |
-| `tools/create-app/overlays/*/src/theme/manager.ts`           | app singleton wired to the registry                                               |
-| `tools/create-app/overlays/*/src/theme/useTheme.ts`          | React / Vue adapter                                                               |
-| `tools/create-app/overlays/*/src/components/ThemeSwitcher.*` | switcher UI                                                                       |
-| `tools/create-app/overlays/*/src/main.*`                     | CSS import order                                                                  |
-| `tools/create-app/templates/eslint-*.config.mjs`             | thin app ESLint configs written by `configure` (compose the workspace packages)   |
-| `tools/create-app/templates/prettier.config.mjs`             | thin app Prettier config written by `configure` (re-exports the workspace config) |
-| `packages/eslint-config-*`, `packages/prettier-config`       | shared lint/format config packages (not published; copied into the template)      |
-| `tools/create-app/snippets/theme-init.html`                  | pre-paint inline script                                                           |
-| `packages/design-theme-cerulean/docs/DESIGN.md`              | worked example of a theme's design narrative                                      |
-| `packages/design-theme-onyx/docs/DESIGN.md`                  | black-gold business theme narrative: palette, shape, type and elevation           |
-| `packages/design-theme-quest/docs/DESIGN.md`                 | dark-only theme narrative + tokenized component recipes                           |
-| `docs/adr/0003-themes-as-packages.md`                        | the architecture decision for theme packages                                      |
+```js
+// astro.config.mjs
+import { defineConfig } from 'astro/config'
+
+export default defineConfig({})
+```
+
+```css
+/* src/styles/global.css */
+@import '@ezhana/design-theme-cerulean/style.css';
+```
+
+```astro
+---
+// src/layouts/Layout.astro
+import '../styles/global.css'
+
+const { theme = 'cerulean', colorMode = null } = Astro.props
+---
+
+<!doctype html>
+<html lang="en" data-theme={theme} data-color-mode={colorMode}>
+  <head>
+    <meta charset="utf-8" />
+    <title>My app</title>
+  </head>
+  <body><slot /></body>
+</html>
+```
+
+Passing `colorMode={null}` (or leaving it out) omits the attribute, so Astro-rendered pages follow
+the OS by default while explicit pages can force a mode:
+
+- `/` — `data-theme="cerulean"`, no `data-color-mode` → system
+- `/light` — `data-color-mode="light"`
+- `/dark` — `data-color-mode="dark"`
+- `/default-theme` — no `data-theme` → core default theme
+
+The repository's [`fixtures/astro-consumer`](../fixtures/astro-consumer) is exactly this project. It
+is the integration test for the published packages:
+
+```bash
+pnpm test:consumer
+```
+
+`pnpm test:consumer` packs `@ezhana/design-tokens`, `@ezhana/design-theme-cerulean` and
+`@ezhana/design-theme-ocean` with `pnpm pack`, installs the tarballs into throwaway Astro projects
+and verifies:
+
+- install, dev server and production build succeed with no Astro/Vite CSS workaround;
+- the single-theme project declares only the theme + Astro as dependencies and imports only
+  `@ezhana/design-theme-cerulean/style.css`;
+- the built CSS contains the semantic tokens, the theme selector and `@font-face`, and the build
+  emits the font files;
+- the cascade resolves the Cerulean accent for explicit light/dark, system light/dark, and explicit
+  light/dark against the opposite OS preference;
+- `theme.json`, the generated CSS and the metadata agree on ids, labels, modes and every override;
+- the optional runtime is not installed by a theme-only consumer;
+- a multi-theme project imports the core once plus each theme's `fonts.css`/`theme.css`, emits the
+  core primitives once and applies each theme independently.
+
+For multi-theme Astro sites, use the core + split entries from
+[scenario C](#c--several-themes) and set `data-theme` per layout/page.
+
+## Vite, Next.js and plain HTML
+
+- **Vite** (React/Vue): import the CSS in the entry module (`main.ts`/`main.tsx`) or a global CSS
+  file. No `optimizeDeps` or SSR CSS workaround is needed.
+- **Next.js**: import the CSS in `app/layout.tsx` or `pages/_app.tsx`; set `data-theme` /
+  `data-color-mode` on the `<html>` element. Server rendering works because no runtime is required.
+- **Plain HTML**: link a theme's `dist/style.css` (or the core's `dist/style.css`) and set the
+  attributes on `<html>`.
+
+In all cases, if you use an `@import` in CSS it must come before other rules, and the core stylesheet
+must be imported before theme overrides (though theme specificity makes the latter robust).
+
+## Tailwind v4 (optional)
+
+The core packages have **no Tailwind dependency** and there is deliberately no adapter package.
+Tailwind is an optional consumer choice. If you use Tailwind v4 and want its utilities to speak the
+Ezhana token names, map the variables inside `@theme inline`:
+
+```css
+@import 'tailwindcss';
+@import '@ezhana/design-theme-cerulean/style.css';
+
+/* Optional: expose Ezhana tokens as Tailwind utilities.
+   `inline` keeps Tailwind from re-emitting the token; utilities reference the live Ezhana
+   variables instead of a second copy. */
+@theme inline {
+  --color-bg: var(--color-bg);
+  --color-bg-subtle: var(--color-bg-subtle);
+  --color-surface: var(--color-surface);
+  --color-surface-elevated: var(--color-surface-elevated);
+  --color-fg: var(--color-fg);
+  --color-fg-muted: var(--color-fg-muted);
+  --color-fg-strong: var(--color-fg-strong);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-on-accent: var(--color-on-accent);
+  --color-border: var(--color-border);
+  --color-danger: var(--color-danger);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --radius-control: var(--radius-control);
+  --radius-surface: var(--radius-surface);
+  --shadow-sm: var(--shadow-sm);
+  --font-sans: var(--font-family-sans);
+  --font-heading: var(--font-family-heading);
+  --font-mono: var(--font-family-mono);
+}
+```
+
+This does not redefine tokens: each Tailwind theme entry points at the existing Ezhana variable, so
+theme switching and color modes keep working. Use `@theme inline` rather than a plain
+`@theme { … }` block for these mappings: with the same variable names, a plain block would emit a
+second declaration for the custom property (a self-reference). The mapping is entirely optional —
+Ezhana CSS works in Tailwind projects without it.
+
+## Troubleshooting
+
+| Symptom                                    | Check                                                                                                                                        |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| No theme styles at all                     | Is the CSS imported from the app entry or a global stylesheet? Is the `@import` before other rules?                                          |
+| Theme does not change                      | Is `data-theme` on `<html>` (not `<body>`)? Does the id match the package (`cerulean`, `ocean`, …)?                                          |
+| Theme import does nothing                  | Did you import the theme's `style.css` (or core + `fonts.css`/`theme.css`)? Check the browser network panel.                                 |
+| Core styles duplicated                     | You imported several complete `style.css` files. Use `@ezhana/design-tokens/style.css` + each theme's `theme.css`.                           |
+| Mode does not follow the OS                | Is `data-color-mode` still present? Remove it; an explicit mode is active.                                                                   |
+| Explicit light/dark has no effect          | The active theme may be fixed-mode (Onyx/Quest/Obsidian). Those ignore `data-color-mode` by design.                                          |
+| Theme font missing or 404                  | Use the theme's `style.css`, or import its `fonts.css` in the core + `theme.css` setup. Do not install the font package.                     |
+| Text/custom property is undefined          | Check the exact variable name in [the token reference](../packages/design-tokens/README.md#token-reference) and that the core CSS is loaded. |
+| Flash of the wrong theme                   | Is the inline preference script in `<head>`, before the module script and the stylesheet?                                                    |
+| Runtime state and CSS disagree             | Pass the same definitions array to `createThemeManager` that the CSS imports represent; fixed-mode themes clamp modes.                       |
+| Switcher offers light on a dark-only theme | Check the active definition's `modes`; disable unsupported options in the UI.                                                                |
+| Custom theme build rejects an override     | The token is not a semantic token of that section, or a required override is missing; the error names it.                                    |
+| Custom theme build rejects a reference     | Use only `{primitive.*}` or your own `{theme.*}` references; semantic tokens are overridden, not referenced.                                 |
+| Tailwind utility missing                   | Add the token to the optional `@theme inline` map; Ezhana itself does not generate Tailwind classes.                                         |
+| Astro build cannot resolve the CSS         | Upgrade the packages and import the CSS-first `style.css` entry; no `noExternal`/plugin is needed.                                           |
+
+## Further reading
+
+- [`packages/design-tokens/README.md`](../packages/design-tokens/README.md) — core token model,
+  grouped reference, contract, artifacts and authoring.
+- [`packages/theme/README.md`](../packages/theme/README.md) — optional runtime API, persistence, SSR
+  and adapters.
+- [`packages/theme-builder/README.md`](../packages/theme-builder/README.md) — custom theme
+  configuration, artifacts, fonts and validation.
+- [`docs/create-app.md`](create-app.md) — how the generator wires a themed React/Vue app.
+- [ADR 0005](adr/0005-css-first-theme-presets.md) — current CSS-first preset architecture.

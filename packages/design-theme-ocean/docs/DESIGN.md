@@ -58,7 +58,7 @@ product code cannot consume it, and it does not appear in the core `primitive.*`
 
 Ocean deliberately ships **no webfont**. `tokens/theme.json` overrides `font.family.sans` and
 `font.family.heading` with the core primitive system stacks, so the theme has no font download, no
-`@font-face` and no font-related `dist/style.js` import. Type scale, weights and line heights are
+`@font-face` and no runtime font-package dependency. Type scale, weights and line heights are
 inherited from the core semantic layer.
 
 ## Shape & Spacing
@@ -85,39 +85,41 @@ The generated CSS uses `:root[data-theme="ocean"]` (specificity 0,2,0), an expli
 `@media (prefers-color-scheme: dark)`. Theme selectors outrank the core rules, so theme CSS is
 load-order independent.
 
-Load the theme with `import '@ezhana/design-theme-ocean/style'`, or with the split
-`@ezhana/design-tokens/css/tokens.css` + `@ezhana/design-theme-ocean/theme.css` entries. Theme
-identities are assembled by the application registry; `@ezhana/design-tokens` does not export a
-`themes` list or a `Theme` union:
+Load the theme with `import '@ezhana/design-theme-ocean/style.css'` (complete preset: core tokens
+
+- overrides), or with the split `@ezhana/design-tokens/style.css` +
+  `@ezhana/design-theme-ocean/fonts.css` + `@ezhana/design-theme-ocean/theme.css` entries for
+  multi-theme apps. Theme identities are assembled by the application from the installed theme
+  definitions; `@ezhana/design-tokens` does not export a
+  `themes` list or a `Theme` union:
 
 ```ts
-import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+import { createThemeManager } from '@ezhana/theme'
 
-export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
-export type AppTheme = (typeof themeRegistry.themes)[number]
-
-export const themeManager = createThemeManager<AppTheme, Mode>({
-  themes: [...themeRegistry.themes],
-  modes: [...themeRegistry.modes],
-  defaultTheme: themeRegistry.defaultTheme,
+export const themeManager = createThemeManager({
+  themes: [defaultThemeDefinition, ocean, cerulean],
 })
+
+themeManager.setTheme('ocean')
+themeManager.setMode('system') // no data-color-mode attribute; CSS follows the OS
 ```
 
 ## Implementation Notes
 
-| Concern                                                   | Location                                                              |
-| --------------------------------------------------------- | --------------------------------------------------------------------- |
-| Theme identity, label, description and palette sources    | [`theme.config.mjs`](../theme.config.mjs)                             |
-| Ocean palette ramp                                        | [`tokens/palette.json`](../tokens/palette.json) (`theme.color.blue`)  |
-| Semantic overrides (accent set, font stacks, pill radius) | [`tokens/theme.json`](../tokens/theme.json) (`base`, `light`, `dark`) |
-| Generated CSS overrides and single-file bundle            | `dist/css/theme.css`, `dist/css/standalone.css`                       |
-| Generated bundler entry (core stylesheet + overrides)     | `dist/style.js`                                                       |
-| Generated metadata and TypeScript types                   | `dist/js/index.js`, `dist/js/index.d.ts`                              |
-| Resolved values per mode (used by tests and tooling)      | `dist/json/theme.json`                                                |
-| Generation + validation / tests                           | `pnpm --filter @ezhana/design-theme-ocean build` / `... test`         |
+| Concern                                                       | Location                                                              |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Theme identity, label, description and palette sources        | [`theme.config.mjs`](../theme.config.mjs)                             |
+| Ocean palette ramp                                            | [`tokens/palette.json`](../tokens/palette.json) (`theme.color.blue`)  |
+| Semantic overrides (accent set, font stacks, pill radius)     | [`tokens/theme.json`](../tokens/theme.json) (`base`, `light`, `dark`) |
+| Complete preset (fonts + core tokens + overrides)             | `dist/style.css`                                                      |
+| Theme overrides only                                          | `dist/theme.css`                                                      |
+| Self-hosted `@font-face` rules and font files                 | `dist/fonts.css`, `dist/fonts/`                                       |
+| Generated metadata (`themeId`, `themeLabel`, `theme`) + types | `dist/index.js`, `dist/index.d.ts`                                    |
+| Resolved values per mode (used by tests and tooling)          | `dist/theme.json`                                                     |
+| Generation + validation / tests                               | `pnpm --filter @ezhana/design-theme-ocean build` / `... test`         |
 
 ### Theme override contract satisfied by `ocean`
 

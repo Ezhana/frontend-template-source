@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
@@ -36,15 +37,23 @@ const buildFixture = async (overrides = {}) => {
     ...overrides,
   })
   const result = await buildTheme(config, { cwd: fixtureDir })
-  const [css, standaloneCss, style, metadata, types, json] = await Promise.all([
-    read(result.outputs.css),
-    read(result.outputs.standaloneCss),
-    read(result.outputs.style),
+  const [css, styleCss, fontsCss, metadata, types, json] = await Promise.all([
+    read(result.outputs.themeCss),
+    read(result.outputs.styleCss),
+    read(result.outputs.fontsCss),
     read(result.outputs.metadata),
     read(result.outputs.types),
     read(result.outputs.json),
   ])
-  return { result, css, standaloneCss, style, metadata, types, json: JSON.parse(json) }
+  return {
+    result,
+    css,
+    styleCss,
+    fontsCss,
+    metadata,
+    types,
+    json: JSON.parse(json),
+  }
 }
 
 const writeTree = async (dir, files) => {
@@ -64,16 +73,22 @@ test('builds a theme package from a config file', async () => {
   assert.equal(result.label, 'Fixture')
   assert.equal(result.cwd, fixtureDir)
   assert.deepEqual(Object.keys(result.outputs).sort(), [
-    'css',
+    'fonts',
+    'fontsCss',
     'json',
     'metadata',
-    'standaloneCss',
-    'style',
+    'styleCss',
+    'themeCss',
     'types',
   ])
-  for (const output of Object.values(result.outputs)) {
-    assert.match(await read(output), /./, `Expected ${output} to have content`)
+  for (const key of ['styleCss', 'themeCss', 'fontsCss', 'metadata', 'types', 'json']) {
+    assert.match(
+      await read(result.outputs[key]),
+      /./,
+      `Expected ${result.outputs[key]} to have content`,
+    )
   }
+  assert.ok(result.outputs.fonts.length > 0, 'Expected font files to be copied')
 })
 
 test('theme CSS only overrides semantic tokens, selected by :root[data-theme]', async () => {
@@ -141,27 +156,52 @@ test('every non-default mode gets an explicit and a system-preference block', as
   assert.deepEqual(darkBlocks, ['#007ba7', '#7ac6e2', '#7ac6e2'])
 })
 
-test('standalone CSS embeds the core stylesheet and the theme overrides', async () => {
-  const { standaloneCss } = await buildFixture()
+test('complete style.css embeds fonts, the core stylesheet and the theme overrides', async () => {
+  const { styleCss, result } = await buildFixture()
 
-  assert.match(standaloneCss, /@ezhana\/design-tokens — generated core CSS custom properties/)
-  assert.match(standaloneCss, /:root\[data-theme="fixture"\]/)
+  assert.match(styleCss, /@font-face \{/)
+  assert.match(styleCss, /--primitive-color-neutral-0:/)
+  assert.match(styleCss, /:root\[data-theme="fixture"\]/)
   assert.ok(
-    standaloneCss.indexOf('--primitive-color-neutral-0') <
-      standaloneCss.indexOf(':root[data-theme="fixture"]'),
+    styleCss.indexOf('--primitive-color-neutral-0:') <
+      styleCss.indexOf(':root[data-theme="fixture"]'),
     'Core stylesheet must come before the theme overrides',
   )
+  assert.ok(
+    styleCss.indexOf('@font-face') < styleCss.indexOf('--primitive-color-neutral-0:'),
+    'Font faces must come before the token blocks',
+  )
+
+  // The complete stylesheet must not require the consumer's bundler to resolve internal imports:
+  // there is no @import and every font url points at the shipped copies.
+  assert.doesNotMatch(styleCss, /@import\s/)
+  const urls = [...styleCss.matchAll(/url\("([^"]+)"\)/g)].map((match) => match[1])
+  assert.ok(urls.length > 0, 'Expected the inlined @font-face rules to reference font files')
+  for (const url of urls) {
+    assert.match(url, /^\.\/fonts\/[^/]+\.woff2?$/)
+    assert.ok(existsSync(join(fixtureDir, 'dist', url)), `Missing font file ${url}`)
+  }
+  for (const fontPath of result.outputs.fonts) {
+    assert.ok(existsSync(fontPath), `Missing copied font ${fontPath}`)
+  }
 })
 
-test('style entry loads core CSS, fonts and the theme overrides', async () => {
-  const { style } = await buildFixture()
-  const imports = [...style.matchAll(/^import '([^']+)'$/gm)].map((match) => match[1])
+test('fonts.css carries the same @font-face rules for split imports', async () => {
+  const { fontsCss } = await buildFixture()
 
-  assert.deepEqual(imports, [
-    '@ezhana/design-tokens/css/tokens.css',
-    '@fontsource-variable/public-sans',
-    './css/theme.css',
-  ])
+  assert.match(fontsCss, /@font-face \{/)
+  assert.match(fontsCss, /font-family: 'Public Sans Variable'/)
+  assert.doesNotMatch(fontsCss, /--color-/)
+  for (const [, url] of fontsCss.matchAll(/url\("([^"]+)"\)/g)) {
+    assert.ok(existsSync(join(fixtureDir, 'dist', url)), `Missing font file ${url}`)
+  }
+})
+
+test('the published theme ships no JavaScript CSS imports', async () => {
+  const { result } = await buildFixture()
+  const metadata = await read(result.outputs.metadata)
+  assert.doesNotMatch(metadata, /\.css['"]/, 'Metadata must not import CSS at runtime')
+  assert.doesNotMatch(metadata, /^import /m)
 })
 
 test('metadata exposes a ThemeDefinition with literal types', async () => {
@@ -183,7 +223,7 @@ test('theme JSON contains resolved values for every mode', async () => {
   const { json } = await buildFixture()
 
   assert.equal(json.generator, '@ezhana/theme-builder')
-  assert.equal(json.version, 1)
+  assert.equal(json.version, 2)
   assert.deepEqual(json.theme, {
     id: 'fixture',
     label: 'Fixture',
@@ -200,13 +240,13 @@ test('theme JSON contains resolved values for every mode', async () => {
   assert.ok(contrastRatio(json.resolved.light['color.on-accent'].value, '#007ba7') >= 4.5)
 })
 
-test('a theme without fonts still gets a valid style entry', async () => {
-  const { style } = await buildFixture({ fonts: [] })
+test('a theme without fonts still gets a complete stylesheet', async () => {
+  const { styleCss, fontsCss } = await buildFixture({ fonts: [] })
 
-  assert.deepEqual(
-    [...style.matchAll(/^import '([^']+)'$/gm)].map((match) => match[1]),
-    ['@ezhana/design-tokens/css/tokens.css', './css/theme.css'],
-  )
+  assert.doesNotMatch(styleCss, /@font-face\s*\{/)
+  assert.match(styleCss, /--primitive-color-neutral-0:/)
+  assert.match(styleCss, /:root\[data-theme="fixture"\]/)
+  assert.match(fontsCss, /ships no font assets/)
 })
 
 /* -------------------------------------------------------------------------- */
@@ -669,7 +709,7 @@ test('a fixed-mode theme emits one load-order-independent rule with color-scheme
 
   // Required base and declared-mode contract tokens are all emitted.
   const contract = JSON.parse(
-    await read(join(packageRoot, '..', 'design-tokens', 'dist', 'json', 'contract.json')),
+    await read(join(packageRoot, '..', 'design-tokens', 'dist', 'contract.json')),
   )
   for (const path of [...contract.required.base, ...contract.required.mode]) {
     assert.ok(
@@ -734,7 +774,11 @@ test('preserves declared mode order and keeps the contract default mode', async 
 test('writes artifacts to the package dist/ directory only', async () => {
   const { result } = await buildFixture()
 
-  for (const output of Object.values(result.outputs)) {
+  const outputs = [
+    ...Object.values(result.outputs).filter((value) => typeof value === 'string'),
+    ...result.outputs.fonts,
+  ]
+  for (const output of outputs) {
     assert.ok(
       output.startsWith(join(fixtureDir, 'dist') + '/'),
       `Expected ${output} to live under ${fixtureDir}/dist`,
@@ -811,7 +855,7 @@ test('default contrast pairs cover the pairs the core package publishes', async 
 
   // The build consumes the pairs published in the core contract as well.
   const contract = JSON.parse(
-    await read(join(packageRoot, '..', 'design-tokens', 'dist', 'json', 'contract.json')),
+    await read(join(packageRoot, '..', 'design-tokens', 'dist', 'contract.json')),
   )
   for (const pair of contract.contrast.pairs) {
     assert.ok(Array.isArray(pair) && pair.length === 2, `Invalid contract contrast pair ${pair}`)
@@ -826,8 +870,7 @@ test('default contrast pairs cover the pairs the core package publishes', async 
 test('rejects a core contract version this builder does not understand', async () => {
   const dir = await createTempDir()
   const packageDir = join(dir, 'node_modules', '@ezhana', 'design-tokens')
-  await mkdir(join(packageDir, 'dist', 'json'), { recursive: true })
-  await mkdir(join(packageDir, 'dist', 'css'), { recursive: true })
+  await mkdir(join(packageDir, 'dist'), { recursive: true })
   await writeFile(
     join(packageDir, 'package.json'),
     `${JSON.stringify({
@@ -835,15 +878,15 @@ test('rejects a core contract version this builder does not understand', async (
       version: '99.0.0',
       type: 'module',
       exports: {
-        './contract': './dist/json/contract.json',
-        './json': './dist/json/core.json',
-        './css/tokens.css': './dist/css/tokens.css',
+        './contract.json': './dist/contract.json',
+        './tokens.json': './dist/tokens.json',
+        './style.css': './dist/style.css',
         './package.json': './package.json',
       },
     })}\n`,
   )
   await writeFile(
-    join(packageDir, 'dist', 'json', 'contract.json'),
+    join(packageDir, 'dist', 'contract.json'),
     `${JSON.stringify({
       version: 99,
       generator: '@ezhana/design-tokens',
@@ -857,10 +900,10 @@ test('rejects a core contract version this builder does not understand', async (
     })}\n`,
   )
   await writeFile(
-    join(packageDir, 'dist', 'json', 'core.json'),
+    join(packageDir, 'dist', 'tokens.json'),
     `${JSON.stringify({ primitives: {}, semantic: { light: {} } })}\n`,
   )
-  await writeFile(join(packageDir, 'dist', 'css', 'tokens.css'), ':root {}\n')
+  await writeFile(join(packageDir, 'dist', 'style.css'), ':root {}\n')
   await writeTree(dir, {
     'package.json': JSON.stringify({
       name: 'theme-built-against-a-newer-contract',
@@ -893,9 +936,9 @@ test('reports a missing core build with an actionable message', async () => {
       name: '@ezhana/design-tokens',
       version: '0.0.0',
       exports: {
-        './contract': './dist/json/contract.json',
-        './json': './dist/json/core.json',
-        './css/tokens.css': './dist/css/tokens.css',
+        './contract.json': './dist/contract.json',
+        './tokens.json': './dist/tokens.json',
+        './style.css': './dist/style.css',
         './package.json': './package.json',
       },
     })}\n`,

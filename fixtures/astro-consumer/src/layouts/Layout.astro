@@ -1,0 +1,28 @@
+---
+import '../styles/global.css'
+
+interface Props {
+  theme?: string | null
+  colorMode?: 'light' | 'dark' | null
+  title?: string
+}
+
+const {
+  theme = 'cerulean',
+  colorMode = null,
+  title = 'Ezhana Astro consumer',
+} = Astro.props
+---
+
+<!doctype html>
+<html lang="en" data-theme={theme} data-color-mode={colorMode}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <slot name="head" />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

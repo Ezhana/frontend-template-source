@@ -1,6 +1,13 @@
 # ADR 0003: Themes ship as standalone packages
 
-- **Status:** Accepted
+> **Historical document.** The theme-as-a-package model in this ADR is still the foundation, but
+> its **exports, artifact layout and runtime API were superseded by
+> [ADR 0005](0005-css-first-theme-presets.md)**. Everything below records the original decision and
+> its amendment; do not copy its import paths, export names, artifact paths or `defineThemeRegistry`
+> usage into new code. Use [ADR 0005](0005-css-first-theme-presets.md) and the package READMEs for
+> current usage.
+
+- **Status:** Superseded by [ADR 0005](0005-css-first-theme-presets.md)
 - **Date:** 2026-10-30
 - **Scope:** `@ezhana/design-tokens`, new `@ezhana/theme-builder`, `@ezhana/theme`, new
   `@ezhana/design-theme-*` packages, the generated app template

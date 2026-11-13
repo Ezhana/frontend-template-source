@@ -268,13 +268,29 @@ importers:
       '@ezhana/design-tokens':
         specifier: workspace:^
         version: link:../design-tokens
-      '@fontsource-variable/public-sans':
-        specifier: ^5.3.0
-        version: 5.3.0
     devDependencies:
       '@ezhana/theme-builder':
         specifier: workspace:*
         version: link:../theme-builder
+      '@fontsource-variable/public-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
+
+  packages/design-theme-obsidian:
+    dependencies:
+      '@ezhana/design-tokens':
+        specifier: workspace:^
+        version: link:../design-tokens
+    devDependencies:
+      '@ezhana/theme-builder':
+        specifier: workspace:*
+        version: link:../theme-builder
+      '@fontsource-variable/inter':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource-variable/playfair-display':
+        specifier: ^5.3.0
+        version: 5.3.0
 
   packages/design-theme-ocean:
     dependencies:
@@ -291,19 +307,23 @@ importers:
       '@ezhana/design-tokens':
         specifier: workspace:^
         version: link:../design-tokens
-      '@fontsource-variable/public-sans':
-        specifier: ^5.3.0
-        version: 5.3.0
     devDependencies:
       '@ezhana/theme-builder':
         specifier: workspace:*
         version: link:../theme-builder
+      '@fontsource-variable/public-sans':
+        specifier: ^5.3.0
+        version: 5.3.0
 
   packages/design-theme-quest:
     dependencies:
       '@ezhana/design-tokens':
         specifier: workspace:^
         version: link:../design-tokens
+    devDependencies:
+      '@ezhana/theme-builder':
+        specifier: workspace:*
+        version: link:../theme-builder
       '@fontsource-variable/fira-code':
         specifier: ^5.3.0
         version: 5.3.0
@@ -313,10 +333,6 @@ importers:
       '@fontsource/spectral':
         specifier: ^5.3.0
         version: 5.3.0
-    devDependencies:
-      '@ezhana/theme-builder':
-        specifier: workspace:*
-        version: link:../theme-builder
 
   packages/design-tokens:
     devDependencies:
@@ -678,6 +694,12 @@ packages:
 
   '@fontsource-variable/fira-code@5.3.0':
     resolution: {integrity: sha512-ZhvHeknlicraKVSJBa1NrJnXDVByUkC407zwgELYfmnx3p9g8vwIPfQCxx8YD3K7dAeCdLuHJOHlpMfRsIcApQ==}
+
+  '@fontsource-variable/inter@5.3.0':
+    resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
+
+  '@fontsource-variable/playfair-display@5.3.0':
+    resolution: {integrity: sha512-IHdzTvE8eGIXHteZql7KXoqdc3Gfm+Zs1u4XlSC3MeplkwviT3sx/P6gI0tLwg/xIYLF4ZJYveZ5V+bl9cnDwA==}
 
   '@fontsource-variable/public-sans@5.3.0':
     resolution: {integrity: sha512-AVfkmAt50BMXWpOO21FAntiJFKGX6xTc2dSL8dxtDteONe9IuRXJWGbs0EbG955vAMCq23ENeuopuW87cGWDSQ==}
@@ -2142,6 +2164,10 @@ snapshots:
       levn: 0.4.1
 
   '@fontsource-variable/fira-code@5.3.0': {}
+
+  '@fontsource-variable/inter@5.3.0': {}
+
+  '@fontsource-variable/playfair-display@5.3.0': {}
 
   '@fontsource-variable/public-sans@5.3.0': {}
 

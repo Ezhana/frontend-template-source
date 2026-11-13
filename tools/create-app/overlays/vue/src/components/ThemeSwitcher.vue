@@ -2,10 +2,10 @@
 import { modeLabels, modes, type Mode } from '@ezhana/design-tokens'
 import { SYSTEM_MODE } from '@ezhana/theme'
 
-import { themeRegistry } from '../theme/registry'
+import { themeIds, themeLabels } from '../theme/registry'
 import { useTheme } from '../theme/useTheme'
 
-const { themes, themeLabels } = themeRegistry
+const themes = themeIds
 const { state, setTheme, setMode } = useTheme()
 
 type ModeOptionValue = Mode | typeof SYSTEM_MODE

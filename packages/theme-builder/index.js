@@ -1,9 +1,8 @@
 /**
  * `@ezhana/theme-builder` — compile and validate a theme package for `@ezhana/design-tokens`.
  *
- * A theme package declares its sources in `theme.config.mjs` and builds them into a stylesheet that
- * overrides semantic tokens selected by `:root[data-theme="<id>"]`, plus typed metadata that
- * `defineThemeRegistry` from `@ezhana/theme` consumes.
+ * A theme package declares its sources in `theme.config.mjs` and builds them into a complete,
+ * self-contained stylesheet plus theme metadata:
  *
  * ```js
  * // theme.config.mjs

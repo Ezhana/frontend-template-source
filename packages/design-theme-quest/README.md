@@ -1,8 +1,8 @@
 # @ezhana/design-theme-quest
 
 Official **QuestUI** theme for [`@ezhana/design-tokens`](../design-tokens/README.md): a fantasy,
-ornate, RPG-styled identity built from gold, deep red and royal purple over layered warm browns,
-with Cinzel + Spectral + Fira Code and gold-glow elevation.
+ornate, RPG-styled identity built from gold, deep red and royal purple over layered warm browns, with
+Cinzel + Spectral + Fira Code and gold-glow elevation. QuestUI is **dark-only**.
 
 This is a **theme package**, not a token layer. It owns its palette, overrides the core semantic
 contract and ships generated CSS. It depends on `@ezhana/design-tokens` for the shared tokens and
@@ -10,9 +10,10 @@ contract but not on `@ezhana/theme` — theme/mode state is the application's ch
 
 - **Gold `#CA8A04`** primary actions and highlights, **deep red `#991B1B`** for danger and damage,
   **royal purple `#581C87`** for rare, legendary and magical surfaces.
-- Layered brown surfaces (`#1A0F0A` → `#2C1A10` → `#3D2517`), parchment text (`#F5E6D3`),
-  never pure black and never pure white.
-- **Cinzel** headings, **Spectral** body, **Fira Code** code/stats — self-hosted through Fontsource.
+- Layered brown surfaces (`#1A0F0A` → `#2C1A10` → `#3D2517`), parchment text (`#F5E6D3`), never pure
+  black and never pure white.
+- **Cinzel** headings, **Spectral** body, **Fira Code** code/stats — self-hosted and copied into the
+  published preset.
 - Coloured gold-glow elevation (`--shadow-sm` … `--shadow-glow`) instead of neutral drop shadows.
 - **Dark-only**: the design brief defines one warm palette, so the package declares
   `modes: ['dark']`. The builder emits a fixed-mode stylesheet and the runtime clamps mode
@@ -28,9 +29,9 @@ component recipes and intentional deviations from the brief — is in
 pnpm add @ezhana/design-theme-quest
 ```
 
-`@ezhana/design-tokens` is a dependency of this package, so the core stylesheet and contract are
-installed with it. The three font packages are dependencies too; the generated `./style` entry loads
-them.
+`@ezhana/design-tokens` is a normal dependency of this package. Cinzel, Spectral and Fira Code are
+devDependencies only: their CSS and font files are inlined/copied into `dist/`, so consumers never
+install a font package.
 
 ## Usage
 
@@ -41,40 +42,37 @@ The theme is activated by `data-theme="quest"`. QuestUI is a fixed dark-mode the
 <html data-theme="quest"></html>
 ```
 
-There are three ways to load the theme, depending on your setup.
+### A single theme (recommended)
 
-### 1. Self-sufficient entry (bundlers)
+`style.css` is a complete preset: the Cinzel/Spectral/Fira Code `@font-face` rules, the full core
+stylesheet and the QuestUI overrides. One import is enough.
 
-```ts
-import '@ezhana/design-theme-quest/style'
+```css
+/* src/styles/global.css */
+@import '@ezhana/design-theme-quest/style.css';
 ```
 
-`./style` imports the core stylesheet, the Cinzel (400/500/600/700), Spectral (400/500/600) and
-Fira Code `@font-face` entries, and the theme overrides, in that order. Importing it is enough to get valid CSS. The core stylesheet is
-imported by module id, so an application that also imports
-`@ezhana/design-tokens/css/tokens.css` does not pay for it twice.
+Do not import `@ezhana/design-tokens/style.css` as well in this setup; it is already included.
 
-### 2. Core stylesheet + theme overrides (split entries)
+### Multi-theme apps
 
-```ts
-import '@ezhana/design-tokens/css/tokens.css'
-import '@ezhana/design-theme-quest/theme.css'
+When several themes share one core stylesheet, import the core once and each theme's split entries:
+
+```css
+@import '@ezhana/design-tokens/style.css';
+@import '@ezhana/design-theme-quest/fonts.css';
+@import '@ezhana/design-theme-quest/theme.css';
 ```
 
-Use this when several themes share one core stylesheet import. `./theme.css` contains overrides
-only. Its selector is stronger than every core rule, so it does not depend on being loaded after the
-core stylesheet. This path does **not** load the fonts — import them yourself if you pick it instead
-of `./style`.
+`theme.css` contains only the semantic overrides. Its fixed-mode selector is stronger than every core
+rule, so it does not depend on being loaded after the core stylesheet. `fonts.css` contains only the
+theme's `@font-face` rules.
 
-### 3. Static CSS (no bundler)
+### Plain HTML / CDN
 
 ```html
-<link rel="stylesheet" href="/node_modules/@ezhana/design-theme-quest/dist/css/standalone.css" />
+<link rel="stylesheet" href="/node_modules/@ezhana/design-theme-quest/dist/style.css" />
 ```
-
-`./standalone.css` is the core stylesheet concatenated with this theme's overrides: a single file
-for HTML-only pages, CDN links or environments without a bundler. It sets `color-scheme: dark` and
-does not include the fonts.
 
 All generated CSS lives inside `@layer design-tokens`, so unlayered application CSS still wins:
 
@@ -85,9 +83,6 @@ All generated CSS lives inside `@layer design-tokens`, so unlayered application 
 ```
 
 ### Fixed-mode CSS shape
-
-Because the theme supports one color mode, the generated stylesheet is unconditional for
-`data-theme="quest"`:
 
 ```css
 @layer design-tokens {
@@ -102,13 +97,10 @@ Because the theme supports one color mode, the generated stylesheet is unconditi
 ```
 
 The two 0,3,0 variants cover both attribute states — `:not([data-color-mode])` when the attribute is
-absent (against core's system-preference rule) and `[data-color-mode]` when any explicit mode is
-present (against core's `[data-color-mode="dark"]` system rule). That keeps the theme load-order
-independent in both cases. There are no `data-color-mode` or `prefers-color-scheme` theme blocks.
+absent and `[data-color-mode]` when any explicit mode is present — keeping the theme load-order
+independent. There are no `data-color-mode` or `prefers-color-scheme` theme blocks.
 
 ## Theme metadata
-
-The generated metadata describes the theme identity for registries and UI:
 
 ```ts
 import { theme, themeId, themeLabel, modes } from '@ezhana/design-theme-quest'
@@ -119,33 +111,27 @@ modes // ['dark']
 theme // { id: 'quest', label: 'Quest', modes: ['dark'] }
 ```
 
-Use it with `@ezhana/theme` to build an application registry. Because QuestUI supports a subset of
-the app's color modes, pass the registry's `themeModes` map to the manager so a light preference is
-clamped to `dark` while QuestUI is active:
+`theme` is a plain `ThemeDefinition` and can be passed straight to the optional runtime's `themes`
+array. The manager derives that QuestUI supports only `dark`, so a `light` preference is clamped to
+`dark` while QuestUI is active and applies again after switching to a full-mode theme.
 
 ```ts
-import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
 import { theme as quest } from '@ezhana/design-theme-quest'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+import { createThemeManager } from '@ezhana/theme'
 
-export const registry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean, quest])
-export type AppTheme = (typeof registry.themes)[number]
-
-export const manager = createThemeManager<AppTheme, Mode>({
-  themes: [...registry.themes],
-  modes: [...registry.modes],
-  themeModes: registry.themeModes, // quest: ['dark']
-  defaultTheme: registry.defaultTheme,
+export const themeManager = createThemeManager({
+  themes: [defaultThemeDefinition, ocean, cerulean, quest],
 })
 
-manager.setTheme('quest')
-manager.getState().resolvedMode // 'dark'
+themeManager.setTheme('quest')
+themeManager.getState().resolvedMode // 'dark'
 ```
 
-The theme switcher can read `registry.themeModes` to disable the light option while QuestUI is
-selected.
+The switcher should disable the `light` option while QuestUI is selected by checking QuestUI's
+`modes: ['dark']` in the definitions array.
 
 ## Theme contents
 
@@ -165,8 +151,8 @@ The palette lives at `theme.color.quest.*` (gold, parchment, crimson, royal, bro
 **build-time material only**: it is resolved into the override values and never emitted as CSS
 custom properties, so it cannot leak into product CSS or into the core `PrimitiveTokenName` union.
 
-`tokens/theme.json` satisfies the theme contract from the core package and re-themes the rest of
-the semantic layer for the warm dark palette:
+`tokens/theme.json` satisfies the theme contract from the core package and re-themes the rest of the
+semantic layer for the warm dark palette:
 
 | Section                   | Overrides                                                                                                                                           |
 | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -177,27 +163,20 @@ Everything else — spacing, motion, content width and border widths — is inhe
 defaults. `color-scheme: dark` is not inherited: the fixed-mode theme rule pins it so native controls
 and scrollbars match the warm palette.
 
-### Core capabilities this theme required
-
-QuestUI needed semantic roles the core package did not previously expose, and a theme that supports
-one color mode. Those were implemented at the source instead of patched around in this package:
-
-- `@ezhana/design-tokens`: layered surfaces, status tints, `info` / solid-danger / solid-info roles,
-  the complete display→caption type scale with line heights and label tracking, `radius.modal` /
-  `radius.panel`, and `shadow.lg` / `shadow.xl` / `shadow.glow`.
-- `@ezhana/theme-builder`: `modes` in `theme.config.mjs` and fixed-mode CSS emission.
-- `@ezhana/theme`: per-theme mode metadata and `resolvedMode` clamping.
-
 ## Generated artifacts
 
-| Artifact                  | Contents                                                                        |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| `dist/css/theme.css`      | overrides only, resolved values, fixed-mode `:root[data-theme="quest"]`         |
-| `dist/css/standalone.css` | core `tokens.css` + `theme.css`, for single-file usage                          |
-| `dist/style.js`           | core stylesheet import + 8 font imports (Cinzel/Spectral/Fira Code) + theme CSS |
-| `dist/js/index.js`        | `themeId`, `themeLabel`, `modes`, `theme` (`ThemeDefinition`)                   |
-| `dist/js/index.d.ts`      | literal TypeScript declarations for the above                                   |
-| `dist/json/theme.json`    | resolved semantic values for the dark mode plus metadata                        |
+| Artifact          | Contents                                                                          |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `dist/style.css`  | theme font faces + full core stylesheet + QuestUI overrides (complete preset)     |
+| `dist/theme.css`  | overrides only, resolved values, fixed-mode `:root[data-theme="quest"]` selectors |
+| `dist/fonts.css`  | theme `@font-face` rules only, pointing at `./fonts/*`                            |
+| `dist/fonts/`     | copied Cinzel/Spectral/Fira Code files and `fonts/licenses/*.txt`                 |
+| `dist/index.js`   | `theme`, `themeId`, `themeLabel`, `modes`                                         |
+| `dist/index.d.ts` | literal TypeScript declarations for the above                                     |
+| `dist/theme.json` | resolved semantic values for the dark mode plus metadata                          |
+
+Public exports: `.` (metadata), `./style.css`, `./theme.css`, `./fonts.css`, `./theme.json` and
+`./package.json`.
 
 ## Rebuilding
 
@@ -211,28 +190,30 @@ pnpm --filter @ezhana/design-theme-quest test      # generated-artifact contract
 ```
 
 The build validates the configuration and overrides against the core contract: a missing required
-token, an unsupported/unlisted color mode, an unknown reference, an invalid theme id or a contract
-version mismatch fails with an actionable error. The test suite checks the fixed-mode selector and
+token, an unsupported color mode, an unknown reference, an invalid theme id or a contract version
+mismatch fails with an actionable error. The test suite checks the fixed-mode selector and
 `color-scheme`, the required overrides, the absence of primitive/theme-private variables, the
-self-sufficiency of `standalone.css`, the font imports, the documented palette/type/shape values and
-WCAG AA contrast for every contract pair.
+self-contained preset, the fonts, the documented palette/type/shape values and WCAG AA contrast for
+every contract pair.
 
 ## Design decisions and trade-offs
 
-- **Dark-only, honestly.** The brief has one palette. Declaring both modes and shipping the same
-  dark values twice would make `color-scheme` and the mode UI lie; mode-subset support in the
-  builder/runtime is the correct underlying fix.
-- **The theme owns its palette.** QuestUI colours are not core primitives; only this package
-  consumes them, and they are inlined into the overrides at build time.
+- **Dark-only, honestly.** The brief has one palette. Declaring both modes and shipping the same dark
+  values twice would make `color-scheme` and the mode UI lie; the builder's mode-subset support is
+  the correct underlying fix.
+- **The theme owns its palette.** QuestUI colours are not core primitives; only this package consumes
+  them, and they are inlined into the overrides at build time.
+- **Fonts ship with the preset.** Cinzel, Spectral and Fira Code are devDependencies; the build copies
+  their files and rewrites the `@font-face` URLs, so the published theme is self-contained.
 - **Overrides, not a layer.** The theme adds no token names, so component code and the semantic
   contract stay stable across themes.
 - **Accessible status text.** The brief's deep red and royal purple are kept as the solid fills
-  (`--color-danger-solid`, `--color-info-solid`); the text roles use lighter tints so damage and
-  lore text pass AA on the dark page.
-- **Explicit values, no colour math.** Resolved hexadecimal values keep the output predictable and
-  the contrast auditable.
+  (`--color-danger-solid`, `--color-info-solid`); the text roles use lighter tints so damage and lore
+  text pass AA on the dark page.
+- **Explicit values, no colour math.** Resolved hexadecimal values keep the output predictable and the
+  contrast auditable.
 - **Component recipes are documentation, not shipped code.** This repository's scope is tokens and
   themes; `docs/DESIGN.md` supplies portable recipes for a future component package, and they use
-  semantic tokens only (plus the brief's explicitly component-only literal colours).
-- **Load-order independence.** The fixed-mode selector list is what makes several theme packages
-  safe to load in any order, including against the core system-preference block.
+  semantic tokens only.
+- **Load-order independence.** The fixed-mode selector list is what makes several theme packages safe
+  to load in any order, including against the core system-preference block.

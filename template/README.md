@@ -106,46 +106,104 @@ workspace sources.
 
 ## Theming
 
-Generated apps consume published design tokens, theme packages and the theme runtime from npm. The
-stylesheets are imported in each app entry file; no local token build step is required.
+Generated apps consume published design tokens, CSS-first theme presets and the optional runtime
+from npm. The stylesheets are imported in each app entry file; no local token build step is
+required.
 
-- `@ezhana/design-tokens` ships the core token scale, the semantic contract and the default theme.
-- `@ezhana/design-theme-ocean`, `@ezhana/design-theme-cerulean`, `@ezhana/design-theme-quest` and
-  `@ezhana/design-theme-onyx` are standalone theme packages, one package per theme. QuestUI
-  (fantasy) and Onyx (black-gold business) are dark-only, so the registry/runtime support themes
-  that declare a subset of the app's color modes.
-- `@ezhana/theme` manages the theme and color-mode state.
+- `@ezhana/design-tokens` ships the core token scale, the semantic contract, the default theme and
+  the complete core stylesheet.
+- `@ezhana/design-theme-ocean`, `@ezhana/design-theme-cerulean`, `@ezhana/design-theme-onyx`,
+  `@ezhana/design-theme-quest` and `@ezhana/design-theme-obsidian` are independent theme packages,
+  one package per theme. Cerulean and Ocean support light + dark; Quest, Onyx and Obsidian are
+  dark-only and declare `modes: ['dark']`.
+- `@ezhana/theme` is the optional runtime for switcher state. Styling does not need it.
 - The color mode follows the operating system by default (`prefers-color-scheme`).
 - `data-theme` selects the theme; `data-color-mode` is written only for an explicit color mode.
 - A theme switcher is generated into both React and Vue apps.
 - Pass `--no-theme` when creating an app to skip the overlay: no theme runtime, switcher or
   `@ezhana` theme dependencies are added.
 
-Each app registers its themes in `src/theme/registry.ts` and derives `AppTheme` from that registry, so
-the switcher and the theme manager always match the installed theme packages:
+### Theme package exports
+
+Every theme package exposes the same entries:
+
+| Entry          | Contents                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------ |
+| `./style.css`  | complete self-contained preset: the theme's fonts + full core stylesheet + theme overrides |
+| `./theme.css`  | theme overrides only; use with the core stylesheet                                         |
+| `./fonts.css`  | the theme's `@font-face` rules only                                                        |
+| `./theme.json` | resolved override and semantic values per supported mode                                   |
+| `.`            | metadata: `theme` (`{ id, label, modes }`), `themeId`, `themeLabel`, `modes`               |
+
+A one-theme app can import only `@ezhana/design-theme-<id>/style.css`. The generated apps install two
+themes, so they import the core stylesheet once and each theme's `fonts.css` + `theme.css`:
+
+```ts
+// src/main.tsx / src/main.ts
+import '@ezhana/design-tokens/style.css'
+import '@ezhana/design-theme-ocean/fonts.css'
+import '@ezhana/design-theme-ocean/theme.css'
+import '@ezhana/design-theme-cerulean/fonts.css'
+import '@ezhana/design-theme-cerulean/theme.css'
+```
+
+Font packages are devDependencies of the theme packages; their files are copied into the published
+preset, so the app never installs `@fontsource-*`.
+
+### App theme definitions
+
+Each app owns its theme set in `src/theme/registry.ts` and passes the definitions straight to the
+runtime:
 
 ```ts
 import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
-import { defineThemeRegistry } from '@ezhana/theme'
+import type { ThemeDefinition } from '@ezhana/theme'
 
-export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
-export type AppTheme = (typeof themeRegistry.themes)[number]
+export const themeDefinitions = [
+  defaultThemeDefinition,
+  ocean,
+  cerulean,
+] as const satisfies readonly ThemeDefinition[]
+
+export type AppTheme = (typeof themeDefinitions)[number]['id']
+export const themeIds = themeDefinitions.map((definition) => definition.id) as AppTheme[]
+export const themeLabels = Object.fromEntries(
+  themeDefinitions.map((definition) => [definition.id, definition.label]),
+) as Record<AppTheme, string>
 ```
 
-To add a theme, install its package in the app, import its stylesheet in the entry file and add its
-`theme` export to `defineThemeRegistry([...])`. If the theme supports fewer color modes than the
-app (for example a dark-only theme), also pass `themeModes: themeRegistry.themeModes` to
-`createThemeManager` so the resolved mode is clamped to a supported one. Theme packages export `./style` (core stylesheet,
-the theme's fonts if any and its overrides in one import), `./theme.css` (overrides only) and
-`./standalone.css` (core plus overrides, for setups without a bundler).
+```ts
+// src/theme/manager.ts
+import { createThemeManager } from '@ezhana/theme'
+import { themeDefinitions } from './registry'
 
-See the npm package documentation for the token contract, theme model and runtime API:
+export const themeManager = createThemeManager({ themes: themeDefinitions })
+```
+
+The switcher reads `themeIds` / `themeLabels`; `themeManager` derives the supported-mode union and
+clamps `resolvedMode` for dark-only themes (a `light` preference applies again when the user switches
+to a light+dark theme). There is no registry builder: the definitions array is the single source of truth.
+
+### Adding a theme
+
+1. Install the theme package in the app:
+   `pnpm --filter ./apps/<name> add @ezhana/design-theme-<id>`.
+2. Import its `fonts.css` and `theme.css` in the entry file (or its complete `style.css` if it is the
+   only theme).
+3. Import its `theme` export in `src/theme/registry.ts` and add it to `themeDefinitions`.
+
+No generator change is needed. The generated apps use `data-theme` + the optional
+`data-color-mode`, so switching themes is CSS-only; the runtime exists for the switcher's validated,
+persisted state.
+
+See the package documentation for the token contract, theme model and runtime API:
 
 - [`@ezhana/design-tokens`](https://www.npmjs.com/package/@ezhana/design-tokens)
 - [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
 - [`@ezhana/design-theme-cerulean`](https://www.npmjs.com/package/@ezhana/design-theme-cerulean)
+- [`@ezhana/design-theme-obsidian`](https://www.npmjs.com/package/@ezhana/design-theme-obsidian)
 - [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
 - [`@ezhana/design-theme-onyx`](https://www.npmjs.com/package/@ezhana/design-theme-onyx)
 - [`@ezhana/design-theme-quest`](https://www.npmjs.com/package/@ezhana/design-theme-quest)

@@ -1,54 +1,46 @@
 /**
- * Public types for `@ezhana/theme` — the framework-agnostic theme runtime.
+ * Public types for `@ezhana/theme` — the optional theme-state runtime.
  *
- * The runtime is plain ESM; these declarations are hand-written so the package
- * needs no build step. Import them with `import type` from `@ezhana/theme`.
+ * Styling does not need this package: the CSS-first contract is `data-theme` plus the optional
+ * `data-color-mode` attribute. These declarations are hand-written because the runtime is plain ESM
+ * with no build step.
  */
 
-/** Default localStorage key used to persist the theme preference. */
+export declare const SYSTEM_MODE: 'system'
 export declare const DEFAULT_STORAGE_KEY: 'ezhana-theme'
-
-/** Default attribute that receives the theme identity. */
 export declare const DEFAULT_THEME_ATTRIBUTE: 'data-theme'
-
-/** Default attribute that receives the explicit color mode. */
 export declare const DEFAULT_MODE_ATTRIBUTE: 'data-color-mode'
 
-/** Mode preference that follows the operating system color scheme. */
-export declare const SYSTEM_MODE: 'system'
+/** A theme package's metadata, as exported by `@ezhana/design-theme-*`. */
+export interface ThemeDefinition<Id extends string = string, Mode extends string = string> {
+  readonly id: Id
+  readonly label: string
+  /** Color modes the theme supports; a fixed-mode theme declares a single one. */
+  readonly modes: readonly Mode[]
+}
 
-/** The value of the reserved system preference mode. */
-export type SystemMode = typeof SYSTEM_MODE
+/** A mode preference: a concrete mode or `system`. */
+export type ModePreference<Mode extends string = string> = Mode | 'system'
 
-/** User mode preference: an explicit color mode or `system`. */
-export type ModePreference<Mode extends string = string> = Mode | SystemMode
-
-/** Frozen snapshot of the theme state, referentially stable between changes. */
+/** Frozen theme state, referentially stable until a value changes. */
 export interface ThemeState<Theme extends string = string, Mode extends string = string> {
-  /** Resolved, validated theme identity (written to `data-theme`). */
+  /** Resolved theme identity, always written to `data-theme`. */
   readonly theme: Theme
-  /** User preference: one of the configured modes or `system`. */
+  /** Saved preference: a configured mode or `system`. */
   readonly mode: ModePreference<Mode>
-  /**
-   * Effective color mode for the active theme: the preference (or the OS preference
-   * in `system` mode) when the theme supports it, otherwise the first mode the
-   * theme declares. Always one of the active theme's supported modes.
-   */
+  /** Effective mode for the active theme; always one the theme supports. */
   readonly resolvedMode: Mode
-  /** Color mode the operating system currently prefers, mapped into `Mode`. */
+  /** Color mode the operating system currently prefers. */
   readonly systemMode: Mode
 }
 
-/**
- * Minimal root element surface. `HTMLElement` / `document.documentElement`
- * satisfy it, and so does a small fake in tests or SSR.
- */
+/** Minimal root surface; `HTMLElement` satisfies it. */
 export interface ThemeRoot {
   setAttribute(name: string, value: string): void
-  removeAttribute(name: string): void
+  removeAttribute?(name: string): void
 }
 
-/** Minimal `Storage` surface (`window.localStorage` satisfies it). */
+/** Minimal storage surface; `localStorage` satisfies it. */
 export interface ThemeStorage {
   getItem(key: string): string | null
   setItem(key: string, value: string): void
@@ -57,22 +49,17 @@ export interface ThemeStorage {
 /** Event passed to `change` listeners of the system color-scheme query. */
 export interface ThemeMediaQueryListEvent {
   readonly matches: boolean
-  readonly media?: string
 }
 
-/** Minimal `MediaQueryList` surface (`window.matchMedia(...)` satisfies it). */
+/** Minimal `MediaQueryList` surface. */
 export interface ThemeMediaQueryList {
   readonly matches: boolean
-  readonly media?: string
   addEventListener?(type: 'change', listener: (event: ThemeMediaQueryListEvent) => void): void
   removeEventListener?(type: 'change', listener: (event: ThemeMediaQueryListEvent) => void): void
-  /** Legacy Safari fallback, used only when `addEventListener` is missing. */
   addListener?(listener: (event: ThemeMediaQueryListEvent) => void): void
-  /** Legacy Safari fallback, used only when `removeEventListener` is missing. */
   removeListener?(listener: (event: ThemeMediaQueryListEvent) => void): void
 }
 
-/** Signature of `window.matchMedia`. */
 export type ThemeMatchMedia = (query: string) => ThemeMediaQueryList
 
 /** `StorageEvent` subset used for cross-tab synchronisation. */
@@ -81,44 +68,18 @@ export interface ThemeStorageEvent {
   readonly newValue: string | null
 }
 
-/** Minimal event target surface (`window` satisfies it). */
+/** Minimal event target surface; `window` satisfies it. */
 export interface ThemeEventTarget {
   addEventListener(type: 'storage', listener: (event: ThemeStorageEvent) => void): void
   removeEventListener(type: 'storage', listener: (event: ThemeStorageEvent) => void): void
 }
 
-/**
- * Supported color modes per theme id, as returned by
- * {@link defineThemeRegistry} and accepted by {@link createThemeManager}.
- */
-export type ThemeModeMap<Theme extends string = string, Mode extends string = string> = Readonly<
-  Record<Theme, readonly Mode[]>
->
-
-/** Options accepted by {@link createThemeManager}. */
 export interface ThemeManagerOptions<Theme extends string = string, Mode extends string = string> {
-  /** Required, unique, non-empty themes. `themes[0]` is the default unless `defaultTheme` is given. */
-  themes: readonly Theme[]
-  /**
-   * Semantic color modes, normally generated by `@ezhana/design-tokens`.
-   * Defaults to `['light', 'dark']`; must be unique, non-empty and must not
-   * contain the reserved `'system'` value.
-   */
-  modes?: readonly Mode[]
-  /**
-   * Modes each theme supports, as returned by {@link defineThemeRegistry}.
-   * Defaults to every theme supporting all `modes`. Must cover exactly the
-   * configured `themes`; each value must be a non-empty, unique subset of
-   * `modes` without the reserved `'system'` value.
-   *
-   * `resolvedMode` is clamped to a mode the active theme supports, so a
-   * dark-only theme never renders `data-color-mode="light"` (or any mode it
-   * does not implement) even when the saved preference is `light`.
-   */
-  themeModes?: ThemeModeMap<Theme, Mode>
-  /** Default theme. Must be one of `themes`; defaults to `themes[0]`. */
+  /** Theme definitions to select from; the first one is the default unless `defaultTheme` is set. */
+  themes: readonly ThemeDefinition<Theme, Mode>[]
+  /** Default theme id. Must be one of `themes`; defaults to the first definition. */
   defaultTheme?: Theme
-  /** Default mode preference: one of `modes` or `'system'` (the default). */
+  /** Default mode preference: a mode or `'system'` (the default). */
   defaultMode?: ModePreference<Mode>
   /** localStorage key. Defaults to {@link DEFAULT_STORAGE_KEY}. */
   storageKey?: string
@@ -127,120 +88,42 @@ export interface ThemeManagerOptions<Theme extends string = string, Mode extends
   /** Attribute that receives an explicit color mode. Defaults to {@link DEFAULT_MODE_ATTRIBUTE}. */
   modeAttribute?: string
   /**
-   * Element that receives the theme attributes. Defaults to
-   * `document.documentElement` when a DOM exists and is required otherwise
-   * (Node/SSR) — pass a fake root there.
+   * Element that receives the attributes. Defaults to `document.documentElement`; pass `null` to
+   * run headless (for example during SSR) and inject the root on the client.
    */
-  root?: ThemeRoot
-  /**
-   * Storage used to persist `{"theme": ..., "mode": ...}`. Defaults to
-   * `window.localStorage` when available. Pass `null` to disable persistence.
-   */
+  root?: ThemeRoot | null
+  /** Storage for the preference. Defaults to `localStorage` when available; `null` disables it. */
   storage?: ThemeStorage | null
-  /**
-   * `matchMedia` used to resolve `system` mode. Defaults to
-   * `window.matchMedia` when available. Pass `null` to disable system tracking.
-   */
+  /** `matchMedia` used for the system mode. Defaults to `window.matchMedia`. */
   matchMedia?: ThemeMatchMedia | null
-  /**
-   * Target whose `storage` events are observed for cross-tab sync. Defaults to
-   * `window` when available. Pass `null` to disable cross-tab sync.
-   */
+  /** Target whose `storage` events are observed for cross-tab sync. Defaults to `window`. */
   eventTarget?: ThemeEventTarget | null
 }
 
-/** Listener notified with every new frozen state snapshot. */
 export type ThemeListener<Theme extends string = string, Mode extends string = string> = (
   state: ThemeState<Theme, Mode>,
 ) => void
 
-/** Manager returned by {@link createThemeManager}. */
 export interface ThemeManager<Theme extends string = string, Mode extends string = string> {
-  /**
-   * Current state. The returned object is frozen and referentially stable until
-   * a value actually changes, which makes it safe for React's
-   * `useSyncExternalStore`.
-   */
+  /** Current frozen state; safe as a `useSyncExternalStore` snapshot. */
   getState(): ThemeState<Theme, Mode>
   /** Switch theme, validate, persist, apply attributes and notify subscribers. */
   setTheme(theme: Theme): void
-  /** Switch the mode preference (`Mode` or `'system'`), persist, apply and notify. */
+  /** Switch the mode preference, persist, apply and notify. */
   setMode(mode: ModePreference<Mode>): void
-  /**
-   * Subscribe to state changes. The listener is not invoked immediately.
-   * Returns an idempotent unsubscribe function.
-   */
+  /** Subscribe to state changes; returns an idempotent unsubscribe function. */
   subscribe(listener: ThemeListener<Theme, Mode>): () => void
-  /**
-   * Remove all media-query and storage listeners and clear subscribers.
-   * Idempotent; after it runs the setters are no-ops.
-   */
+  /** Remove listeners and clear subscribers. Idempotent; setters become no-ops. */
   destroy(): void
 }
 
-/** Create a theme manager and apply the initial attributes to `root`. */
+/**
+ * Create a theme manager and apply the initial attributes to the resolved root.
+ *
+ * Importing this module performs no DOM access; the DOM is touched only here (and only when a root
+ * is available), which keeps the package SSR-safe.
+ */
 export declare function createThemeManager<
   Theme extends string = string,
   Mode extends string = string,
 >(options: ThemeManagerOptions<Theme, Mode>): ThemeManager<Theme, Mode>
-
-/**
- * A theme definition, as exported by every theme package (`@ezhana/design-theme-*`) and by
- * `@ezhana/design-tokens` for the default theme.
- *
- * The type is structural on purpose: themes are separate packages, so the runtime cannot import a
- * shared declaration from them, and this package must not depend on a concrete theme.
- */
-export interface ThemeDefinition<Id extends string = string, Mode extends string = string> {
-  /** Theme identity written to `data-theme` and used in the theme stylesheet selectors. */
-  readonly id: Id
-  /** Human-readable label for switcher UIs. */
-  readonly label: string
-  /**
-   * Color modes the theme supports. Lists may differ between themes:
-   * a theme may be fixed to a single mode (for example a dark-only theme).
-   */
-  readonly modes: readonly Mode[]
-}
-
-/** Validated, frozen theme metadata returned by {@link defineThemeRegistry}. */
-export interface ThemeRegistry<Ids extends string = string, Modes extends string = string> {
-  /** Theme identities in registry order. */
-  readonly themes: readonly Ids[]
-  /** Display labels keyed by theme id. */
-  readonly themeLabels: Readonly<Record<Ids, string>>
-  /** Default theme identity. */
-  readonly defaultTheme: Ids
-  /** Union of the modes declared by the registered themes, in first-seen order. */
-  readonly modes: readonly Modes[]
-  /**
-   * Modes supported by each registered theme, keyed by theme id and preserving
-   * each theme's declared order.
-   */
-  readonly themeModes: ThemeModeMap<Ids, Modes>
-}
-
-/**
- * Combine theme definitions into the metadata {@link createThemeManager} consumes.
- *
- * ```ts
- * import { defaultThemeDefinition } from '@ezhana/design-tokens'
- * import { theme as cerulean } from '@ezhana/design-theme-cerulean'
- * import { defineThemeRegistry } from '@ezhana/theme'
- *
- * const registry = defineThemeRegistry([defaultThemeDefinition, cerulean])
- * type AppTheme = (typeof registry.themes)[number] // 'default' | 'cerulean'
- * ```
- *
- * Throws `TypeError` when definitions are empty, when an id does not match the theme id pattern,
- * when ids repeat, when labels are missing, when a mode list is empty/invalid, or when
- * `options.defaultTheme` is not registered. Definitions may declare different mode lists; the
- * returned `modes` is their union and `themeModes` keeps each theme's own list.
- */
-export declare function defineThemeRegistry<
-  const Definitions extends readonly ThemeDefinition[],
-  Modes extends string = Definitions[number]['modes'][number],
->(
-  definitions: Definitions,
-  options?: { readonly defaultTheme?: Definitions[number]['id'] },
-): ThemeRegistry<Definitions[number]['id'], Modes>

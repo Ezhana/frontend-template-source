@@ -1,7 +1,7 @@
 # @ezhana/design-theme-ocean
 
 Official Ocean theme for [`@ezhana/design-tokens`](../design-tokens/README.md): an indigo-blue accent
-and pill-shaped controls.
+and pill-shaped controls, in light and dark.
 
 This is a **theme package**, not a token layer. It owns its palette, overrides the core semantic
 contract and ships generated CSS. It depends on `@ezhana/design-tokens` for the shared tokens and
@@ -10,6 +10,7 @@ contract but not on `@ezhana/theme` — theme/mode state is the application's ch
 - Indigo-blue accent on the shared neutral surfaces and text.
 - The system font stack (no webfont dependency).
 - `9999px` control radius: pill-shaped buttons, inputs and selects.
+- Light + dark color modes.
 - Independently versioned; adding or changing it never touches the core package.
 
 The design narrative is in [`docs/DESIGN.md`](./docs/DESIGN.md).
@@ -20,8 +21,8 @@ The design narrative is in [`docs/DESIGN.md`](./docs/DESIGN.md).
 pnpm add @ezhana/design-theme-ocean
 ```
 
-`@ezhana/design-tokens` is a dependency of this package, so the core stylesheet and contract are
-installed with it.
+`@ezhana/design-tokens` is a normal dependency of this package, so the core contract is installed
+with it. This theme ships no font assets, so there is nothing else to install.
 
 ## Usage
 
@@ -32,42 +33,43 @@ without `data-color-mode` the CSS follows the operating system through `prefers-
 <!-- follow the OS color mode -->
 <html data-theme="ocean"></html>
 
-<!-- explicit color mode -->
+<!-- explicit color mode; wins over the OS preference -->
 <html data-theme="ocean" data-color-mode="dark"></html>
 ```
 
-There are three ways to load the theme, depending on your setup.
+### A single theme (recommended)
 
-### 1. Self-sufficient entry (bundlers)
+`style.css` is a complete preset: the full core stylesheet plus the Ocean overrides. One import is
+enough.
 
-```ts
-import '@ezhana/design-theme-ocean/style'
+```css
+/* src/styles/global.css */
+@import '@ezhana/design-theme-ocean/style.css';
 ```
 
-`./style` imports the core stylesheet and the theme overrides, in that order. Importing it is enough
-to get valid CSS — no separate token import is needed. The core stylesheet is imported by module id,
-so an application that also imports `@ezhana/design-tokens/css/tokens.css` does not pay for it
-twice.
+Do not import `@ezhana/design-tokens/style.css` as well in this setup; it is already included.
 
-### 2. Core stylesheet + theme overrides (split entries)
+### Multi-theme apps
 
-```ts
-import '@ezhana/design-tokens/css/tokens.css'
-import '@ezhana/design-theme-ocean/theme.css'
+When several themes share one core stylesheet, import the core once and each theme's `theme.css`:
+
+```css
+@import '@ezhana/design-tokens/style.css';
+@import '@ezhana/design-theme-ocean/theme.css';
 ```
 
-Use this when several themes share one core stylesheet import. `./theme.css` contains overrides
-only. Its selectors are `:root[data-theme="ocean"]` (specificity 0,2,0), which is higher than every
-core rule, so it does not depend on being loaded after the core stylesheet.
+`theme.css` contains only the semantic overrides. Its selectors are `:root[data-theme="ocean"]`
+(specificity 0,2,0), higher than every core rule, so it does not depend on being loaded after the
+core stylesheet. Ocean's `fonts.css` exists for a uniform consumer setup but contains only a "ships
+no font assets" comment.
 
-### 3. Static CSS (no bundler)
+### Plain HTML / CDN
+
+The same complete preset can be linked directly; everything is relative to `dist/`:
 
 ```html
-<link rel="stylesheet" href="/node_modules/@ezhana/design-theme-ocean/dist/css/standalone.css" />
+<link rel="stylesheet" href="/node_modules/@ezhana/design-theme-ocean/dist/style.css" />
 ```
-
-`./standalone.css` is the core stylesheet concatenated with this theme's overrides: a single file
-for HTML-only pages, CDN links or environments without a bundler.
 
 All generated CSS lives inside `@layer design-tokens`, so unlayered application CSS still wins:
 
@@ -79,36 +81,34 @@ All generated CSS lives inside `@layer design-tokens`, so unlayered application 
 
 ## Theme metadata
 
-The generated metadata describes the theme identity for registries and UI:
-
 ```ts
-import { theme, themeId, themeLabel } from '@ezhana/design-theme-ocean'
+import { theme, themeId, themeLabel, modes } from '@ezhana/design-theme-ocean'
 
 themeId // 'ocean'
 themeLabel // 'Ocean'
+modes // ['light', 'dark']
 theme // { id: 'ocean', label: 'Ocean', modes: ['light', 'dark'] }
 ```
 
-Use it with `@ezhana/theme` to build an application registry:
+`theme` is a plain `ThemeDefinition` (`{ id, label, modes }`) and can be passed straight to the
+optional runtime's `themes` array:
 
 ```ts
-import { defaultThemeDefinition, type Mode } from '@ezhana/design-tokens'
+import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
-import { createThemeManager, defineThemeRegistry } from '@ezhana/theme'
+import { createThemeManager } from '@ezhana/theme'
 
-export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
-export type AppTheme = (typeof themeRegistry.themes)[number]
-
-export const themeManager = createThemeManager<AppTheme, Mode>({
-  themes: [...themeRegistry.themes],
-  modes: [...themeRegistry.modes],
-  defaultTheme: themeRegistry.defaultTheme,
+export const themeManager = createThemeManager({
+  themes: [defaultThemeDefinition, ocean, cerulean],
 })
+
+themeManager.setTheme('ocean')
+themeManager.getState().resolvedMode // 'light', 'dark' or the OS mode in system mode
 ```
 
-`@ezhana/design-tokens` no longer exports a `themes` list or a `Theme` union — theme identities are
-owned by theme packages and assembled by the registry.
+The runtime is optional: if the app does not need a switcher, set `data-theme` yourself or let the
+user's build-time choice set it.
 
 ## Theme contents
 
@@ -142,14 +142,18 @@ themes.
 
 ## Generated artifacts
 
-| Artifact                  | Contents                                                               |
-| ------------------------- | ---------------------------------------------------------------------- |
-| `dist/css/theme.css`      | overrides only, resolved values, `:root[data-theme="ocean"]` selectors |
-| `dist/css/standalone.css` | core `tokens.css` + `theme.css`, for single-file usage                 |
-| `dist/style.js`           | core stylesheet import + `./css/theme.css`                             |
-| `dist/js/index.js`        | `themeId`, `themeLabel`, `theme` (`ThemeDefinition`)                   |
-| `dist/js/index.d.ts`      | literal TypeScript declarations for the above                          |
-| `dist/json/theme.json`    | resolved semantic values per mode plus metadata, for tooling and tests |
+| Artifact          | Contents                                                                      |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `dist/style.css`  | full core stylesheet + Ocean overrides (complete preset)                      |
+| `dist/theme.css`  | overrides only, resolved values, `:root[data-theme="ocean"]` selectors        |
+| `dist/fonts.css`  | a generated "ships no font assets" comment                                    |
+| `dist/fonts/`     | empty (no font assets)                                                        |
+| `dist/index.js`   | `theme`, `themeId`, `themeLabel`, `modes`                                     |
+| `dist/index.d.ts` | literal TypeScript declarations for the above                                 |
+| `dist/theme.json` | resolved override values and resolved semantic values per mode, plus metadata |
+
+Public exports: `.` (metadata), `./style.css`, `./theme.css`, `./fonts.css`, `./theme.json` and
+`./package.json`.
 
 ## Rebuilding
 
@@ -158,28 +162,30 @@ root:
 
 ```sh
 pnpm --filter @ezhana/design-tokens build        # core contract + stylesheet (once)
-pnpm --filter @ezhana/design-theme-ocean build  # this package (pretest runs it automatically)
-pnpm --filter @ezhana/design-theme-ocean test   # generated-artifact contract + WCAG AA checks
+pnpm --filter @ezhana/design-theme-ocean build   # this package (pretest runs it automatically)
+pnpm --filter @ezhana/design-theme-ocean test    # generated-artifact contract + WCAG AA checks
 ```
 
 The build validates the configuration and overrides against the core contract: a missing required
 token, an unknown reference, an invalid theme id or a contract version mismatch fails with an
 actionable error. The test suite checks the generated CSS selectors, the required overrides, the
-absence of primitive/theme-private variables, the self-sufficiency of `standalone.css` and WCAG AA
-contrast for the accent pairs in both modes.
+absence of primitive/theme-private variables, that `style.css` embeds the core tokens and theme
+block, and WCAG AA contrast for the accent pairs in both modes.
 
 ## Design decisions and trade-offs
 
 - **The theme owns its palette.** The blue ramp is not a core primitive; only this package consumes
   it, and it is inlined into the overrides at build time.
+- **No web font.** Ocean uses the core system font stack, so the preset is pure CSS and has no font
+  files to copy.
+- **Complete preset first.** `style.css` is the default import because "install only a theme package"
+  should produce valid CSS; the split entries exist for apps that manage the core stylesheet
+  themselves.
 - **Overrides, not a layer.** The theme adds no token names, so component code and the semantic
   contract stay stable across themes.
 - **Attributes, not classes.** `data-theme` / optional `data-color-mode` are easy to drive from SSR,
   tests and plain HTML.
-- **Self-sufficient entry.** `./style` is the default import because "install only a theme package"
-  should produce valid CSS; the split entries exist for apps that manage the core stylesheet
-  themselves.
 - **Load-order independence.** `:root[data-theme]` specificity is what makes several theme packages
   safe to load in any order.
-- **Explicit values, no color math.** Resolved hexadecimal values keep the output predictable and
-  the contrast auditable.
+- **Explicit values, no color math.** Resolved hexadecimal values keep the output predictable and the
+  contrast auditable.

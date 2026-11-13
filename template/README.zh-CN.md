@@ -96,43 +96,96 @@ npm 依赖：根目录和应用的配置通过 workspace 解析它们，因此�
 
 ## 主题
 
-生成的应用（默认套用主题）从 npm 安装已发布的设计令牌、主题包与主题运行时；样式在入口文件中引入，
+生成的应用从 npm 安装已发布的设计令牌、CSS-first 主题预设和可选的主题运行时；样式在入口文件中引入，
 本地不需要构建令牌。
 
-- `@ezhana/design-tokens` 提供核心令牌、语义契约和默认主题。
-- `@ezhana/design-theme-ocean`、`@ezhana/design-theme-cerulean`、`@ezhana/design-theme-quest` 和
-  `@ezhana/design-theme-onyx` 是各自独立发布的主题包。QuestUI（奇幻风）与 Onyx（黑金商务风）仅提供暗色
-  模式，因此注册表和运行时支持主题声明颜色模式的子集。
-- `@ezhana/theme` 管理主题与颜色模式状态。
+- `@ezhana/design-tokens` 提供核心令牌、语义契约、默认主题和完整核心样式表。
+- `@ezhana/design-theme-ocean`、`@ezhana/design-theme-cerulean`、`@ezhana/design-theme-onyx`、
+  `@ezhana/design-theme-quest` 和 `@ezhana/design-theme-obsidian` 是各自独立发布的主题包，每个主题一个包。
+  Cerulean 与 Ocean 支持明暗两种模式；Quest、Onyx、Obsidian 仅提供暗色模式，声明为
+  `modes: ['dark']`。
+- `@ezhana/theme` 是可选的主题切换运行时；仅做样式时不需要它。
 - 颜色模式默认跟随操作系统（`prefers-color-scheme`）。
 - `data-theme` 选择主题；只有显式选择颜色模式时才写 `data-color-mode`。
 - React 和 Vue 应用都会生成主题切换器。
 - 创建应用时传 `--no-theme` 可跳过主题覆盖：不会加入主题运行时、切换器或 `@ezhana` 主题依赖。
 
-每个应用在 `src/theme/registry.ts` 注册主题，并从注册表推导 `AppTheme`，因此切换器和主题管理器
-始终与已安装的主题包一致：
+### 主题包的导出
+
+每个主题包提供相同的入口：
+
+| 入口           | 内容                                                                        |
+| -------------- | --------------------------------------------------------------------------- |
+| `./style.css`  | 完整自包含预设：主题字体 + 完整核心样式表 + 主题覆盖                        |
+| `./theme.css`  | 仅主题覆盖；与核心样式表搭配使用                                            |
+| `./fonts.css`  | 仅主题的 `@font-face` 规则                                                  |
+| `./theme.json` | 各支持模式的解析值与覆盖值，供工具和测试使用                                |
+| `.`            | 元数据：`theme`（`{ id, label, modes }`）、`themeId`、`themeLabel`、`modes` |
+
+只使用一个主题的应用可以只引入 `@ezhana/design-theme-<id>/style.css`。生成的应用默认安装两个主题，因此只引入
+一次核心样式表，再分别引入每个主题的 `fonts.css` 与 `theme.css`：
+
+```ts
+// src/main.tsx / src/main.ts
+import '@ezhana/design-tokens/style.css'
+import '@ezhana/design-theme-ocean/fonts.css'
+import '@ezhana/design-theme-ocean/theme.css'
+import '@ezhana/design-theme-cerulean/fonts.css'
+import '@ezhana/design-theme-cerulean/theme.css'
+```
+
+字体包是主题包的 devDependencies，字体文件会被复制进已发布的预设中，因此应用不需要安装 `@fontsource-*`。
+
+### 应用内的主题定义
+
+每个应用在 `src/theme/registry.ts` 中维护自己的主题集合，并把定义数组直接交给运行时：
 
 ```ts
 import { defaultThemeDefinition } from '@ezhana/design-tokens'
 import { theme as cerulean } from '@ezhana/design-theme-cerulean'
 import { theme as ocean } from '@ezhana/design-theme-ocean'
-import { defineThemeRegistry } from '@ezhana/theme'
+import type { ThemeDefinition } from '@ezhana/theme'
 
-export const themeRegistry = defineThemeRegistry([defaultThemeDefinition, ocean, cerulean])
-export type AppTheme = (typeof themeRegistry.themes)[number]
+export const themeDefinitions = [
+  defaultThemeDefinition,
+  ocean,
+  cerulean,
+] as const satisfies readonly ThemeDefinition[]
+
+export type AppTheme = (typeof themeDefinitions)[number]['id']
+export const themeIds = themeDefinitions.map((definition) => definition.id) as AppTheme[]
+export const themeLabels = Object.fromEntries(
+  themeDefinitions.map((definition) => [definition.id, definition.label]),
+) as Record<AppTheme, string>
 ```
 
-添加主题：在应用中安装对应主题包、在入口文件中引入其样式，并把它的 `theme` 导出加入
-`defineThemeRegistry([...])`。如果主题支持的颜色模式少于应用（例如仅暗色的主题），还需向
-`createThemeManager` 传入 `themeModes: themeRegistry.themeModes`，以便把解析后的模式收敛到主题支持的模式。
-主题包提供 `./style`（核心样式 + 主题字体（如有）+ 覆盖，一次引入即可）、
-`./theme.css`（仅覆盖）和 `./standalone.css`（核心 + 覆盖，适合无 bundler 场景）。
+```ts
+// src/theme/manager.ts
+import { createThemeManager } from '@ezhana/theme'
+import { themeDefinitions } from './registry'
+
+export const themeManager = createThemeManager({ themes: themeDefinitions })
+```
+
+切换器读取 `themeIds` / `themeLabels`；`themeManager` 从定义数组推导支持的颜色模式并集，并对仅暗色主题收敛
+`resolvedMode`（用户切回明暗双模式主题后，之前保存的 `light` 偏好会重新生效）。定义数组就是唯一数据源，不需要
+额外的注册表对象。
+
+### 添加主题
+
+1. 在应用中安装主题包：`pnpm --filter ./apps/<name> add @ezhana/design-theme-<id>`。
+2. 在入口文件中引入它的 `fonts.css` 与 `theme.css`（如果它是唯一主题，也可以直接引入完整 `style.css`）。
+3. 在 `src/theme/registry.ts` 中引入它的 `theme` 导出，并加入 `themeDefinitions`。
+
+不需要修改生成器。生成的应用使用 `data-theme` 和可选的 `data-color-mode`，因此主题切换完全由 CSS 完成；
+运行时只负责切换器的校验、持久化与状态订阅。
 
 令牌契约、主题模型与运行时 API 见 npm 包文档：
 
 - [`@ezhana/design-tokens`](https://www.npmjs.com/package/@ezhana/design-tokens)
 - [`@ezhana/theme`](https://www.npmjs.com/package/@ezhana/theme)
 - [`@ezhana/design-theme-cerulean`](https://www.npmjs.com/package/@ezhana/design-theme-cerulean)
+- [`@ezhana/design-theme-obsidian`](https://www.npmjs.com/package/@ezhana/design-theme-obsidian)
 - [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
 - [`@ezhana/design-theme-onyx`](https://www.npmjs.com/package/@ezhana/design-theme-onyx)
 - [`@ezhana/design-theme-quest`](https://www.npmjs.com/package/@ezhana/design-theme-quest)

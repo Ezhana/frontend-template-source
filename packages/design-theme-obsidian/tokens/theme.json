@@ -1,0 +1,303 @@
+{
+  "$description": "Obsidian semantic overrides. Obsidian is a fixed dark-mode identity: the base section carries the type scale, the Playfair/Inter families, the crisp shape scale and the two source motion durations; the dark section carries the warm near-black surface stack, the 24K gold accent set, the muted status roles and near-black elevation with a restrained gold glow.",
+  "base": {
+    "font": {
+      "family": {
+        "sans": {
+          "$value": "\"Inter Variable\", \"Inter\", system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+          "$type": "fontFamily",
+          "$description": "Body copy and UI: Inter, with the Chinese system sans faces immediately after it so CJK text never falls through to a Latin serif."
+        },
+        "heading": {
+          "$value": "\"Playfair Display Variable\", \"Playfair Display\", 'Times New Roman', 'Songti SC', Georgia, serif",
+          "$type": "fontFamily",
+          "$description": "Latin display headings and key figures: Playfair Display. Chinese headings fall back to Songti SC / the system serif, matching the source type pairing."
+        },
+        "mono": {
+          "$value": "ui-monospace, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace",
+          "$type": "fontFamily",
+          "$description": "Code, identifiers and tabular annotations: the source system's mono stack."
+        }
+      },
+      "size": {
+        "display": {
+          "$value": "clamp(3rem, 2.1rem + 3.8vw, 5rem)",
+          "$type": "dimension",
+          "$description": "Hero title: the source text-display-2xl step."
+        },
+        "h1": {
+          "$value": "clamp(2.5rem, 1.9rem + 2.6vw, 3.75rem)",
+          "$type": "dimension",
+          "$description": "Section title: the source text-display-xl step."
+        },
+        "h2": {
+          "$value": "clamp(2rem, 1.65rem + 1.6vw, 2.75rem)",
+          "$type": "dimension",
+          "$description": "Sub-section title: the source text-display-lg step."
+        },
+        "h3": {
+          "$value": "1.75rem",
+          "$type": "dimension",
+          "$description": "Card-group title: the source text-heading-lg step."
+        },
+        "h4": {
+          "$value": "1.375rem",
+          "$type": "dimension",
+          "$description": "Card title: the source text-heading-md step."
+        },
+        "body-lg": {
+          "$value": "1.125rem",
+          "$type": "dimension",
+          "$description": "Lead paragraph and the source text-heading-sm step at the same size."
+        },
+        "body": {
+          "$value": "1rem",
+          "$type": "dimension"
+        },
+        "small": {
+          "$value": "0.875rem",
+          "$type": "dimension",
+          "$description": "Supporting copy and button labels: the source text-body-sm step."
+        },
+        "caption": {
+          "$value": "0.75rem",
+          "$type": "dimension",
+          "$description": "Footnotes and copyright; the source overline is this size with wide tracking."
+        },
+        "code": {
+          "$value": "0.75rem",
+          "$type": "dimension",
+          "$description": "Code blocks use the source text-caption step."
+        },
+        "control": {
+          "$value": "0.875rem",
+          "$type": "dimension",
+          "$description": "Control labels: the source button size at sm/md."
+        }
+      },
+      "lineHeight": {
+        "display": { "$value": 1.02, "$type": "number" },
+        "h1": { "$value": 1.06, "$type": "number" },
+        "h2": { "$value": 1.12, "$type": "number" },
+        "h3": { "$value": 1.25, "$type": "number" },
+        "h4": { "$value": 1.35, "$type": "number" },
+        "body": { "$value": 1.7, "$type": "number" },
+        "small": { "$value": 1.6, "$type": "number" },
+        "caption": { "$value": 1.5, "$type": "number" },
+        "code": { "$value": 1.5, "$type": "number" },
+        "heading": { "$value": 1.2, "$type": "number" },
+        "tight": { "$value": 1.02, "$type": "number" }
+      },
+      "letterSpacing": {
+        "label": {
+          "$value": "0.22em",
+          "$type": "dimension",
+          "$description": "Uppercase eyebrow and overline tracking from the source design system."
+        }
+      }
+    },
+    "radius": {
+      "small": {
+        "$value": "4px",
+        "$type": "dimension",
+        "$description": "Source radius-sm: small elements inside controls."
+      },
+      "control": {
+        "$value": "6px",
+        "$type": "dimension",
+        "$description": "Source radius-md: buttons and inputs."
+      },
+      "surface": {
+        "$value": "14px",
+        "$type": "dimension",
+        "$description": "Source radius-xl: cards and panels."
+      },
+      "modal": {
+        "$value": "20px",
+        "$type": "dimension",
+        "$description": "Source radius-2xl: dialogs, the hero panel and the CTA block."
+      },
+      "panel": {
+        "$value": "28px",
+        "$type": "dimension",
+        "$description": "Source radius-3xl: large containment panels."
+      },
+      "pill": { "$value": "9999px", "$type": "dimension" }
+    },
+    "motion": {
+      "duration": {
+        "fast": {
+          "$value": "120ms",
+          "$type": "duration",
+          "$description": "Source duration-fast: hover and color transitions."
+        },
+        "normal": {
+          "$value": "200ms",
+          "$type": "duration",
+          "$description": "Source duration-base: buttons, inputs and focus transitions."
+        }
+      }
+    }
+  },
+  "dark": {
+    "color": {
+      "bg": {
+        "$value": "{theme.color.obsidian.ink.950}",
+        "$type": "color",
+        "$description": "Page canvas: source surface-canvas."
+      },
+      "bg-subtle": {
+        "$value": "{theme.color.obsidian.ink.700}",
+        "$type": "color",
+        "$description": "Interactive / inset surface: source surface-interactive (hover and selected fills, wells). The core contract's only tertiary surface role."
+      },
+      "surface": {
+        "$value": "{theme.color.obsidian.ink.900}",
+        "$type": "color",
+        "$description": "Cards and sections: source surface-raised."
+      },
+      "surface-elevated": {
+        "$value": "{theme.color.obsidian.ink.800}",
+        "$type": "color",
+        "$description": "Overlays, inputs and popovers: source surface-elevated."
+      },
+      "fg": {
+        "$value": "{theme.color.obsidian.ivory.100}",
+        "$type": "color",
+        "$description": "Primary text: source content-primary."
+      },
+      "fg-muted": {
+        "$value": "{theme.color.obsidian.ink.100}",
+        "$type": "color",
+        "$description": "Secondary text: source content-secondary; content-tertiary has no core semantic slot."
+      },
+      "fg-strong": {
+        "$value": "{theme.color.obsidian.ivory.50}",
+        "$type": "color",
+        "$description": "Headings and high-emphasis text: one warm step above primary content."
+      },
+      "border": {
+        "$value": "#f3efe61a",
+        "$type": "color",
+        "$description": "Default hairline: source border-default rgba(243,239,230,0.10)."
+      },
+      "border-subtle": {
+        "$value": "#f3efe60f",
+        "$type": "color",
+        "$description": "Low-contrast divider: source border-subtle rgba(243,239,230,0.06)."
+      },
+      "accent": {
+        "$value": "{theme.color.obsidian.gold.500}",
+        "$type": "color",
+        "$description": "24K gold: source accent-solid, primary actions, links, selection and focus."
+      },
+      "accent-hover": {
+        "$value": "{theme.color.obsidian.gold.400}",
+        "$type": "color",
+        "$description": "Source accent-hover and content-accent: emphasis text and hover."
+      },
+      "on-accent": {
+        "$value": "{theme.color.obsidian.ink.950}",
+        "$type": "color",
+        "$description": "Ink text on a solid gold fill: source accent-contrast."
+      },
+      "accent-subtle": {
+        "$value": "#d4af371a",
+        "$type": "color",
+        "$description": "Source accent-soft: gold chip and selected background at 10%."
+      },
+      "accent-border": {
+        "$value": "#d4af3759",
+        "$type": "color",
+        "$description": "Source border-accent: gold hairline at 35%."
+      },
+      "focus-ring": {
+        "$value": "{theme.color.obsidian.gold.300}",
+        "$type": "color",
+        "$description": "Source focus ring colour (gold-300), made opaque so the ring is visible on every surface."
+      },
+      "danger": {
+        "$value": "{theme.color.obsidian.status.danger}",
+        "$type": "color",
+        "$description": "Danger text and icons: source status-danger, AA on the canvas."
+      },
+      "danger-solid": {
+        "$value": "{theme.color.obsidian.claret.600}",
+        "$type": "color",
+        "$description": "Destructive button fill: derived claret, paired with warm ivory text."
+      },
+      "on-danger": {
+        "$value": "{theme.color.obsidian.ivory.100}",
+        "$type": "color"
+      },
+      "danger-subtle": {
+        "$value": "#e4695f1a",
+        "$type": "color",
+        "$description": "Tinted destructive surface at 10%."
+      },
+      "success": {
+        "$value": "{theme.color.obsidian.status.success}",
+        "$type": "color"
+      },
+      "success-subtle": {
+        "$value": "#54c7951a",
+        "$type": "color",
+        "$description": "Tinted success surface at 10%."
+      },
+      "warning": {
+        "$value": "{theme.color.obsidian.status.warning}",
+        "$type": "color"
+      },
+      "warning-subtle": {
+        "$value": "#e3a94f1a",
+        "$type": "color",
+        "$description": "Tinted warning surface at 10%."
+      },
+      "info": {
+        "$value": "{theme.color.obsidian.status.info}",
+        "$type": "color"
+      },
+      "info-solid": {
+        "$value": "{theme.color.obsidian.steel.600}",
+        "$type": "color",
+        "$description": "Solid informational fill: derived steel, paired with warm ivory text."
+      },
+      "on-info": {
+        "$value": "{theme.color.obsidian.ivory.100}",
+        "$type": "color"
+      },
+      "info-subtle": {
+        "$value": "#6ea8e01a",
+        "$type": "color",
+        "$description": "Tinted informational surface at 10%."
+      }
+    },
+    "shadow": {
+      "sm": {
+        "$value": "0 1px 2px rgb(0 0 0 / 0.5)",
+        "$type": "string",
+        "$description": "Inputs and micro popovers: source shadow-xs."
+      },
+      "md": {
+        "$value": "0 2px 8px -2px rgb(0 0 0 / 0.55)",
+        "$type": "string",
+        "$description": "Dropdowns and tags: source shadow-sm."
+      },
+      "lg": {
+        "$value": "0 12px 32px -16px rgb(0 0 0 / 0.75)",
+        "$type": "string",
+        "$description": "Card hover: source shadow-md."
+      },
+      "xl": {
+        "$value": "0 32px 80px -32px rgb(0 0 0 / 0.85)",
+        "$type": "string",
+        "$description": "Hero panels and dialogs: source shadow-lg."
+      },
+      "glow": {
+        "$value": "0 0 0 1px rgb(212 175 55 / 0.22), 0 18px 48px -20px rgb(212 175 55 / 0.38)",
+        "$type": "string",
+        "$description": "Primary gold button and CTA: source shadow-glow, reserved for the one gold focal point."
+      }
+    }
+  }
+}

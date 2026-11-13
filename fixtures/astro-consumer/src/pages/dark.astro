@@ -1,0 +1,25 @@
+---
+import TokenProbe from '../components/TokenProbe.astro'
+import Layout from '../layouts/Layout.astro'
+
+const probes = [
+  ['--color-bg', 'var(--color-bg)'],
+  ['--color-surface', 'var(--color-surface)'],
+  ['--color-fg', 'var(--color-fg)'],
+  ['--color-accent', 'var(--color-accent)'],
+  ['--color-info', 'var(--color-info)'],
+  ['--color-danger', 'var(--color-danger)'],
+]
+---
+
+<Layout colorMode="dark" title="Cerulean — dark">
+  <main class="page">
+    <h1 class="accent">Cerulean dark</h1>
+    <section class="surface">
+      <p>Explicit dark: data-color-mode="dark".</p>
+      <ul>
+        {probes.map(([label, value]) => <TokenProbe label={label} value={value} />)}
+      </ul>
+    </section>
+  </main>
+</Layout>

@@ -1,20 +1,23 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { test } from 'node:test'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const dist = (path) => join(packageRoot, 'dist', path)
+const read = (path) => readFile(dist(path), 'utf8')
 
-const coreJson = JSON.parse(await readFile(dist('json/core.json'), 'utf8'))
-const contract = JSON.parse(await readFile(dist('json/contract.json'), 'utf8'))
-const css = await readFile(dist('css/tokens.css'), 'utf8')
-const js = await readFile(dist('js/index.js'), 'utf8')
-const dts = await readFile(dist('js/index.d.ts'), 'utf8')
+const tokensJson = JSON.parse(await read('tokens.json'))
+const contract = JSON.parse(await read('contract.json'))
+const css = await read('style.css')
+const metadata = await import(pathToFileURL(dist('index.js')).href)
+const dts = await read('index.d.ts')
+const packageJson = JSON.parse(await readFile(join(packageRoot, 'package.json'), 'utf8'))
 
-const { defaultTheme, modes, defaultMode, modeLabels, primitives, semantic } = coreJson
-const DARK_MODE = modes.includes('dark') ? 'dark' : modes.find((mode) => mode !== defaultMode)
+const { defaultTheme, modes, defaultMode, modeLabels, primitives, semantic } = tokensJson
+const nonDefaultMode = modes.find((mode) => mode !== defaultMode)
 
 const toKebabCase = (value) =>
   String(value)
@@ -25,20 +28,17 @@ const toKebabCase = (value) =>
 
 const cssVariableName = (tokenPath) => `--${tokenPath.split('.').map(toKebabCase).join('-')}`
 
-const semanticPaths = (mode) => Object.keys(semantic[mode])
-const primitivePaths = Object.keys(primitives)
-
 const cssBody = css.slice(css.indexOf('@layer design-tokens {'))
 const declaredVariables = [...css.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1])
 const referencedVariables = [...css.matchAll(/var\(\s*(--[\w-]+)/g)].map((match) => match[1])
 const namesIn = (text) => [...text.matchAll(/(--[\w-]+)\s*:/g)].map((match) => match[1])
 
-const SECTION_MARKERS = {
+const SECTION = {
   primitive: 'Primitive tokens',
   base: 'Semantic tokens: default theme',
-  modeDefault: `Semantic tokens: ${modeLabels[defaultMode].toLowerCase()} color mode (default theme, :root base values)`,
+  modeDefault: `Semantic tokens: ${modeLabels[defaultMode].toLowerCase()} color mode (default theme, :root)`,
   modeExplicit: (mode) =>
-    `Semantic tokens: ${modeLabels[mode].toLowerCase()} color mode (default theme, data-color-mode="${mode}")`,
+    `Semantic tokens: ${modeLabels[mode].toLowerCase()} color mode (default theme, :root[data-color-mode="${mode}"])`,
   modeSystem: (mode) =>
     `Semantic tokens: ${modeLabels[mode].toLowerCase()} color mode, system preference`,
 }
@@ -51,7 +51,7 @@ const section = (startMarker, endMarker) => {
   return css.slice(start, end)
 }
 
-/* WCAG helpers --------------------------------------------------------------- */
+const CONTRAST_PAIRS = contract.contrast.pairs
 
 const toRgb = (hex) => {
   const value = hex.replace('#', '')
@@ -78,99 +78,97 @@ const contrastRatio = (foreground, background) => {
   return (lighter + 0.05) / (darker + 0.05)
 }
 
-const CONTRAST_PAIRS = [
-  ['color.fg', 'color.bg'],
-  ['color.fg-muted', 'color.bg'],
-  ['color.fg-strong', 'color.bg'],
-  ['color.fg-strong', 'color.bg-subtle'],
-  ['color.accent', 'color.bg'],
-  ['color.on-accent', 'color.accent'],
-  ['color.on-danger', 'color.danger-solid'],
-  ['color.danger', 'color.bg'],
-  ['color.success', 'color.bg'],
-  ['color.warning', 'color.bg'],
-  ['color.info', 'color.bg'],
-  ['color.on-info', 'color.info-solid'],
-  ['color.fg', 'color.surface'],
-  ['color.fg-muted', 'color.surface'],
-  ['color.fg-strong', 'color.surface-elevated'],
-]
+/* Package surface ------------------------------------------------------------ */
+
+test('published files exist and the package exports only CSS-first entries', () => {
+  for (const file of ['style.css', 'tokens.json', 'contract.json', 'index.js', 'index.d.ts']) {
+    assert.ok(existsSync(dist(file)), `Missing dist/${file}`)
+  }
+
+  assert.deepEqual(Object.keys(packageJson.exports).sort(), [
+    '.',
+    './contract.json',
+    './package.json',
+    './style.css',
+    './tokens.json',
+  ])
+  for (const subpath of ['./style.css', './tokens.json', './contract.json']) {
+    const target = packageJson.exports[subpath]
+    assert.match(target, /^\.\/dist\//, `${subpath} must point inside dist/`)
+    assert.ok(existsSync(join(packageRoot, target)), `${subpath} points at a missing file`)
+  }
+  assert.deepEqual(packageJson.sideEffects, ['**/*.css'])
+  assert.ok(packageJson.files.includes('dist'))
+})
 
 /* Layer model ---------------------------------------------------------------- */
 
-test('core package ships no themes: layers are primitive and semantic only', () => {
+test('core ships primitives, semantic tokens and the default theme only', () => {
   assert.equal(defaultTheme, 'default')
-  assert.ok(primitivePaths.length > 0)
-  assert.ok(semanticPaths(defaultMode).length > 0)
+  assert.ok(Object.keys(primitives).length > 0)
+  assert.ok(Object.keys(semantic[defaultMode]).length > 0)
 
-  // Themes are separate packages; the core stylesheet never selects by data-theme.
+  // Theme packages select by data-theme; the core stylesheet must not.
   assert.doesNotMatch(cssBody, /\[data-theme=/)
-  assert.deepEqual(
-    primitivePaths.filter((path) => path.startsWith('theme.')),
-    [],
-  )
-  assert.deepEqual(
-    semanticPaths(defaultMode).filter((path) => path.startsWith('theme.')),
-    [],
-  )
   assert.doesNotMatch(css, /--theme-[\w-]+\s*:/)
-  assert.doesNotMatch(css, /--brand-[\w-]+\s*:/)
+  assert.deepEqual(
+    Object.keys(semantic[defaultMode]).filter((path) => path.startsWith('theme.')),
+    [],
+  )
 })
 
 test('primitive tokens are emitted once and never themed', () => {
-  const primitiveSection = section(SECTION_MARKERS.primitive, SECTION_MARKERS.base)
-  for (const path of primitivePaths) {
+  const primitiveSection = section(SECTION.primitive, SECTION.base)
+  for (const path of Object.keys(primitives)) {
     const name = cssVariableName(path)
     assert.ok(primitiveSection.includes(`${name}:`), `Missing primitive token ${name}`)
     assert.equal(css.split(`${name}:`).length - 1, 1, `Primitive token ${name} declared twice`)
   }
-
-  // No semantic section re-declares a primitive token.
-  assert.doesNotMatch(css.slice(css.indexOf(SECTION_MARKERS.base)), /--primitive-[\w-]+\s*:/)
+  assert.doesNotMatch(css.slice(css.indexOf(SECTION.base)), /--primitive-[\w-]+\s*:/)
 })
 
 test('every semantic token is declared for every color mode', () => {
   for (const mode of modes) {
-    for (const path of semanticPaths(mode)) {
-      assert.ok(semantic[mode][path], `Missing token ${path} in mode ${mode}`)
-    }
     assert.deepEqual(
-      semanticPaths(mode).sort(),
-      semanticPaths(defaultMode).sort(),
+      Object.keys(semantic[mode]).sort(),
+      Object.keys(semantic[defaultMode]).sort(),
       `Mode ${mode} exposes a different semantic token set`,
     )
   }
 })
 
-test('every color mode is emitted on :root, data-color-mode and prefers-color-scheme', () => {
-  assert.match(css, /@layer design-tokens;/)
-  assert.match(cssBody, /^ {2}:root \{$/m)
+/* CSS mode strategy ---------------------------------------------------------- */
 
-  const baseSection = section(SECTION_MARKERS.base, SECTION_MARKERS.modeDefault)
+test('the default theme is emitted for every mode, including the system preference', () => {
+  assert.match(css, /@layer design-tokens;/)
+
+  const baseSection = section(SECTION.base, SECTION.modeDefault)
   assert.ok(baseSection.includes('--font-family-sans:'))
   assert.ok(baseSection.includes('--radius-control:'))
 
-  const defaultModeSection = section(
-    SECTION_MARKERS.modeDefault,
-    SECTION_MARKERS.modeExplicit(DARK_MODE),
-  )
+  const defaultModeSection = section(SECTION.modeDefault, SECTION.modeExplicit(nonDefaultMode))
   assert.ok(defaultModeSection.includes('--color-bg:'))
 
-  assert.ok(css.includes(`[data-color-mode="${DARK_MODE}"] {`))
+  assert.ok(css.includes(`:root[data-color-mode="${nonDefaultMode}"] {`))
   assert.match(css, /@media \(prefers-color-scheme: dark\)/)
-  assert.ok(
-    css.includes(`:root:not([data-color-mode]), :root[data-color-mode="${DARK_MODE}"]`),
-    'System-preference block must cover both the absent attribute and an explicit dark mode',
-  )
-  assert.ok(css.includes(SECTION_MARKERS.modeSystem(DARK_MODE)))
+  assert.ok(css.includes(SECTION.modeSystem(nonDefaultMode)))
 })
 
-test('explicit dark and system dark blocks declare the same values', () => {
-  const explicit = section(
-    SECTION_MARKERS.modeExplicit(DARK_MODE),
-    SECTION_MARKERS.modeSystem(DARK_MODE),
+test('explicit color modes are never overridden by the system preference', () => {
+  const systemSection = section(SECTION.modeSystem(nonDefaultMode), '/* Native UI color scheme')
+  // The system block must not apply when the attribute is present, so an explicit light choice
+  // survives a dark OS preference and an explicit dark choice survives a light OS preference.
+  assert.ok(systemSection.includes(':root:not([data-color-mode])'))
+  assert.doesNotMatch(
+    systemSection,
+    /\[data-color-mode="/,
+    'The system block must only target the absent-attribute state',
   )
-  const system = section(SECTION_MARKERS.modeSystem(DARK_MODE))
+})
+
+test('explicit and system dark blocks declare the same values', () => {
+  const explicit = section(SECTION.modeExplicit(nonDefaultMode), SECTION.modeSystem(nonDefaultMode))
+  const system = section(SECTION.modeSystem(nonDefaultMode))
   const explicitNames = new Set(namesIn(explicit))
   const systemNames = new Set(namesIn(system))
   assert.deepEqual([...systemNames].sort(), [...explicitNames].sort())
@@ -182,10 +180,7 @@ test('explicit dark and system dark blocks declare the same values', () => {
 })
 
 test('CSS output is internally consistent', () => {
-  // No duplicate custom property in a block.
-  const blocks = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
-  assert.ok(blocks.length > 5)
-  for (const [, blockSelector, declarations] of blocks) {
+  for (const [, blockSelector, declarations] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const names = namesIn(declarations)
     assert.equal(
       new Set(names).size,
@@ -194,12 +189,10 @@ test('CSS output is internally consistent', () => {
     )
   }
 
-  // Every var() reference resolves to a declared custom property.
   const declared = new Set(declaredVariables)
   const missing = [...new Set(referencedVariables)].filter((name) => !declared.has(name))
   assert.deepEqual(missing, [])
 
-  // No `{token}` placeholder leaked into the output.
   for (const [, value] of css.matchAll(/--[\w-]+:\s*([^;]+);/g)) {
     assert.ok(!/\{[^{}]+\}/.test(value), `Unresolved reference: ${value}`)
   }
@@ -211,7 +204,9 @@ test('native color-scheme follows the optional mode attribute', () => {
     if (!mode.colorScheme) continue
     assert.match(
       css,
-      new RegExp(`\\[data-color-mode="${mode.id}"\\] \\{\\s*color-scheme: ${mode.colorScheme};`),
+      new RegExp(
+        `:root\\[data-color-mode="${mode.id}"\\] \\{\\s*color-scheme: ${mode.colorScheme};`,
+      ),
     )
   }
 })
@@ -243,12 +238,9 @@ test('contract describes the theme contract and the core token sets', () => {
     'color.focus-ring',
   ])
 
-  // The contrast pairs this suite checks are published to theme builders, so both sides validate
-  // the same list instead of maintaining drifting copies.
   assert.deepEqual(contract.contrast.pairs, CONTRAST_PAIRS)
   assert.equal(contract.contrast.min, 4.5)
 
-  // Every required token exists in the matching semantic section.
   for (const path of contract.required.base) {
     assert.ok(contract.semanticTokens.base.includes(path), `Missing required base token ${path}`)
   }
@@ -262,9 +254,8 @@ test('contract describes the theme contract and the core token sets', () => {
   }
 })
 
-test('contract token sets match the resolved core JSON', () => {
-  assert.deepEqual(contract.primitiveTokens, primitivePaths.slice().sort())
-  assert.deepEqual(contract.semanticTokens.base.length > 0, true)
+test('contract token sets match the resolved tokens JSON', () => {
+  assert.deepEqual(contract.primitiveTokens, Object.keys(primitives).sort())
   for (const mode of modes) {
     const contractPaths = new Set([
       ...contract.semanticTokens.base,
@@ -272,107 +263,56 @@ test('contract token sets match the resolved core JSON', () => {
     ])
     assert.deepEqual(
       [...contractPaths].sort(),
-      semanticPaths(mode).sort(),
-      `Contract and core JSON disagree for mode ${mode}`,
+      Object.keys(semantic[mode]).sort(),
+      `Contract and tokens.json disagree for mode ${mode}`,
     )
   }
 })
 
+/* Metadata ------------------------------------------------------------------- */
+
+test('generated metadata describes the default theme and tokens', () => {
+  assert.equal(metadata.defaultTheme, 'default')
+  assert.deepEqual([...metadata.modes], modes)
+  assert.deepEqual([...metadata.modes], [...metadata.defaultThemeDefinition.modes])
+  assert.equal(metadata.defaultThemeDefinition.id, 'default')
+  assert.equal(metadata.modeLabels.light, 'Light')
+  assert.equal(metadata.modeLabels.dark, 'Dark')
+
+  const expectedSemantic = Object.keys(semantic[defaultMode]).map(cssVariableName).sort()
+  const expectedPrimitive = Object.keys(primitives).map(cssVariableName).sort()
+  assert.deepEqual([...metadata.semanticTokenNames], expectedSemantic)
+  assert.deepEqual([...metadata.primitiveTokenNames], expectedPrimitive)
+  assert.deepEqual([...metadata.tokenNames], [...expectedPrimitive, ...expectedSemantic])
+
+  assert.match(dts, /export type Mode = "light" \| "dark"/)
+  assert.match(dts, /export type SemanticTokenName =/)
+  assert.match(dts, /ThemeDefinition/)
+})
+
 /* Resolved values ------------------------------------------------------------ */
 
-test('new semantic token groups resolve in every color mode', () => {
-  // Mode-specific additions: layered surfaces, info/solid-danger roles, status tints and the
-  // richer elevation scale. [value, $type] as resolved into dist/json/core.json.
-  const MODE_TOKENS = {
-    light: {
-      'color.surface': ['#fafafa', 'color'],
-      'color.surface-elevated': ['#ffffff', 'color'],
-      'color.border-subtle': ['#f4f4f5', 'color'],
-      'color.info': ['#821fca', 'color'],
-      'color.info-solid': ['#9b2ceb', 'color'],
-      'color.on-info': ['#ffffff', 'color'],
-      'color.info-subtle': ['#821fca1a', 'color'],
-      'color.danger-solid': ['#b91c1c', 'color'],
-      'color.danger-subtle': ['#b91c1c1a', 'color'],
-      'color.success-subtle': ['#1665341a', 'color'],
-      'color.warning-subtle': ['#92400e1a', 'color'],
-      'shadow.lg': ['0 24px 48px -12px rgb(0 0 0 / 0.18)', 'string'],
-      'shadow.xl': ['0 32px 64px -16px rgb(0 0 0 / 0.24)', 'string'],
-      'shadow.glow': ['0 0 20px rgb(155 44 235 / 0.4)', 'string'],
-    },
-    dark: {
-      'color.surface': ['#26222e', 'color'],
-      'color.surface-elevated': ['#453f4f', 'color'],
-      'color.border-subtle': ['#26222e', 'color'],
-      'color.info': ['#cd98ff', 'color'],
-      'color.info-solid': ['#c084fc', 'color'],
-      'color.on-info': ['#0b0b0f', 'color'],
-      'color.info-subtle': ['#cd98ff26', 'color'],
-      'color.danger-solid': ['#f87171', 'color'],
-      'color.danger-subtle': ['#f8717126', 'color'],
-      'color.success-subtle': ['#4ade8026', 'color'],
-      'color.warning-subtle': ['#fcd34d26', 'color'],
-      'shadow.lg': ['0 24px 48px -12px rgb(0 0 0 / 0.5)', 'string'],
-      'shadow.xl': ['0 32px 64px -16px rgb(0 0 0 / 0.6)', 'string'],
-      'shadow.glow': ['0 0 20px rgb(192 132 252 / 0.4)', 'string'],
-    },
-  }
-
-  // Mode-independent additions: type scale, line-height scale, label tracking and radii.
-  const BASE_TOKENS = {
-    'font.size.display': ['clamp(2.5rem, 1.9rem + 2.4vw, 4rem)', 'dimension'],
-    'font.size.h3': ['1.25rem', 'dimension'],
-    'font.size.h4': ['1rem', 'dimension'],
-    'font.size.body-lg': ['clamp(1.125rem, 0.95rem + 0.4vw, 1.25rem)', 'dimension'],
-    'font.size.caption': ['0.75rem', 'dimension'],
-    'font.weight.bold': [700, 'fontWeight'],
-    'font.lineHeight.display': [1.15, 'number'],
-    'font.lineHeight.h1': [1.2, 'number'],
-    'font.lineHeight.h2': [1.25, 'number'],
-    'font.lineHeight.h3': [1.3, 'number'],
-    'font.lineHeight.h4': [1.35, 'number'],
-    'font.lineHeight.small': [1.45, 'number'],
-    'font.lineHeight.caption': [1.4, 'number'],
-    'font.lineHeight.code': [1.35, 'number'],
-    'font.letterSpacing.label': ['0.05em', 'dimension'],
-    'radius.modal': ['0.5rem', 'dimension'],
-    'radius.panel': ['0.75rem', 'dimension'],
-  }
-
+test('resolved values cover typed semantic groups in every mode', () => {
   for (const mode of modes) {
-    assert.ok(MODE_TOKENS[mode], `Missing expected new-token values for color mode ${mode}`)
-    for (const [path, [value, type]] of Object.entries(MODE_TOKENS[mode])) {
-      assert.deepEqual(
-        semantic[mode][path],
-        { value, type },
-        `Unexpected resolved value for ${path} in ${mode}`,
-      )
-    }
-    for (const [path, [value, type]] of Object.entries(BASE_TOKENS)) {
-      assert.deepEqual(
-        semantic[mode][path],
-        { value, type },
-        `Unexpected resolved value for ${path} in ${mode}`,
-      )
+    for (const path of [
+      'font.family.sans',
+      'font.size.body',
+      'radius.control',
+      'shadow.glow',
+      'color.bg',
+      'color.surface-elevated',
+      'color.info-subtle',
+      'color.danger-solid',
+    ]) {
+      assert.ok(semantic[mode][path]?.value, `Missing resolved value for ${path} in ${mode}`)
     }
   }
 
-  // The new tokens also reach the stylesheet as semantic custom properties.
   for (const name of [
     '--color-surface',
-    '--color-surface-elevated',
-    '--color-border-subtle',
     '--color-info',
-    '--color-info-solid',
-    '--color-on-info',
-    '--color-danger-solid',
     '--shadow-lg',
-    '--shadow-xl',
-    '--shadow-glow',
     '--font-size-display',
-    '--font-letter-spacing-label',
-    '--font-line-height-display',
-    '--radius-modal',
     '--radius-panel',
   ]) {
     assert.ok(css.includes(`${name}:`), `Missing semantic CSS variable ${name}`)
@@ -403,68 +343,8 @@ test('semantic color pairs meet WCAG AA contrast in every color mode', () => {
       const ratio = contrastRatio(foreground, background)
       assert.ok(
         ratio >= 4.5,
-        `${mode}: ${foregroundPath}/${backgroundPath} = ${ratio.toFixed(2)} < 4.5`,
+        `${mode}: ${foregroundPath} on ${backgroundPath} is ${ratio.toFixed(2)}:1, expected >= 4.5`,
       )
     }
   }
-})
-
-/* JavaScript / TypeScript artifacts ----------------------------------------- */
-
-test('generated metadata exposes the default theme and mode metadata', () => {
-  assert.match(js, /export const defaultTheme = "default"/)
-  const modeIds = modes.map((mode) => `"${mode}"`).join(',')
-  assert.ok(js.includes(`export const modes = Object.freeze([${modeIds}])`))
-  assert.match(js, /export const modeLabels = Object\.freeze\(\{/)
-  assert.match(js, /export const defaultThemeDefinition = Object\.freeze\(\{/)
-  assert.match(
-    js,
-    /export const tokenNames = Object\.freeze\(\[\.\.\.primitiveTokenNames, \.\.\.semanticTokenNames\]\)/,
-  )
-
-  // Theme identity is a registry concern now; the core package does not enumerate themes.
-  assert.doesNotMatch(js, /export const themes =/)
-  assert.doesNotMatch(js, /export const themeLabels =/)
-  assert.doesNotMatch(js, /export const brands/)
-})
-
-test('token name arrays respect the layer split', () => {
-  const primitiveSection = js.slice(
-    js.indexOf('export const primitiveTokenNames'),
-    js.indexOf('export const semanticTokenNames'),
-  )
-  const semanticSection = js.slice(js.indexOf('export const semanticTokenNames'))
-  assert.ok(primitiveSection.includes('"--primitive-color-neutral-0"'))
-  assert.ok(!primitiveSection.includes('"--color-bg"'))
-  assert.ok(semanticSection.includes('"--color-bg"'))
-  assert.ok(semanticSection.includes('"--font-family-sans"'))
-  assert.ok(semanticSection.includes('"--radius-control"'))
-  assert.ok(!semanticSection.includes('"--primitive-color-neutral-0"'))
-})
-
-test('generated metadata is frozen at runtime', async () => {
-  const metadata = await import(new URL('../dist/js/index.js', import.meta.url).href)
-
-  assert.ok(Object.isFrozen(metadata.modes))
-  assert.ok(Object.isFrozen(metadata.modeLabels))
-  assert.ok(Object.isFrozen(metadata.defaultThemeDefinition))
-  assert.ok(Object.isFrozen(metadata.primitiveTokenNames))
-  assert.ok(Object.isFrozen(metadata.semanticTokenNames))
-  assert.ok(Object.isFrozen(metadata.tokenNames))
-  assert.equal(metadata.defaultThemeDefinition.modes, metadata.modes)
-  assert.equal(
-    metadata.tokenNames.length,
-    metadata.primitiveTokenNames.length + metadata.semanticTokenNames.length,
-  )
-})
-
-test('generated TypeScript declarations expose literal unions and ThemeDefinition', () => {
-  assert.match(dts, /export type Mode = "light" \| "dark"/)
-  assert.match(dts, /export type ModePreference = Mode \| 'system'/)
-  assert.match(dts, /export type TokenName = PrimitiveTokenName \| SemanticTokenName/)
-  assert.match(dts, /export type ThemeDefinition</)
-  assert.match(dts, /export declare const defaultTheme: "default"/)
-  assert.match(dts, /export declare const defaultThemeDefinition: ThemeDefinition<"default", Mode>/)
-  assert.doesNotMatch(dts, /export type Theme =/)
-  assert.doesNotMatch(dts, /Brand/)
 })

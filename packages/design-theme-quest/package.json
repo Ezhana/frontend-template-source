@@ -5,26 +5,23 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/js/index.d.ts",
-      "default": "./dist/js/index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
-    "./style": "./dist/style.js",
-    "./theme.css": "./dist/css/theme.css",
-    "./standalone.css": "./dist/css/standalone.css",
-    "./json": "./dist/json/theme.json",
+    "./style.css": "./dist/style.css",
+    "./theme.css": "./dist/theme.css",
+    "./fonts.css": "./dist/fonts.css",
+    "./theme.json": "./dist/theme.json",
     "./package.json": "./package.json"
   },
   "files": [
     "dist",
     "docs",
-    "tokens",
-    "theme.config.mjs",
     "README.md",
     "CHANGELOG.md"
   ],
   "sideEffects": [
-    "**/*.css",
-    "./dist/style.js"
+    "**/*.css"
   ],
   "scripts": {
     "build": "node ./scripts/build.mjs",
@@ -55,12 +52,12 @@
     "node": ">=24 <25"
   },
   "dependencies": {
-    "@ezhana/design-tokens": "workspace:^",
-    "@fontsource-variable/fira-code": "^5.3.0",
-    "@fontsource/cinzel": "^5.3.0",
-    "@fontsource/spectral": "^5.3.0"
+    "@ezhana/design-tokens": "workspace:^"
   },
   "devDependencies": {
+    "@fontsource-variable/fira-code": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/spectral": "^5.3.0",
     "@ezhana/theme-builder": "workspace:*"
   },
   "publishConfig": {

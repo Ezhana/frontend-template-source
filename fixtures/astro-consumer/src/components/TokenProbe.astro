@@ -1,0 +1,32 @@
+---
+interface Props {
+  label: string
+  value: string
+}
+
+const { label, value } = Astro.props
+---
+
+<li class="probe" data-label={label}>
+  <span class="probe__swatch" style={`--probe-color: ${value}`}></span>
+  <code>{label}</code>
+</li>
+
+<style>
+  .probe {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+    list-style: none;
+  }
+
+  .probe__swatch {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex: none;
+    border-radius: 9999px;
+    border: 1px solid var(--color-border);
+    background: var(--probe-color);
+  }
+</style>

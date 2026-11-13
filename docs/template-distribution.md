@@ -85,9 +85,15 @@ The generated app, not the root manifest, carries the theme stack. The generator
 `@ezhana/design-theme-ocean` with `^<version>` ranges resolved from
 `tools/create-app/versions.json`. That file is regenerated from the `packages/` manifests by
 `pnpm sync:create-app`, so the official theme packages are collected automatically and version
-independently of the core tokens. The app registers its themes in `src/theme/registry.ts` and derives
-`AppTheme` from that registry; adding a theme package is an app-level change (install it, import its
-stylesheet, register it), not a template change.
+independently of the core tokens.
+
+The app owns its theme set in `src/theme/registry.ts`: it exports `themeDefinitions` (an array of
+`defaultThemeDefinition` plus each installed theme's `theme` export), `themeIds` and `themeLabels`.
+`src/theme/manager.ts` passes the array to `createThemeManager({ themes: themeDefinitions })`, and
+the entry file imports `@ezhana/design-tokens/style.css` once plus each theme's `fonts.css` and
+`theme.css`. The published theme packages are self-contained CSS presets, so adding a theme is an
+app-level change (install the package, import its split CSS, add its `theme` export), not a template
+change.
 
 ## Generation
 
@@ -272,21 +278,22 @@ Then verify:
 1. `pnpm check` in this repository.
 2. Run `pnpm changeset version` + `pnpm changeset publish` for package changes. Publish in
    dependency order: `@ezhana/design-tokens` first, then the official theme packages
-   (`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-ocean`, `@ezhana/design-theme-onyx` and
-   `@ezhana/design-theme-quest`) and `@ezhana/theme`, then `create-ezhana-app` (the template pins
-   the published versions; a version that is not on npm makes `--install` fail). The generator's
-   `prepack` hook refreshes `versions.json` before packing. From GitHub Actions, publish with
-   provenance (`pnpm publish --provenance`, or trusted publishing, which attaches it automatically);
-   local publishes omit provenance. The `create-ezhana-app` minor bump containing the workspace-config
-   change must be **published** before exporting; the export workflow's capability check verifies the
-   published release supports `configure`.
+   (`@ezhana/design-theme-cerulean`, `@ezhana/design-theme-obsidian`, `@ezhana/design-theme-ocean`,
+   `@ezhana/design-theme-onyx` and `@ezhana/design-theme-quest`) and `@ezhana/theme`, then
+   `create-ezhana-app` (the template pins the published versions; a version that is not on npm makes
+   `--install` fail). The generator's `prepack` hook refreshes `versions.json` before packing. From
+   GitHub Actions, publish with provenance (`pnpm publish --provenance`, or trusted publishing,
+   which attaches it automatically); local publishes omit provenance. The `create-ezhana-app` minor
+   bump containing the workspace-config change must be **published** before exporting; the export
+   workflow's capability check verifies the published release supports `configure`.
 3. Run `pnpm sync:create-app` locally to keep the committed `versions.json` in sync (CI verifies it).
    The shared ESLint/Prettier config packages are private, so they are excluded automatically; they
    reach the template through the export, not through npm.
 4. Verify the published packages with `pnpm view @ezhana/design-tokens version`,
-   `pnpm view @ezhana/design-theme-cerulean version`, `pnpm view @ezhana/design-theme-ocean version`,
-   `pnpm view @ezhana/design-theme-onyx version`, `pnpm view @ezhana/design-theme-quest version`,
-   `pnpm view create-ezhana-app version`.
+   `pnpm view @ezhana/design-theme-cerulean version`,
+   `pnpm view @ezhana/design-theme-obsidian version`,
+   `pnpm view @ezhana/design-theme-ocean version`, `pnpm view @ezhana/design-theme-onyx version`,
+   `pnpm view @ezhana/design-theme-quest version`, `pnpm view create-ezhana-app version`.
 5. Run `pnpm export:template --install` (or dispatch the export workflow) only after publishing the
    new `create-ezhana-app` version, then let the generated template's own CI pass. The generated
    `dist-template/` directory is an untracked intermediate artifact and is not committed.
