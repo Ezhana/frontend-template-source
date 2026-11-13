@@ -105,6 +105,12 @@ jobs:
           grep -q '"@ezhana/eslint-config-${{ matrix.lint_package }}": "workspace:' apps/generated-app/package.json
           grep -q '"@ezhana/prettier-config": "workspace:' apps/generated-app/package.json
 
+      # The pre-commit hook and the root format script run Prettier from the workspace root. The
+      # app config must load there too, including the plugins that are installed only in the app.
+      - name: Check generated Prettier config loads from the workspace root
+        if: contains(matrix.features, '--prettier')
+        run: pnpm exec prettier --check apps/generated-app/prettier.config.mjs
+
       - name: Check injected theme
         if: contains(matrix.features, '--theme')
         run: |

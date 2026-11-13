@@ -95,7 +95,10 @@ Examples of official prompts:
 - `eslint.config.mjs` imports the framework's workspace config package
   (`@ezhana/eslint-config-next|vue|astro|nuxt|svelte`);
 - `prettier.config.mjs` re-exports `@ezhana/prettier-config` and enables the registry's Prettier
-  plugins;
+  plugins. The plugins are imported as modules (`import * as astro from 'prettier-plugin-astro'`),
+  not listed as names: Prettier resolves plugin names against the process cwd, so a name entry
+  breaks as soon as Prettier runs from the workspace root (the root `format` script and the
+  lint-staged pre-commit hook do) while the plugin is installed only in the app;
 - `.prettierignore` is the shared file.
 
 Dependencies are added with `pnpm add -D`: the config package as `workspace:*`, plus `eslint`,

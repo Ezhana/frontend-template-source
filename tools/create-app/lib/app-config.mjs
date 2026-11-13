@@ -189,6 +189,18 @@ import { defineConfig } from 'eslint/config'
 export default defineConfig([...config])
 `
 
+// Turn a plugin package name into an import binding: prettier-plugin-astro -> astro,
+// @prettier/plugin-xml -> xml.
+const pluginBinding = (plugin) => {
+  const base = plugin
+    .replace(/^@[^/]+\//, '')
+    .replace(/^prettier-plugin-/, '')
+    .replace(/^plugin-/, '')
+  return (
+    base.replace(/[^a-zA-Z0-9]+(.)?/g, (_, char) => (char ? char.toUpperCase() : '')) || 'plugin'
+  )
+}
+
 const prettierConfigContent = (framework) => {
   if (framework.prettierPlugins.length === 0) {
     return `// Prettier config for this app. The shared options live in packages/prettier-config.
@@ -196,9 +208,20 @@ export { default } from '@ezhana/prettier-config'
 `
   }
 
-  const plugins = framework.prettierPlugins.map((plugin) => `'${plugin}'`).join(', ')
+  // Import plugins as modules instead of listing their names: Prettier resolves plugin *names*
+  // against the process cwd, which is the workspace root when the root `format` script or
+  // lint-staged runs, and the plugin is only installed in the app. A module import is resolved
+  // relative to this file, so it works from any cwd.
+  const imports = framework.prettierPlugins.map(
+    (plugin) => `import * as ${pluginBinding(plugin)} from '${plugin}'`,
+  )
+  const plugins = framework.prettierPlugins.map(pluginBinding).join(', ')
   return `// Prettier config for this app. The shared options live in packages/prettier-config.
+// The plugins are imported as modules on purpose: Prettier resolves plugin names against the
+// process cwd, so names break when the root format script or lint-staged runs them from the
+// workspace root. Module imports are resolved from this app's node_modules instead.
 import config from '@ezhana/prettier-config'
+${imports.join('\n')}
 
 export default {
   ...config,

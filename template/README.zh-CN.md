@@ -79,8 +79,10 @@ prettier-config
 `--eslint` / `--prettier`；工具不提供针对已有应用的单独配置命令。
 
 工具会在应用根目录写入 `eslint.config.mjs` 和 `prettier.config.mjs`，引入按框架映射的配置包，并以
-`workspace:*` 加入依赖。Astro 和 SvelteKit 还会加入对应的 Prettier 插件。它不会删除脚手架配置，也不会
-修改 `package.json` 脚本；如果需要 `pnpm lint` 使用 ESLint，请自行调整脚本。
+`workspace:*` 加入依赖。Astro 和 SvelteKit 还会加入对应的 Prettier 插件；插件在应用的
+`prettier.config.mjs` 中以模块方式引入，因此从 workspace 根目录运行 Prettier（根 `format` 脚本和提交钩子）
+时也能正确加载。它不会删除脚手架配置，也不会修改 `package.json` 脚本；如果需要 `pnpm lint` 使用 ESLint，
+请自行调整脚本。
 
 如需为所有应用修改规则，请修改对应的 `packages/eslint-config-*/index.js`（或
 `packages/prettier-config/index.js`），或在单个应用的配置中添加覆盖。

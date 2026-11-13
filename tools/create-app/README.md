@@ -49,6 +49,12 @@ config package plus `eslint` and `typescript` at the catalog versions from `vers
 `@ezhana/prettier-config`, `prettier`, and any registry `prettierPlugins` (for example
 `prettier-plugin-astro` and `prettier-plugin-svelte`).
 
+Registry plugins are imported as modules in the generated config
+(`import * as astro from 'prettier-plugin-astro'`, listed as a value in `plugins`). Listing the
+package name instead makes Prettier resolve it against its process cwd, which is the workspace root
+when the root `format` script or the lint-staged hook runs; the plugin is only installed in the app,
+so the name lookup fails. Module imports resolve from the app config file instead.
+
 The written files contain no rules: the rules live in `packages/eslint-config-*/index.js` and
 `packages/prettier-config/index.js`. The lint/format features require the app to be inside a pnpm
 workspace that ships these packages; `--target` outside the workspace cannot be combined with

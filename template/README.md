@@ -86,8 +86,11 @@ creating an app to write the shared config. There is no separate command for exi
 
 The flags write `eslint.config.mjs` and `prettier.config.mjs` at the app root, import the
 framework-mapped config package, and adds the packages as `workspace:*` dependencies. Astro and
-SvelteKit also get their Prettier plugins. It does not delete scaffold configuration or rewrite
-`package.json` scripts; update those yourself if you want `pnpm lint` to use ESLint.
+SvelteKit also get their Prettier plugins. The plugins are imported as modules in the app's
+`prettier.config.mjs`, so Prettier loads them from the app regardless of the working directory —
+including the root `format` script and the pre-commit hook, which run from the workspace root. It
+does not delete scaffold configuration or rewrite `package.json` scripts; update those yourself if
+you want `pnpm lint` to use ESLint.
 
 Change rules for every app in the matching `packages/eslint-config-*/index.js` (or
 `packages/prettier-config/index.js`), or add overrides in the individual app config.
