@@ -1,7 +1,7 @@
 {
   "name": "create-ezhana-app",
   "version": "1.0.0",
-  "description": "Scaffold a React or Vue app inside an Ezhana frontend-template workspace.",
+  "description": "Scaffold Next.js, Vue, Astro, Nuxt or SvelteKit apps inside an Ezhana frontend-template workspace.",
   "type": "module",
   "bin": {
     "create-ezhana-app": "./bin/create-app.mjs"
@@ -9,9 +9,6 @@
   "files": [
     "bin",
     "lib",
-    "overlays",
-    "recipes",
-    "snippets",
     "templates",
     "versions.json",
     "README.md"
@@ -20,9 +17,11 @@
     "create-app",
     "scaffold",
     "starter",
-    "vite",
-    "react",
+    "next",
     "vue",
+    "astro",
+    "nuxt",
+    "sveltekit",
     "monorepo"
   ],
   "author": "Ezhana",
@@ -40,11 +39,5 @@
   },
   "scripts": {
     "prepack": "node ../../scripts/sync-create-app-versions.mjs"
-  },
-  "devDependencies": {
-    "@ezhana/design-theme-cerulean": "workspace:*",
-    "@ezhana/design-theme-ocean": "workspace:*",
-    "@ezhana/design-tokens": "workspace:*",
-    "@ezhana/theme": "workspace:*"
   }
 }

@@ -15,7 +15,7 @@ import config from '@ezhana/eslint-config-base'
 export default config
 ```
 
-The React and Vue config packages extend it, so configured apps normally get these rules through
+The React, Vue, Astro, Next.js, Nuxt and Svelte config packages extend it, so configured apps normally get these rules through
 `@ezhana/eslint-config-react` or `@ezhana/eslint-config-vue`.
 
 ## Include

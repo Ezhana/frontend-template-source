@@ -6,20 +6,24 @@ This directory ships the shared lint/format config packages for this workspace:
 packages/
 ├── eslint-config-base/        # base ESLint flat config (JS rules, browser globals)
 ├── eslint-config-typescript/  # base + TypeScript rules
-├── eslint-config-react/       # TypeScript + React and React Hooks rules
+├── eslint-config-react/       # TypeScript + React rules (used by Next.js)
 ├── eslint-config-vue/         # TypeScript + Vue 3 rules
+├── eslint-config-astro/       # TypeScript + Astro rules
+├── eslint-config-next/        # React/TypeScript + Next.js rules
+├── eslint-config-nuxt/        # Vue/TypeScript rules with Nuxt auto-import tolerance
+├── eslint-config-svelte/      # TypeScript + Svelte rules
 └── prettier-config/           # shared Prettier options
 ```
 
 They are **workspace packages**, not published npm dependencies. The root `eslint.config.mjs` and
 `prettier.config.mjs` compose them, and apps configured with `pnpm create:app configure --eslint
---prettier` import `@ezhana/eslint-config-<framework>` / `@ezhana/prettier-config` through
-`workspace:*` dependencies. Keep this directory and these packages: deleting them breaks the root
-and the app lint/format setup.
+--prettier` import the framework-mapped `@ezhana/eslint-config-*` package and
+`@ezhana/prettier-config` through `workspace:*` dependencies. The mapping lives in the published
+generator's registry, not in this directory.
 
 Themes do not live here: the published `@ezhana/design-theme-*` theme packages are npm dependencies
-that themed generated apps install directly (apps created with `--no-theme` do not). Use this
-directory for your own shared code, alongside the config packages.
+that apps can add with `pnpm create:app --theme`. Use this directory for your own shared code,
+alongside the config packages.
 
 ## Changing rules
 

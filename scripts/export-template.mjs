@@ -2,7 +2,7 @@
 /**
  * Export the consumer-facing template repository from this development monorepo.
  *
- * The exported template is a workspace starter with an empty `apps/`; users choose React or Vue
+ * The exported template is a workspace starter with an empty `apps/`; users choose a framework
  * with `pnpm create:app`. The command runs the published `create-ezhana-app` package, pinned as an
  * exact devDependency so the generated lockfile covers it — the generator is not vendored into the
  * template repository. The `@ezhana` lint/format config packages are copied into the template's
@@ -45,6 +45,10 @@ const CONFIG_PACKAGES = [
   { dir: 'eslint-config-typescript', name: '@ezhana/eslint-config-typescript' },
   { dir: 'eslint-config-react', name: '@ezhana/eslint-config-react' },
   { dir: 'eslint-config-vue', name: '@ezhana/eslint-config-vue' },
+  { dir: 'eslint-config-astro', name: '@ezhana/eslint-config-astro' },
+  { dir: 'eslint-config-next', name: '@ezhana/eslint-config-next' },
+  { dir: 'eslint-config-nuxt', name: '@ezhana/eslint-config-nuxt' },
+  { dir: 'eslint-config-svelte', name: '@ezhana/eslint-config-svelte' },
   { dir: 'prettier-config', name: '@ezhana/prettier-config' },
 ]
 
@@ -97,7 +101,7 @@ const createRootManifest = async (outDir) => {
   const manifest = {
     name: 'frontend-template',
     private: true,
-    description: 'Frontend monorepo starter; choose React or Vue with pnpm create:app.',
+    description: 'Frontend monorepo starter; choose a framework with pnpm create:app.',
     scripts: {
       lint: 'eslint . && pnpm -r --filter "./apps/*" --if-present lint',
       'lint:fix': 'eslint . --fix && pnpm -r --filter "./apps/*" --if-present lint:fix',
@@ -318,9 +322,7 @@ const assertSourceToolIsPublishable = async () => {
     'package.json',
     'bin/create-app.mjs',
     'versions.json',
-    'templates/eslint-react.config.mjs',
-    'templates/eslint-vue.config.mjs',
-    'templates/prettier.config.mjs',
+    'lib/registry.mjs',
     'templates/prettierignore',
   ]) {
     if (!(await exists(join(sourceRoot, 'tools/create-app', file)))) {

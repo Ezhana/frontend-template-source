@@ -8,20 +8,14 @@ This directory is intentionally empty in the template. After cloning, run:
 pnpm create:app
 ```
 
-and choose React or Vue. The generated app is placed in `apps/<name>` and becomes part of the pnpm
-workspace automatically.
+and choose Next.js, Vue, Astro, Nuxt or SvelteKit. The generated app is placed in `apps/<name>` and
+becomes part of the pnpm workspace automatically.
 
-## Theming
+## Themes
 
-Apps generated with the theme overlay (the default) wire the published `@ezhana/*` packages together
-in `src/theme/`:
+`create:app --theme <name>` injects a theme package's `style.css` into the app's global CSS and adds
+the package. There is no theme overlay or switcher in the generated app.
 
-- `registry.ts` lists the installed theme definitions (`{ id, label, modes }`) and derives
-  `AppTheme`, `themeIds` and `themeLabels`;
-- `manager.ts` creates the theme manager from those definitions;
-- `useTheme.ts` is the React / Vue adapter used by the switcher.
-
-Add a theme by installing its package (for example `@ezhana/design-theme-ocean`), importing its
-`fonts.css` and `theme.css` in the entry file (the core `@ezhana/design-tokens/style.css` is already
-imported there) and adding its `theme` export to `src/theme/registry.ts`. Create an app with
-`--no-theme` to skip the overlay and keep the plain official scaffold.
+If the app has no global CSS file, the generator warns and skips the theme. Add a global stylesheet
+at `src/styles/global.css` (or another conventional path) and rerun the theme step manually if you
+want to use a theme later.

@@ -1,30 +1,28 @@
 import { spawn } from 'node:child_process'
-import {
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join, relative } from 'node:path'
 import process from 'node:process'
-import { fileURLToPath } from 'node:url'
 
 import { configureApp, hasFeatures, normalizeFeatures, readVersionManifest } from './configure.mjs'
-import { recipes } from '../recipes/index.mjs'
-
-const toolRoot = dirname(dirname(fileURLToPath(import.meta.url)))
+import { frameworks } from './registry.mjs'
 
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'bun.lockb']
-const THEME_PACKAGES = [
-  '@ezhana/design-tokens',
-  '@ezhana/theme',
-  '@ezhana/design-theme-ocean',
-  '@ezhana/design-theme-cerulean',
+
+const GLOBAL_CSS_CANDIDATES = [
+  'src/styles/global.css',
+  'src/styles/globals.css',
+  'src/styles/main.css',
+  'src/style/global.css',
+  'src/global.css',
+  'global.css',
+  'src/app/globals.css',
+  'app/globals.css',
+  'styles/globals.css',
+  'src/assets/main.css',
+  'src/app.css',
+  'src/routes/layout.css',
+  'assets/css/main.css',
+  'app/assets/css/main.css',
 ]
 
 const exists = async (path) => {
@@ -46,13 +44,17 @@ const slugify = (value) =>
     .replace(/[^a-z0-9-_]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'app'
 
-const run = (command, args, cwd, label) =>
+const run = (command, args, cwd, { label, interactive = false } = {}) =>
   new Promise((resolve, reject) => {
     process.stdout.write(`\n> ${label ?? `${command} ${args.join(' ')}`}\n`)
+    const env = { ...process.env }
+    if (interactive) delete env.CI
+    else env.CI = '1'
+
     const child = spawn(command, args, {
       cwd,
       stdio: 'inherit',
-      env: { ...process.env, CI: '1' },
+      env,
       shell: process.platform === 'win32',
     })
     child.on('error', reject)
@@ -62,16 +64,24 @@ const run = (command, args, cwd, label) =>
     })
   })
 
-const scaffold = async (recipe, stagingDir) => {
-  await run('pnpm', ['dlx', recipe.scaffoldPackage, 'app', ...recipe.scaffoldArgs], stagingDir)
+const scaffold = async (framework, stagingDir, defaults) => {
+  const flags = defaults ? framework.defaultFlags : framework.interactiveFlags
+  const args = framework.args('app', flags)
+  await run('pnpm', ['dlx', framework.package, ...args], stagingDir, {
+    label: `Scaffolding ${framework.label} app`,
+    interactive: !defaults,
+  })
+
   const appDir = join(stagingDir, 'app')
-  if (!(await exists(appDir)))
+  if (!(await exists(appDir))) {
     throw new Error('External generator did not create the app directory.')
+  }
   return appDir
 }
 
 const prepareApp = async (appDir, meta) => {
   for (const file of LOCKFILES) await rm(join(appDir, file), { force: true })
+  await rm(join(appDir, 'pnpm-workspace.yaml'), { force: true })
   await rm(join(appDir, 'node_modules'), { recursive: true, force: true })
   await rm(join(appDir, '.git'), { recursive: true, force: true })
 
@@ -83,91 +93,118 @@ const prepareApp = async (appDir, meta) => {
   await writeJson(manifestPath, manifest)
 }
 
-const applyOverlay = async (recipe, appDir, meta) => {
-  const overlayDir = join(toolRoot, recipe.overlay)
-  await cp(overlayDir, appDir, { recursive: true, force: true })
-
-  for (const [label, file] of [
-    ['main entry', recipe.mainEntry],
-    ['app entry', recipe.appEntry],
-    ['style entry', recipe.styleEntry],
-  ]) {
-    if (!(await exists(join(appDir, file)))) {
-      throw new Error(
-        `Expected ${label} "${file}" from ${recipe.scaffoldPackage}, but it was not generated. ` +
-          'Update the recipe/overlay for the external scaffold version.',
-      )
-    }
-  }
-
-  const indexHtmlPath = join(appDir, 'index.html')
-  let html = await readFile(indexHtmlPath, 'utf8')
-  if (html.includes('ezhana-theme')) {
-    throw new Error('index.html already contains the theme init script.')
-  }
-  const snippet = await readFile(join(toolRoot, 'snippets/theme-init.html'), 'utf8')
-  html = html.replace('</head>', `${snippet}\n  </head>`)
-  html = html.replace(/<title>.*?<\/title>/, `<title>${meta.title}</title>`)
-  await writeFile(indexHtmlPath, html)
-}
-
 const removeAppWorkspaceFile = async (appDir) => {
-  // pnpm 12 may materialise a minimumReleaseAgeExclude policy file for a standalone install; the
-  // generated app is not a workspace root.
   await rm(join(appDir, 'pnpm-workspace.yaml'), { force: true })
 }
 
-const themeSpecs = (versions) =>
-  THEME_PACKAGES.map((name) => {
-    const version = versions.get(name)
-    if (!version) throw new Error(`Missing published version for ${name}.`)
-    return `${name}@^${version}`
-  })
+const findGlobalCss = async (appDir) => {
+  for (const candidate of GLOBAL_CSS_CANDIDATES) {
+    if (await exists(join(appDir, candidate))) return candidate
+  }
+  return null
+}
 
-const installThemeDependencies = async (appDir, versions) => {
-  await run('pnpm', ['add', ...themeSpecs(versions)], appDir, 'Installing theme dependencies')
+const packageNameFromSpec = (spec) => {
+  if (spec.startsWith('@')) {
+    const versionAt = spec.indexOf('@', 1)
+    return versionAt === -1 ? spec : spec.slice(0, versionAt)
+  }
+  const versionAt = spec.lastIndexOf('@')
+  return versionAt <= 0 ? spec : spec.slice(0, versionAt)
+}
+
+const resolveTheme = (theme, versions) => {
+  if (theme.startsWith('@') || theme.includes('/')) {
+    const packageName = packageNameFromSpec(theme)
+    return { package: packageName, spec: theme, stylesheet: `${packageName}/style.css` }
+  }
+
+  const packageName = `@ezhana/design-theme-${theme}`
+  const version = versions.get(packageName)
+  if (!version) {
+    throw new Error(
+      `Unknown theme "${theme}". Available themes: ${[...versions.keys()]
+        .filter((name) => name.startsWith('@ezhana/design-theme-'))
+        .map((name) => name.replace('@ezhana/design-theme-', ''))
+        .join(', ')}.`,
+    )
+  }
+  return {
+    package: packageName,
+    spec: `${packageName}@^${version}`,
+    stylesheet: `${packageName}/style.css`,
+  }
+}
+
+const injectTheme = async (appDir, resolved) => {
+  const cssFile = await findGlobalCss(appDir)
+  if (!cssFile) {
+    process.stderr.write(
+      `\nSkipping theme "${resolved.package}": no global CSS found. Tried:\n` +
+        GLOBAL_CSS_CANDIDATES.map((candidate) => `  - ${candidate}`).join('\n') +
+        '\n',
+    )
+    return null
+  }
+
+  const cssPath = join(appDir, cssFile)
+  const css = await readFile(cssPath, 'utf8')
+  if (css.includes('@ezhana/')) {
+    process.stderr.write(
+      `\nSkipping theme "${resolved.package}": ${cssFile} already imports an Ezhana theme.\n`,
+    )
+    return null
+  }
+
+  await writeFile(cssPath, `@import '${resolved.stylesheet}';\n\n${css}`)
+  process.stdout.write(`\nInjected ${resolved.package} into ${cssFile}.\n`)
+  return resolved
+}
+
+const installAppDependencies = async (appDir) => {
+  await run('pnpm', ['install', '--no-frozen-lockfile'], appDir, {
+    label: 'Installing generated app dependencies',
+  })
   await removeAppWorkspaceFile(appDir)
 }
 
-// Without the theme dependencies there is no `pnpm add` that registers the new app in the
-// workspace lockfile, so install the scaffold's own dependencies before verifying it.
-const installAppDependencies = async (appDir) => {
-  await run(
-    'pnpm',
-    ['install', '--no-frozen-lockfile'],
-    appDir,
-    'Installing generated app dependencies',
-  )
+const installThemeDependencies = async (appDir, spec) => {
+  await run('pnpm', ['add', spec], appDir, { label: 'Installing theme dependency' })
   await removeAppWorkspaceFile(appDir)
 }
 
 const verify = async (appDir, features) => {
   if (features.eslint) {
-    await run('pnpm', ['exec', 'eslint', '.'], appDir, 'Linting generated app')
+    await run('pnpm', ['exec', 'eslint', '.'], appDir, { label: 'Linting generated app' })
   } else {
     const manifest = await readJson(join(appDir, 'package.json'))
-    if (manifest.scripts?.lint) await run('pnpm', ['lint'], appDir, 'Linting generated app')
+    if (manifest.scripts?.lint) {
+      await run('pnpm', ['lint'], appDir, { label: 'Linting generated app' })
+    }
   }
-  await run('pnpm', ['build'], appDir, 'Building generated app')
+  await run('pnpm', ['build'], appDir, { label: 'Building generated app' })
 }
 
 export const createApp = async ({
-  template,
+  framework,
   target,
+  defaults = false,
   install: shouldInstall = true,
   verify: shouldVerify = true,
-  theme: shouldTheme = true,
+  theme = null,
   keepTemp = false,
   features = {},
 }) => {
-  const recipe = recipes[template]
+  const recipe = frameworks[framework]
   if (!recipe) {
     throw new Error(
-      `Unknown template "${template}". Available templates: ${Object.keys(recipes).join(', ')}.`,
+      `Unknown framework "${framework}". Available frameworks: ${Object.keys(frameworks).join(', ')}.`,
     )
   }
 
   const selected = normalizeFeatures(features)
+  const versions = theme ? (await readVersionManifest()).versions : null
+  const themeSpec = theme ? resolveTheme(theme, versions) : null
   const targetPath = target
   if (await exists(targetPath)) {
     const entries = await readdir(targetPath)
@@ -179,7 +216,6 @@ export const createApp = async ({
   const stagingDir = await mkdtemp(join(dirname(targetPath), '.create-app-'))
   const appDir = join(stagingDir, 'app')
   const title = basename(targetPath)
-  const versions = shouldTheme ? (await readVersionManifest()).versions : null
   const meta = {
     packageName: slugify(title),
     title,
@@ -188,39 +224,41 @@ export const createApp = async ({
   let movedTarget = false
   try {
     process.stdout.write(`Creating ${recipe.label} app in ${targetPath}\n`)
-    if (!shouldTheme) process.stdout.write('Skipping the theme overlay (--no-theme).\n')
-    await scaffold(recipe, stagingDir)
-    await prepareApp(appDir, meta)
-    if (shouldTheme) await applyOverlay(recipe, appDir, meta)
+    if (!defaults) process.stdout.write('The official scaffolder will prompt for its options.\n')
 
-    // Move before installing so that, inside a template workspace, the new app is part of
-    // apps/* when pnpm resolves the workspace and installs its dependencies.
+    await scaffold(recipe, stagingDir, defaults)
+    await prepareApp(appDir, meta)
+
     await rename(appDir, targetPath)
     movedTarget = true
 
+    let themeResult = null
+    if (themeSpec) themeResult = await injectTheme(targetPath, themeSpec)
+
     if (shouldInstall) {
-      if (shouldTheme) await installThemeDependencies(targetPath, versions)
+      if (themeResult) await installThemeDependencies(targetPath, themeResult.spec)
       else await installAppDependencies(targetPath)
+
       if (hasFeatures(selected)) {
         await configureApp({
           target: targetPath,
-          template,
+          framework,
           features: selected,
           install: true,
         })
         await removeAppWorkspaceFile(targetPath)
       }
+
       if (shouldVerify) {
         await verify(targetPath, selected)
         await removeAppWorkspaceFile(targetPath)
       }
     } else {
-      if (shouldTheme) {
+      if (themeResult) {
         process.stdout.write(
-          `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n` +
-            `  pnpm add ${themeSpecs(versions).join(' ')}\n`,
+          `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n  pnpm add ${themeResult.spec}\n`,
         )
-      } else if (!hasFeatures(selected)) {
+      } else {
         process.stdout.write(
           `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n  pnpm install\n`,
         )
@@ -228,7 +266,7 @@ export const createApp = async ({
       if (hasFeatures(selected)) {
         await configureApp({
           target: targetPath,
-          template,
+          framework,
           features: selected,
           install: false,
         })
@@ -240,18 +278,10 @@ export const createApp = async ({
         `  cd ${relative(process.cwd(), targetPath) || targetPath}\n` +
         '  pnpm dev\n',
     )
-    if (!shouldTheme) {
-      process.stdout.write(
-        '\nTheme overlay and theme dependencies were skipped (--no-theme): the app is the plain ' +
-          'official scaffold.\n',
-      )
-    }
   } catch (error) {
     if (keepTemp) {
       process.stderr.write(`\nGeneration failed. Staging directory kept at: ${stagingDir}\n`)
     }
-    // The app was moved into place before install/verify (the workspace needs it at apps/<name>).
-    // Remove the half-generated app so the same command can be retried against an empty target.
     if (movedTarget && !keepTemp) {
       await rm(targetPath, { recursive: true, force: true })
       process.stderr.write(

@@ -15,6 +15,11 @@ export default defineConfig([
       '**/.vite/**',
       '**/.next/**',
       '**/.nuxt/**',
+      '**/.svelte-kit/**',
+      '**/.astro/**',
+      '**/.output/**',
+      '**/build/**',
+      '**/out/**',
     ],
   },
 

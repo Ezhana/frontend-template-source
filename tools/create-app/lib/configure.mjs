@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process'
-import { cp, readdir, readFile, rm, stat } from 'node:fs/promises'
+import { readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { recipes } from '../recipes/index.mjs'
+import { detectOrder, frameworks } from './registry.mjs'
 
 const toolRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -72,13 +72,13 @@ const run = (command, args, cwd, label) =>
 
 const detectFramework = (manifest, target) => {
   const dependencies = { ...manifest.dependencies, ...manifest.devDependencies }
-  const hasReact = Boolean(dependencies.react)
-  const hasVue = Boolean(dependencies.vue)
+  for (const name of detectOrder) {
+    if (frameworks[name].detect(dependencies)) return name
+  }
 
-  if (hasReact && !hasVue) return 'react'
-  if (hasVue && !hasReact) return 'vue'
-
-  throw new Error(`Could not determine the framework for ${target}. Pass --template <react|vue>.`)
+  throw new Error(
+    `Could not determine the framework for ${target}. Pass --framework <${Object.keys(frameworks).join('|')}>.`,
+  )
 }
 
 const catalogVersion = (catalog, name) => {
@@ -87,17 +87,25 @@ const catalogVersion = (catalog, name) => {
   return version
 }
 
-/** The rule sets live in these workspace packages; the written app configs only compose them. */
-const eslintSpecs = (framework, catalog) => [
-  `eslint@${catalogVersion(catalog, 'eslint')}`,
-  // typescript-eslint needs a compatible TypeScript; the official scaffold may ship a newer major.
-  `typescript@${catalogVersion(catalog, 'typescript')}`,
-  `@ezhana/eslint-config-${framework}@workspace:*`,
-]
+const eslintSpecs = (framework, catalog) => {
+  const specs = [
+    `eslint@${catalogVersion(catalog, 'eslint')}`,
+    `typescript@${catalogVersion(catalog, 'typescript')}`,
+    `${framework.eslintConfig}@workspace:*`,
+  ]
 
-const prettierSpecs = (catalog) => [
+  // eslint-plugin-astro resolves the TypeScript parser from the app directory.
+  if (framework.eslintConfig === '@ezhana/eslint-config-astro') {
+    specs.push(`typescript-eslint@${catalogVersion(catalog, 'typescript-eslint')}`)
+  }
+
+  return specs
+}
+
+const prettierSpecs = (framework, catalog) => [
   `prettier@${catalogVersion(catalog, 'prettier')}`,
   '@ezhana/prettier-config@workspace:*',
+  ...framework.prettierPlugins.map((plugin) => `${plugin}@${catalogVersion(catalog, plugin)}`),
 ]
 
 const findWorkspaceRoot = async (start) => {
@@ -155,22 +163,18 @@ const readWorkspacePackageNames = async (workspaceRoot) => {
 
 const requiredConfigPackages = (features, framework) => {
   const names = []
-  if (features.eslint) names.push(`@ezhana/eslint-config-${framework}`)
+  if (features.eslint) names.push(framework.eslintConfig)
   if (features.prettier) names.push('@ezhana/prettier-config')
   return names
 }
 
-/**
- * The app configs import the shared config packages, so the app has to live in a workspace that
- * ships them. Check that before writing files or touching package.json.
- */
 const assertWorkspaceConfigPackages = async (targetPath, features, framework) => {
   const workspaceRoot = await findWorkspaceRoot(targetPath)
   if (!workspaceRoot) {
     throw new Error(
       `Could not find a pnpm workspace above ${targetPath}. Lint/format configuration composes ` +
-        'the @ezhana config packages shipped in packages/; run configure inside the ' +
-        'frontend-template workspace.',
+        'the @ezhana config packages shipped in packages/; run inside the frontend-template ' +
+        'workspace.',
     )
   }
 
@@ -179,23 +183,42 @@ const assertWorkspaceConfigPackages = async (targetPath, features, framework) =>
   if (missing.length > 0) {
     throw new Error(
       `The workspace at ${workspaceRoot} is missing ${missing.join(', ')}. The frontend-template ` +
-        'workspace ships these packages under packages/; run configure inside it instead of a ' +
-        'standalone app directory.',
+        'workspace ships these packages under packages/; run inside it instead of a standalone ' +
+        'app directory.',
     )
   }
 
   return workspaceRoot
 }
 
-/**
- * Write the selected app configs into an existing app and add their dependencies.
- *
- * The written files compose the shared workspace packages and contain no rules of their own, so a
- * rule change is made once in packages/eslint-config-* or packages/prettier-config. This does not
- * inspect, remove, or rewrite existing configuration, dependencies or scripts: it overwrites the
- * files it owns and otherwise leaves the app alone.
- */
-export const configureApp = async ({ target, template, features, install = true }) => {
+const eslintConfigContent = (framework) =>
+  `// ESLint config for this app. The shared rule set lives in ${framework.eslintConfig} — edit
+// that package to change rules for every app, or add app-specific overrides to the array below.
+import config from '${framework.eslintConfig}'
+import { defineConfig } from 'eslint/config'
+
+export default defineConfig([...config])
+`
+
+const prettierConfigContent = (framework) => {
+  if (framework.prettierPlugins.length === 0) {
+    return `// Prettier config for this app. The shared options live in packages/prettier-config.
+export { default } from '@ezhana/prettier-config'
+`
+  }
+
+  const plugins = framework.prettierPlugins.map((plugin) => `'${plugin}'`).join(', ')
+  return `// Prettier config for this app. The shared options live in packages/prettier-config.
+import config from '@ezhana/prettier-config'
+
+export default {
+  ...config,
+  plugins: [${plugins}],
+}
+`
+}
+
+export const configureApp = async ({ target, framework, features, install = true }) => {
   const selected = normalizeFeatures(features)
   if (!hasFeatures(selected)) {
     throw new Error(
@@ -211,54 +234,41 @@ export const configureApp = async ({ target, template, features, install = true 
     throw new Error(`No package.json found in ${targetPath}. Point configure at an app directory.`)
   }
 
-  const framework = template ?? detectFramework(manifest, targetPath)
-  const recipe = recipes[framework]
+  const frameworkKey = framework ?? detectFramework(manifest, targetPath)
+  const recipe = frameworks[frameworkKey]
   if (!recipe) {
     throw new Error(
-      `Unknown template "${framework}". Available templates: ${Object.keys(recipes).join(', ')}.`,
+      `Unknown framework "${frameworkKey}". Available frameworks: ${Object.keys(frameworks).join(', ')}.`,
     )
   }
 
   const { catalog } = await readVersionManifest()
-  const workspaceRoot = await assertWorkspaceConfigPackages(targetPath, selected, framework)
+  const workspaceRoot = await assertWorkspaceConfigPackages(targetPath, selected, recipe)
   const files = []
   const specs = []
 
   if (selected.eslint) {
-    await cp(
-      join(toolRoot, 'templates', recipe.configureFiles.eslint),
-      join(targetPath, 'eslint.config.mjs'),
-      {
-        force: true,
-      },
-    )
+    await writeFile(join(targetPath, 'eslint.config.mjs'), eslintConfigContent(recipe))
     files.push('eslint.config.mjs')
-    specs.push(...eslintSpecs(framework, catalog))
+    specs.push(...eslintSpecs(recipe, catalog))
   }
 
   if (selected.prettier) {
-    await cp(
-      join(toolRoot, 'templates/prettier.config.mjs'),
-      join(targetPath, 'prettier.config.mjs'),
-      {
-        force: true,
-      },
+    await writeFile(join(targetPath, 'prettier.config.mjs'), prettierConfigContent(recipe))
+    await writeFile(
+      join(targetPath, '.prettierignore'),
+      await readFile(join(toolRoot, 'templates/prettierignore'), 'utf8'),
     )
-    await cp(join(toolRoot, 'templates/prettierignore'), join(targetPath, '.prettierignore'), {
-      force: true,
-    })
     files.push('prettier.config.mjs', '.prettierignore')
-    specs.push(...prettierSpecs(catalog))
+    specs.push(...prettierSpecs(recipe, catalog))
   }
 
   if (install) {
     await run('pnpm', ['add', '-D', ...specs], targetPath, 'Adding lint/format dependencies')
-    // pnpm may materialise a minimumReleaseAge policy file for a standalone install; an app is
-    // not a workspace root.
     await rm(join(targetPath, 'pnpm-workspace.yaml'), { force: true })
   }
 
-  process.stdout.write(`\n${framework} app: wrote ${files.join(', ')}\n`)
+  process.stdout.write(`\n${recipe.label} app: wrote ${files.join(', ')}\n`)
   if (!install) {
     process.stdout.write(
       `\nDependencies were not added. Run:\n\n  cd ${targetPath}\n  pnpm add -D ${specs.join(' ')}\n`,
@@ -274,5 +284,5 @@ export const configureApp = async ({ target, template, features, install = true 
     )
   }
 
-  return { framework, files, specs, workspaceRoot }
+  return { framework: frameworkKey, files, specs, workspaceRoot }
 }

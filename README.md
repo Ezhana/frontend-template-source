@@ -2,16 +2,16 @@
 
 Source/development monorepo for the `frontend-template` repository. It provides the shared ESLint
 and Prettier config packages, the CSS-first design-token and theme packages, and the generator that
-creates React and Vue apps on demand. The consumer-facing template repository is generated from this
-repository; no full sample apps are committed here.
+creates Next.js, Vue, Astro, Nuxt and SvelteKit apps on demand. The consumer-facing template
+repository is generated from this repository; no full sample apps are committed here.
 
 ## Features
 
 - pnpm workspace monorepo
 - Centralized dependency versions with pnpm Catalog
 - ESLint 10 Flat Config
-- Shared ESLint config packages for the base, TypeScript, React and Vue rule sets (workspace source,
-  not published)
+- Shared ESLint config packages for the base, TypeScript, React, Vue, Astro, Next.js, Nuxt and
+  Svelte rule sets (workspace source, not published)
 - Shared Prettier config package (workspace source, not published)
 - Opt-in app configs written by `create:app configure` that compose the shared packages
 - CSS-first design tokens: DTCG sources compiled with Style Dictionary into one layered stylesheet,
@@ -31,8 +31,9 @@ repository; no full sample apps are committed here.
   presets), with per-theme mode metadata and clamped runtime mode resolution
 - A consumer integration harness (`pnpm test:consumer`) that packs the packages, installs them into
   throwaway Astro projects and verifies install/dev/build, the CSS cascade, fonts and metadata
-- On-demand React/Vue app generation from pinned `create-vite` / `create-vue` versions
-- Theme overlay applied to generated apps by default (`--no-theme` keeps the plain scaffold)
+- Registry-driven generation of Next.js / Vue / Astro / Nuxt / SvelteKit apps; interactive by default,
+  non-interactive with `--defaults`
+- Minimal CSS-only theme injection via `create:app --theme`; no overlay, runtime or switcher
 - Opt-in ESLint/Prettier configuration via `create:app --eslint` / `--prettier` or `create:app configure`
 - Generated `frontend-template` repository export, including the shared config packages under its
   `packages/`
@@ -66,12 +67,16 @@ frontend-template-source/
 │   ├── eslint-config-typescript/   # shared config package (not published)
 │   ├── eslint-config-vue/          # shared config package (not published)
 │   ├── eslint-config-react/        # shared config package (not published)
+│   ├── eslint-config-astro/        # shared config package (not published)
+│   ├── eslint-config-next/         # shared config package (not published)
+│   ├── eslint-config-nuxt/         # shared config package (not published)
+│   ├── eslint-config-svelte/       # shared config package (not published)
 │   └── prettier-config/            # shared config package (not published)
 │
-├── tools/create-app/               # published create-ezhana-app generator + overlay pipeline
-│   ├── recipes/
-│   ├── overlays/                   # theme integration only
-│   ├── templates/                  # thin app configs that compose the shared packages
+├── tools/create-app/               # published create-ezhana-app dispatcher
+│   ├── lib/registry.mjs            # framework → CLI / flags / lint config
+│   ├── lib/create.mjs
+│   ├── lib/configure.mjs
 │   └── bin/create-app.mjs
 │
 ├── fixtures/astro-consumer/        # minimal Astro consumer used by pnpm test:consumer
@@ -88,7 +93,7 @@ frontend-template-source/
 └── pnpm-lock.yaml
 ```
 
-The five shared config packages are the single source of lint/format rules: this repository's root
+The nine shared config packages are the single source of lint/format rules: this repository's root
 configs, the exported template's root configs and the apps generated in it all compose them.
 
 ## Packages
@@ -96,8 +101,9 @@ configs, the exported template's root configs and the apps generated in it all c
 ### Shared lint/format config packages (not published)
 
 `packages/eslint-config-base`, `packages/eslint-config-typescript`,
-`packages/eslint-config-react`, `packages/eslint-config-vue` and `packages/prettier-config` are
-private workspace packages and the **single source of the lint/format rules**. They are not
+`packages/eslint-config-react`, `packages/eslint-config-vue`, `packages/eslint-config-astro`,
+`packages/eslint-config-next`, `packages/eslint-config-nuxt`, `packages/eslint-config-svelte` and
+`packages/prettier-config` are private workspace packages and the **single source of the lint/format rules**. They are not
 published to npm.
 
 This repository's root configs compose them, `scripts/export-template.mjs` copies them into the
@@ -107,7 +113,7 @@ edit rules in `packages/eslint-config-*/index.js` (or `packages/prettier-config/
 app-level overrides:
 
 ```bash
-pnpm create:app react my-app --eslint --prettier
+pnpm create:app next my-app --eslint --prettier
 # or, for an existing app:
 pnpm create:app configure apps/my-app --eslint --prettier
 ```
@@ -293,62 +299,71 @@ no-flash inline `<head>` script.
 
 ### Create an app from the official scaffolders
 
-Requires Node.js 24, pnpm 12 and network access (the pinned external scaffolders are downloaded with
+Requires Node.js 24, pnpm 12 and network access (the external scaffolders are downloaded with
 `pnpm dlx`):
 
 ```bash
 pnpm install
-pnpm create:app react my-react-app
-pnpm create:app vue my-vue-app
+pnpm create:app                               # choose a framework, then run the official CLI interactively
+pnpm create:app next my-next-app              # framework preselected; official prompts remain
+pnpm create:app vue my-vue-app --defaults     # registry defaults, no prompts
+pnpm create:app astro my-astro-app --defaults
+pnpm create:app nuxt my-nuxt-app --defaults
+pnpm create:app sveltekit my-sveltekit-app --defaults
 
-# write thin ESLint/Prettier configs that compose the shared packages
-pnpm create:app react my-react-app --eslint --prettier
+# write root-level ESLint/Prettier configs that compose the shared packages
+pnpm create:app next my-next-app --defaults --eslint --prettier
 
-# keep the plain official scaffold instead of applying the theme overlay
-pnpm create:app react my-react-app --no-theme
+# inject a theme package's style.css into the app's global CSS
+pnpm create:app next my-next-app --defaults --theme ocean
 
 # or configure an existing app later
-pnpm create:app configure apps/my-react-app --eslint --prettier
+pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 The generator then:
 
-1. scaffolds with the pinned `create-vite` / `create-vue` version, keeping the scaffold's own
-   dependencies, scripts and lint/format configuration;
-2. applies the theme overlay (skipped with `--no-theme`): the app-owned theme definitions, the theme
-   manager, the switcher, the entry-file CSS imports and the anti-flash script;
-3. moves the app into `apps/<name>` and adds the `@ezhana` theme dependencies with `pnpm add`
-   (skipped with `--no-theme`);
-4. when `--eslint` / `--prettier` is passed, writes thin config files that compose the shared
-   workspace config packages and adds their dependencies as `workspace:*` (the same code as
-   `configure`);
-5. verifies with ESLint (if configured) or the app's existing lint script, then builds.
+1. looks up the framework in `tools/create-app/lib/registry.mjs` and runs its official CLI in a
+   staging directory (`create-next-app`, `create-vue`, `create-astro`, `nuxi init` or `sv create`);
+2. without `--defaults`, leaves the scaffold's own prompts enabled; with `--defaults`, appends the
+   registry default flags and runs non-interactively;
+3. patches `name`/`private`, removes generated lockfiles, `node_modules`, `.git` and
+   `pnpm-workspace.yaml`, and moves the app to `apps/<name>`;
+4. with `--theme <name>`, searches a fixed list of global CSS candidates, prepends the theme's
+   `style.css` `@import`, and adds the theme package. If no global CSS exists, it warns and skips the
+   theme;
+5. with `--eslint` / `--prettier`, writes `eslint.config.mjs` and/or `prettier.config.mjs` at the app
+   root, adds the framework-mapped workspace config package, and installs the dependencies;
+6. installs the scaffold's dependencies (or the theme package) and verifies with ESLint when
+   configured, otherwise the app's lint script when present, then `pnpm build`.
+
+There is no theme overlay, switcher, runtime or anti-flash script. Theme integration is only the
+CSS `@import` described above.
 
 The config features need the app to be inside a workspace that ships the shared config packages
 (this repository or the generated template); `--target` outside the workspace cannot be combined
 with `--eslint` / `--prettier`.
 
 Run `pnpm create:app` without arguments for an interactive framework/name prompt. By default the app
-is created under `apps/<name>`; use `--target <path>` for a different directory.
+is created under `apps/<name>`; use `--target <path>` for a different directory. In non-interactive
+environments, pass `--defaults`.
 
-`configure` overwrites the config files it owns and adds the workspace config packages and their
-dependencies, but it does not delete scaffold configs, rewrite scripts or migrate old setups. The
-written app configs contain no rules; edit the shared rules in `packages/eslint-config-*/index.js` /
-`packages/prettier-config/index.js`, or add app-level overrides. If you keep the Oxlint config
-generated by create-vite, it stays in place; update `package.json` scripts yourself if you want
-`pnpm lint` to use ESLint.
+`configure` detects the framework from `package.json` and accepts `--framework` as an override. It
+overwrites the root config files it owns and adds the workspace config packages and their
+dependencies, but it does not delete scaffold configs, rewrite scripts or migrate old setups.
 
 Generated app commands:
 
 ```bash
-cd apps/my-react-app
+cd apps/my-app
 pnpm dev
 pnpm build
 pnpm lint
 ```
 
-Options: `--eslint`, `--prettier`, `--no-theme`, `--no-install`, `--no-verify`, `--keep-temp`,
-`--target`, `--root`. See [`docs/create-app.md`](docs/create-app.md).
+Options: `--framework`, `--name`, `--target`, `--root`, `--defaults`, `--eslint`, `--prettier`,
+`--theme`, `--no-install`, `--no-verify`, `--keep-temp`, `--list`. See
+[`docs/create-app.md`](docs/create-app.md).
 
 In the generated template repository the same `pnpm create:app` command runs the published
 [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) devDependency; the generator
@@ -360,24 +375,24 @@ is not copied into the template. See
 The generated `frontend-template` repository is a **workspace starter with no default apps**:
 
 - `apps/` — empty; users choose a stack with one command;
-- `packages/` — the five shared lint/format config packages, plus room for your own workspace
+- `packages/` — the nine shared lint/format config packages, plus room for your own workspace
   packages;
 - `README.md` (English) and `README.zh-CN.md` (中文);
 - root lint/format configs that compose the packages, commit hooks and CI.
 
 ```bash
 pnpm install        # installs root tooling and the pinned create-ezhana-app generator
-pnpm create:app     # interactive: choose React or Vue, then enter an app name
+pnpm create:app     # interactive: choose a framework, then answer the official CLI prompts
 pnpm dev            # run the generated app(s)
 pnpm build
 pnpm lint
 pnpm check
 ```
 
-The command uses the official `create-vite` / `create-vue` CLI and applies the theme integration
-(pass `--no-theme` to keep the plain official scaffold). Lint/format configuration is opt-in with
-`--eslint` / `--prettier` or `create:app configure`; by default the scaffold's own tooling is
-preserved. The generated app appears under `apps/<name>`.
+The command dispatches to the official `create-next-app` / `create-vue` / `create-astro` / `nuxi` /
+`sv` CLI. It is interactive by default; use `--defaults` for CI. Lint/format configuration is opt-in
+with `--eslint` / `--prettier` or `create:app configure`; `--theme` injects a theme CSS `@import`
+when a global CSS file is present. The generated app appears under `apps/<name>`.
 
 To add your own package, create `packages/<name>`, reference it with `"workspace:*"` from an app,
 and run `pnpm build:packages` before `pnpm build`. Keep the shared config packages: the root and app
@@ -458,8 +473,9 @@ pnpm install
 pnpm check                    # format:check + lint + tests + typecheck
 pnpm build                    # regenerate the core token dist/ and every theme package
 
-pnpm create:app react check-react --target /tmp/check-react   # inspect the generated app
-pnpm create:app vue check-vue --target /tmp/check-vue
+pnpm create:app next check-next --defaults --target /tmp/check-next   # inspect the generated app
+pnpm create:app vue check-vue --defaults --target /tmp/check-vue
+pnpm create:app sveltekit check-svelte --defaults --target /tmp/check-svelte
 
 pnpm export:template --install           # generate dist-template/frontend-template
 pnpm test:consumer                       # pack + install into throwaway Astro projects
@@ -588,7 +604,7 @@ This repository is the source/development monorepo. The public template reposito
 it: the `template/` skeleton supplies the workspace files and root configs, and the generator is
 published as [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) and pinned as an
 exact devDependency (`create:app` → `create-ezhana-app`); no generator code is copied into the
-template. `scripts/export-template.mjs` copies the five private lint/format config packages into the
+template. `scripts/export-template.mjs` copies the nine private lint/format config packages into the
 template's `packages/`, where the root and app configs compose them as `workspace:*` dependencies;
 the published `@ezhana` token and theme packages are installed from npm. The template keeps the
 `apps/` + `packages/` monorepo layout.
@@ -617,7 +633,7 @@ the `configure` subcommand, when you want the shared rules. The config features 
 inside a workspace that ships the packages (this repository or the generated template):
 
 ```bash
-pnpm create:app react my-app --eslint --prettier
+pnpm create:app next my-app --defaults --eslint --prettier
 pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
@@ -671,7 +687,7 @@ format:check
 lint
 test
 consumer verification (test:consumer)
-React/Vue generation matrix (create-app.yml)
+Next.js/Vue/Astro/Nuxt/SvelteKit generation matrix (create-app.yml)
 ```
 
 The local equivalent of the source checks is:

@@ -11,7 +11,7 @@ persisted state.
 
 - **No CSS.** This package never imports or emits styles.
 - **Zero runtime dependencies**, plain ESM, no build step.
-- **Framework-agnostic** — React and Vue apps add a tiny adapter.
+- **Framework-agnostic** — React, Vue and Astro apps add a tiny adapter.
 - **SSR-safe** — importing the package never touches `window` or `document`.
 - **No theme dependency** — it accepts `{ id, label, modes }` definitions structurally, so it never
   imports a concrete theme package.

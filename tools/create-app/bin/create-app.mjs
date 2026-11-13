@@ -5,49 +5,47 @@ import process, { stdin, stdout } from 'node:process'
 
 import { configureApp, hasFeatures, normalizeFeatures } from '../lib/configure.mjs'
 import { createApp } from '../lib/create.mjs'
-import { recipes } from '../recipes/index.mjs'
+import { frameworks, frameworkNames } from '../lib/registry.mjs'
 
-const templateNames = Object.keys(recipes)
-
-const usage = `Usage: create-app [template] [name] [options]
+const usage = `Usage: create-app [framework] [name] [options]
        create-app configure [target] [options]
 
-Create a React or Vue app under ./apps/<name> by default.
-The Ezhana theme overlay is applied by default; pass --no-theme to keep the plain official scaffold.
-Configuration files are not written unless a feature flag is given; run "configure" later for an
-existing app.
+Create a Next.js, Vue, Astro, Nuxt or SvelteKit app under ./apps/<name> by default.
+The official scaffolder runs interactively by default; pass --defaults for its registry defaults.
+Lint/format files are opt-in with --eslint / --prettier. Theme CSS is opt-in with --theme.
 
-Templates: ${templateNames.join(', ')}
+Frameworks: ${frameworkNames.join(', ')}
 
 Create options:
-  --template <name>  Template name (alternative to the first positional argument)
-  --name <name>      App directory name (alternative to the second positional argument)
-  --target <path>    Explicit target directory (overrides apps/<name>)
-  --root <path>      Workspace root used for the default apps/<name> path
-  --eslint           Write eslint.config.mjs and add the shared ESLint config package
-  --prettier         Write prettier.config.mjs/.prettierignore and add the shared Prettier config
-  --no-theme         Skip the Ezhana theme overlay and theme dependencies
-  --no-install       Scaffold and overlay only; do not add dependencies or verify
-  --no-verify        Add dependencies but skip lint/build verification
-  --keep-temp        Keep the staging directory when generation fails
-  --list             List available templates
-  -h, --help         Show this help
+  --framework <name>  Framework name (alternative to the first positional argument)
+  --name <name>       App directory name (alternative to the second positional argument)
+  --target <path>     Explicit target directory (overrides apps/<name>)
+  --root <path>       Workspace root used for the default apps/<name> path
+  --defaults          Run the official scaffolder with the registry default flags
+  --eslint            Write eslint.config.mjs and add the shared ESLint config package
+  --prettier          Write prettier.config.mjs/.prettierignore and add the shared Prettier config
+  --theme <name>      Inject a theme stylesheet into the app's global CSS and add its package
+  --no-install        Scaffold only; do not install dependencies or verify
+  --no-verify         Install dependencies but skip lint/build verification
+  --keep-temp         Keep the staging directory when generation fails
+  --list              List available frameworks
+  -h, --help          Show this help
 
 Configure options:
-  --target <path>    App directory (default: current directory)
-  --template <name>  Framework override: ${templateNames.join(', ')}
-  --eslint           Write eslint.config.mjs and add the shared ESLint config package
-  --prettier         Write prettier.config.mjs/.prettierignore and add the shared Prettier config
-  --no-install       Write config files only; print the pnpm add command
-  -h, --help         Show configure help
+  --target <path>     App directory (default: current directory)
+  --framework <name>  Framework override: ${frameworkNames.join(', ')}
+  --eslint            Write eslint.config.mjs and add the shared ESLint config package
+  --prettier          Write prettier.config.mjs/.prettierignore and add the shared Prettier config
+  --no-install        Write config files only; print the pnpm add command
+  -h, --help          Show configure help
 
 Examples:
   pnpm create:app
-  pnpm create:app react my-app
-  pnpm create:app react my-app --eslint --prettier
-  pnpm create:app react my-app --no-theme
+  pnpm create:app next my-app
+  pnpm create:app next my-app --defaults
+  pnpm create:app vue my-app --defaults --eslint --prettier
+  pnpm create:app next my-app --defaults --theme ocean
   pnpm create:app configure apps/my-app --eslint --prettier
-  pnpm create:app vue my-app --no-verify
 `
 
 const parseCreateArgs = (argv) => {
@@ -55,8 +53,9 @@ const parseCreateArgs = (argv) => {
   const options = {
     install: true,
     verify: true,
-    theme: true,
+    defaults: false,
     keepTemp: false,
+    theme: null,
     features: { eslint: false, prettier: false },
   }
   const positional = []
@@ -66,20 +65,24 @@ const parseCreateArgs = (argv) => {
       options.help = true
     } else if (arg === '--list') {
       options.list = true
-    } else if (arg === '--template') {
-      options.template = args.shift()
+    } else if (arg === '--framework') {
+      options.framework = args.shift()
     } else if (arg === '--name') {
       options.name = args.shift()
     } else if (arg === '--target') {
       options.target = args.shift()
     } else if (arg === '--root') {
       options.root = args.shift()
+    } else if (arg === '--defaults') {
+      options.defaults = true
     } else if (arg === '--eslint') {
       options.features.eslint = true
     } else if (arg === '--prettier') {
       options.features.prettier = true
-    } else if (arg === '--no-theme') {
-      options.theme = false
+    } else if (arg === '--theme') {
+      const value = args.shift()
+      if (!value || value.startsWith('-')) throw new Error('--theme requires a value.')
+      options.theme = value
     } else if (arg === '--no-install') {
       options.install = false
       options.verify = false
@@ -93,7 +96,7 @@ const parseCreateArgs = (argv) => {
       positional.push(arg)
     }
   }
-  options.template = options.template ?? positional.shift()
+  options.framework = options.framework ?? positional.shift()
   options.name = options.name ?? positional.shift()
   if (positional.length > 0) throw new Error(`Unexpected arguments: ${positional.join(' ')}`)
   return options
@@ -112,8 +115,8 @@ const parseConfigureArgs = (argv) => {
       options.help = true
     } else if (arg === '--target') {
       options.target = args.shift()
-    } else if (arg === '--template') {
-      options.template = args.shift()
+    } else if (arg === '--framework') {
+      options.framework = args.shift()
     } else if (arg === '--eslint') {
       options.features.eslint = true
     } else if (arg === '--prettier') {
@@ -150,29 +153,37 @@ const validateName = (name) => {
   }
 }
 
+const validateFramework = (framework) => {
+  if (!framework || !frameworks[framework]) {
+    throw new Error(
+      `Unknown framework "${framework ?? ''}". Available frameworks: ${frameworkNames.join(', ')}.`,
+    )
+  }
+}
+
 const promptForMissing = async (options) => {
   if (stdin.isTTY !== true) {
     throw new Error(
-      'Missing arguments and stdin is not a TTY. Pass a template and app name, for example:\n\n' +
-        '  pnpm create:app react my-app\n',
+      'Missing arguments and stdin is not a TTY. Pass a framework and app name, for example:\n\n' +
+        '  pnpm create:app next my-app --defaults\n',
     )
   }
 
   const rl = createInterface({ input: stdin, output: stdout, terminal: true })
   try {
-    if (!options.template) {
+    if (!options.framework) {
       stdout.write('\nSelect a framework:\n')
-      templateNames.forEach((name, index) => {
-        stdout.write(`  ${index + 1}) ${recipes[name].label}\n`)
+      frameworkNames.forEach((name, index) => {
+        stdout.write(`  ${index + 1}) ${frameworks[name].label}\n`)
       })
       const answer = (await rl.question('\nChoice [1]: ')).trim() || '1'
       const index = Number(answer)
-      if (!Number.isInteger(index) || index < 1 || index > templateNames.length) {
+      if (!Number.isInteger(index) || index < 1 || index > frameworkNames.length) {
         throw new Error(`Invalid choice "${answer}".`)
       }
-      options.template = templateNames[index - 1]
+      options.framework = frameworkNames[index - 1]
     }
-    if (!options.name) {
+    if (!options.name && !options.target) {
       const answer = (await rl.question('\nApp name [my-app]: ')).trim() || 'my-app'
       options.name = answer
     }
@@ -190,21 +201,24 @@ const runCreate = async (argv) => {
   }
 
   if (options.list) {
-    for (const [name, recipe] of Object.entries(recipes)) {
-      stdout.write(`${name}\t${recipe.label}\n`)
+    for (const [name, framework] of Object.entries(frameworks)) {
+      stdout.write(`${name}\t${framework.label}\n`)
     }
     return
   }
 
-  if (!options.template || (!options.name && !options.target)) {
+  if (!options.defaults && stdin.isTTY !== true) {
+    throw new Error(
+      'The official scaffolder needs a TTY for interactive mode. Pass --defaults for ' +
+        'non-interactive generation.\n',
+    )
+  }
+
+  if (!options.framework || (!options.name && !options.target)) {
     await promptForMissing(options)
   }
 
-  if (!options.template || !recipes[options.template]) {
-    throw new Error(
-      `Unknown template "${options.template ?? ''}". Available templates: ${templateNames.join(', ')}.`,
-    )
-  }
+  validateFramework(options.framework)
 
   let target
   if (options.target) {
@@ -233,15 +247,11 @@ const runConfigure = async (argv) => {
     )
   }
 
-  if (options.template && !recipes[options.template]) {
-    throw new Error(
-      `Unknown template "${options.template}". Available templates: ${templateNames.join(', ')}.`,
-    )
-  }
+  if (options.framework) validateFramework(options.framework)
 
   await configureApp({
     target: resolve(options.target),
-    template: options.template,
+    framework: options.framework,
     features: selected,
     install: options.install,
   })

@@ -23,7 +23,7 @@ The architecture decision behind the current CSS-first preset design is
 | [`@ezhana/theme`](../packages/theme/README.md)                                 | runtime         | optional theme/mode state: definitions array, persistence, `prefers-color-scheme`, cross-tab sync   | CSS, token values, components   |
 
 The split is deliberate: tokens, theme presets and typography are **static CSS data**, and the
-optional runtime is **state + DOM attributes**. No package knows about React or Vue; apps add tiny
+optional runtime is **state + DOM attributes**. No package knows about React, Vue or Astro; apps add tiny
 adapters.
 
 ## Installation
@@ -606,7 +606,7 @@ Ezhana CSS works in Tailwind projects without it.
   configuration, artifacts, fonts and validation.
 - [`packages/typography-editorial/README.md`](../packages/typography-editorial/README.md) — editorial
   typography scope, customization contract, theme mapping and accessibility.
-- [`docs/create-app.md`](create-app.md) — how the generator wires a themed React/Vue app.
+- [`docs/create-app.md`](create-app.md) — the framework dispatcher, lint/format flags and minimal `--theme` CSS injection.
 - [ADR 0005](adr/0005-css-first-theme-presets.md) — current CSS-first preset architecture.
 - [ADR 0006](adr/0006-editorial-typography-preset.md) — editorial typography preset scope,
   token-only styling and the unlayered decision.

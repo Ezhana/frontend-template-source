@@ -51,13 +51,14 @@ jobs:
 
       # An old published version makes the generated template's CI fail. Run the published bin so the
       # export only proceeds when the pinned release writes configs that compose the shared workspace
-      # config packages shipped in the template and supports the no-theme matrix entry.
+      # config packages shipped in the template and supports the --defaults/--theme workflow.
       - name: Verify published generator supports the template workflow
         run: |
           version=$(node -p "require('./tools/create-app/package.json').version")
           help=$(pnpm dlx "create-ezhana-app@$version" configure --help)
           printf '%s\n' "$help" | grep -q 'shared ESLint config package'
-          printf '%s\n' "$help" | grep -q -- '--no-theme'
+          printf '%s\n' "$help" | grep -q -- '--defaults'
+          printf '%s\n' "$help" | grep -q -- '--theme'
 
       - name: Export template
         run: pnpm export:template --install

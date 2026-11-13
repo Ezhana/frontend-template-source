@@ -28,25 +28,49 @@ concurrency:
 
 jobs:
   create:
-    name: Create ${{ matrix.template }} app
+    name: Create ${{ matrix.framework }} app
     runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
       matrix:
         include:
-          - template: react
-            features: ''
-          - template: vue
-            features: ''
-          - template: react
-            features: '--eslint --prettier'
-          - template: vue
-            features: '--eslint --prettier'
-          - template: react
-            features: '--no-theme'
-          - template: vue
-            features: '--no-theme --eslint --prettier'
+          - framework: next
+            lint_package: next
+            features: '--defaults'
+          - framework: vue
+            lint_package: vue
+            features: '--defaults'
+          - framework: astro
+            lint_package: astro
+            features: '--defaults'
+          - framework: nuxt
+            lint_package: nuxt
+            features: '--defaults'
+          - framework: sveltekit
+            lint_package: svelte
+            features: '--defaults'
+          - framework: next
+            lint_package: next
+            features: '--defaults --eslint --prettier'
+          - framework: vue
+            lint_package: vue
+            features: '--defaults --eslint --prettier'
+          - framework: astro
+            lint_package: astro
+            features: '--defaults --eslint --prettier'
+          - framework: nuxt
+            lint_package: nuxt
+            features: '--defaults --eslint --prettier'
+          - framework: sveltekit
+            lint_package: svelte
+            features: '--defaults --eslint --prettier'
+          - framework: next
+            lint_package: next
+            features: '--defaults --theme ocean'
+          - framework: vue
+            lint_package: vue
+            features: '--defaults --theme cerulean'
 
     steps:
       - name: Checkout
@@ -63,18 +87,12 @@ jobs:
       # config packages shipped in packages/ through workspace:* dependencies, so it cannot live
       # outside the pnpm workspace.
       - name: Generate app
-        run: pnpm create:app ${{ matrix.template }} generated-app ${{ matrix.features }}
+        run: pnpm create:app ${{ matrix.framework }} generated-app ${{ matrix.features }}
 
-      - name: Check default generated files
-        if: matrix.features == ''
+      - name: Check generated app
         run: |
-          test -f apps/generated-app/src/theme/registry.ts
-          test -f apps/generated-app/src/theme/useTheme.ts
-          test ! -f apps/generated-app/eslint.config.mjs
-          test ! -f apps/generated-app/prettier.config.mjs
-          if [ "${{ matrix.template }}" = "react" ]; then
-            test -f apps/generated-app/.oxlintrc.json
-          fi
+          test -f apps/generated-app/package.json
+          test -f apps/generated-app/README.md
 
       - name: Check configured generated files
         if: contains(matrix.features, '--eslint')
@@ -82,43 +100,32 @@ jobs:
           test -f apps/generated-app/eslint.config.mjs
           test -f apps/generated-app/prettier.config.mjs
           test -f apps/generated-app/.prettierignore
-          if [ "${{ contains(matrix.features, '--no-theme') }}" != "true" ]; then
-            test -f apps/generated-app/src/theme/registry.ts
-            test -f apps/generated-app/src/theme/useTheme.ts
-          fi
-          grep -q "@ezhana/eslint-config-${{ matrix.template }}" apps/generated-app/eslint.config.mjs
+          grep -q "@ezhana/eslint-config-${{ matrix.lint_package }}" apps/generated-app/eslint.config.mjs
           grep -q '@ezhana/prettier-config' apps/generated-app/prettier.config.mjs
-          grep -q '"@ezhana/eslint-config-${{ matrix.template }}": "workspace:' apps/generated-app/package.json
+          grep -q '"@ezhana/eslint-config-${{ matrix.lint_package }}": "workspace:' apps/generated-app/package.json
           grep -q '"@ezhana/prettier-config": "workspace:' apps/generated-app/package.json
 
-      # --no-theme is the escape hatch: no overlay files, no theme init script, no @ezhana theme
-      # dependencies (the optional lint/format config packages are still allowed).
-      - name: Check no-theme generated files
-        if: contains(matrix.features, '--no-theme')
+      - name: Check injected theme
+        if: contains(matrix.features, '--theme')
         run: |
-          test ! -e apps/generated-app/src/theme
-          if grep -q 'ezhana-theme' apps/generated-app/index.html; then
-            echo 'index.html still contains the theme init script'
-            exit 1
-          fi
-          if grep -Eq '"@ezhana/(design-tokens|theme|design-theme-)' apps/generated-app/package.json; then
-            echo 'the app still depends on @ezhana theme packages'
-            exit 1
-          fi
+          grep -q '"@ezhana/design-theme-' apps/generated-app/package.json
+          grep -R -q "@ezhana/design-theme-" apps/generated-app/src --include='*.css'
 
       - name: Pack generator
         run: |
           pnpm --dir tools/create-app pack --pack-destination "$RUNNER_TEMP"
           tarball=$(ls "$RUNNER_TEMP"/create-ezhana-app-*.tgz)
           tar -tzf "$tarball" | grep -qx 'package/bin/create-app.mjs'
-          tar -tzf "$tarball" | grep -qx 'package/overlays/react/src/ThemeRoot.tsx'
-          tar -tzf "$tarball" | grep -qx 'package/overlays/react/src/theme/registry.ts'
-          tar -tzf "$tarball" | grep -qx 'package/overlays/vue/src/theme/registry.ts'
-          tar -tzf "$tarball" | grep -qx 'package/overlays/vue/src/ThemeRoot.vue'
-          tar -tzf "$tarball" | grep -qx 'package/recipes/index.mjs'
-          tar -tzf "$tarball" | grep -qx 'package/snippets/theme-init.html'
-          tar -tzf "$tarball" | grep -qx 'package/templates/eslint-react.config.mjs'
-          tar -tzf "$tarball" | grep -qx 'package/templates/eslint-vue.config.mjs'
-          tar -tzf "$tarball" | grep -qx 'package/templates/prettier.config.mjs'
+          tar -tzf "$tarball" | grep -qx 'package/lib/create.mjs'
+          tar -tzf "$tarball" | grep -qx 'package/lib/configure.mjs'
+          tar -tzf "$tarball" | grep -qx 'package/lib/registry.mjs'
           tar -tzf "$tarball" | grep -qx 'package/templates/prettierignore'
           tar -tzf "$tarball" | grep -qx 'package/versions.json'
+          if tar -tzf "$tarball" | grep -q 'package/overlays/'; then
+            echo 'theme overlays must not be published'
+            exit 1
+          fi
+          if tar -tzf "$tarball" | grep -q 'package/recipes/'; then
+            echo 'recipes must not be published; use lib/registry.mjs'
+            exit 1
+          fi

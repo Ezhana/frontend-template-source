@@ -4,11 +4,6 @@ import { defineConfig } from 'eslint/config'
 export default defineConfig([
   ...config,
   {
-    ignores: [
-      'dist-template/**',
-      '.pnpm-store/**',
-      'tools/create-app/overlays/**',
-      '.create-app-*/',
-    ],
+    ignores: ['dist-template/**', '.pnpm-store/**', '.create-app-*/'],
   },
 ])
