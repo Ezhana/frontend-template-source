@@ -1,5 +1,12 @@
 # create-ezhana-app
 
+## 3.0.0
+
+### Major Changes
+
+- ccbe792: Remove the `configure` subcommand. ESLint, Prettier and theme integration are now only available as
+  creation flags: `--eslint`, `--prettier` and `--theme`.
+
 ## 2.0.0
 
 ### Major Changes
