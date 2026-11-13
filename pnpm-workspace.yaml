@@ -5,6 +5,7 @@ packages:
 
 allowBuilds:
   simple-git-hooks: true
+  esbuild: true
 
 catalog:
   '@eslint/js': 10.0.1
