@@ -117,6 +117,9 @@ required.
   one package per theme. Cerulean and Ocean support light + dark; Quest, Onyx and Obsidian are
   dark-only and declare `modes: ['dark']`.
 - `@ezhana/theme` is the optional runtime for switcher state. Styling does not need it.
+- `@ezhana/typography-editorial` is an optional CSS-only preset for rendered long-form content. The
+  generator does not install it; add it to an app that needs article typography and scope the content
+  with `.ez-editorial`.
 - The color mode follows the operating system by default (`prefers-color-scheme`).
 - `data-theme` selects the theme; `data-color-mode` is written only for an explicit color mode.
 - A theme switcher is generated into both React and Vue apps.
@@ -207,6 +210,7 @@ See the package documentation for the token contract, theme model and runtime AP
 - [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
 - [`@ezhana/design-theme-onyx`](https://www.npmjs.com/package/@ezhana/design-theme-onyx)
 - [`@ezhana/design-theme-quest`](https://www.npmjs.com/package/@ezhana/design-theme-quest)
+- [`@ezhana/typography-editorial`](https://www.npmjs.com/package/@ezhana/typography-editorial)
 
 ## CI
 

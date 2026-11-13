@@ -1,0 +1,47 @@
+{
+  "name": "@ezhana/typography-editorial",
+  "version": "0.0.0",
+  "description": "CSS-only editorial typography preset for long-form content: scoped to .ez-editorial, theme-aware and framework-agnostic.",
+  "exports": {
+    "./style.css": "./style.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "style.css",
+    "docs",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "pretest": "pnpm --filter @ezhana/design-tokens build",
+    "test": "node --test ./test/*.test.mjs"
+  },
+  "keywords": [
+    "typography",
+    "editorial",
+    "prose",
+    "long-form",
+    "css",
+    "design-system",
+    "css-variables"
+  ],
+  "author": "Ezhana",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/typography-editorial"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@ezhana/design-tokens": "workspace:*"
+  }
+}

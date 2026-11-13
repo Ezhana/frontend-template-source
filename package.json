@@ -10,7 +10,7 @@
     "build": "pnpm build:tokens && pnpm build:themes",
     "build:tokens": "pnpm --filter @ezhana/design-tokens build",
     "build:themes": "pnpm --filter \"./packages/design-theme-*\" build",
-    "test": "pnpm build && pnpm --filter @ezhana/design-tokens test && pnpm --filter @ezhana/theme-builder test && pnpm --filter @ezhana/theme test && pnpm --filter \"./packages/design-theme-*\" test && pnpm typecheck",
+    "test": "pnpm build && pnpm --filter @ezhana/design-tokens test && pnpm --filter @ezhana/theme-builder test && pnpm --filter @ezhana/theme test && pnpm --filter \"./packages/design-theme-*\" test && pnpm --filter @ezhana/typography-editorial test && pnpm typecheck",
     "typecheck": "tsc -p checks/types/tsconfig.json",
     "check": "pnpm format:check && pnpm lint && pnpm test",
     "prepare": "simple-git-hooks",

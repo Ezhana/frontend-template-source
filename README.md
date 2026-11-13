@@ -21,6 +21,8 @@ repository; no full sample apps are committed here.
 - Self-contained theme presets: one `@import` of a theme's `style.css` includes its fonts, the full
   core stylesheet and its semantic overrides — no core install, runtime or bundler workaround
 - Multi-theme setups share one core stylesheet and add each theme's `theme.css` + `fonts.css`
+- CSS-only editorial typography preset (`@ezhana/typography-editorial`): one scoped stylesheet for
+  long-form content, theme-aware and resilient to resets such as Tailwind Preflight
 - Optional, SSR-safe `@ezhana/theme` runtime for switcher state, persistence and cross-tab sync;
   styling never needs it
 - Themes as independently versioned packages built with a validating theme builder (contract,
@@ -58,6 +60,7 @@ frontend-template-source/
 │   ├── design-theme-onyx/          # official Onyx black-gold theme (dark-only)
 │   ├── design-theme-quest/         # official QuestUI fantasy theme (dark-only)
 │   ├── design-theme-obsidian/      # official Obsidian & Gold theme (dark-only)
+│   ├── typography-editorial/       # CSS-only editorial typography preset (no JS)
 │   ├── theme/                      # optional theme/mode state runtime (no CSS)
 │   ├── eslint-config-base/         # shared config package (not published)
 │   ├── eslint-config-typescript/   # shared config package (not published)
@@ -223,6 +226,40 @@ pnpm add @ezhana/design-theme-cerulean
 ```
 
 No core install, no JavaScript, no Vite `noExternal` and no Astro plugin are needed.
+
+#### `@ezhana/typography-editorial`
+
+A CSS-only editorial typography preset for rendered long-form content. It owns the reading scale,
+paragraph and block rhythm, headings, lists, links and focus indication, blockquotes, inline code
+and code-block containers, tables, images/figures and horizontal rules. It does not own page layout,
+the reading column, the palette, fonts, theme switching, Markdown parsing or syntax highlighting.
+
+Every rule is scoped to `.ez-editorial`, and every color, font and border is read from the active
+theme's semantic custom properties. The package publishes one canonical entry, `style.css`; it has
+no JavaScript entry, no runtime dependencies, no Tailwind dependency and no reset. The preset is
+unlayered on purpose so a reset inside a cascade layer (for example Tailwind Preflight) cannot strip
+the list markers and rhythm it restores.
+
+```bash
+pnpm add @ezhana/typography-editorial
+```
+
+```css
+/* import a theme (or @ezhana/design-tokens/style.css) first in the same document */
+@import '@ezhana/design-theme-cerulean/style.css';
+@import '@ezhana/typography-editorial/style.css';
+```
+
+```html
+<article class="ez-editorial">
+  <!-- rendered Markdown or article content -->
+</article>
+```
+
+The preset exposes six package-scoped custom properties for editorial tuning (body size, leading,
+heading scale, heading leading, paragraph spacing and block spacing) and no global tokens. See
+[`packages/typography-editorial/README.md`](packages/typography-editorial/README.md) and the
+[design specification](packages/typography-editorial/docs/DESIGN.md).
 
 #### `@ezhana/theme` (optional runtime)
 
@@ -611,12 +648,13 @@ This keeps the local commit check fast while CI performs the complete repository
 
 `pnpm test:consumer` is the end-to-end integration test for the published artifacts. It:
 
-1. packs `@ezhana/design-tokens`, `@ezhana/design-theme-cerulean` and
-   `@ezhana/design-theme-ocean` with `pnpm pack`;
+1. packs `@ezhana/design-tokens`, `@ezhana/design-theme-cerulean`,
+   `@ezhana/design-theme-ocean` and `@ezhana/typography-editorial` with `pnpm pack`;
 2. installs the tarballs into throwaway Astro projects (never workspace symlinks);
 3. verifies install, dev and build with no Astro/Vite CSS workaround — the
-   [`fixtures/astro-consumer`](fixtures/astro-consumer) fixture installs only the Cerulean theme and
-   imports only `@ezhana/design-theme-cerulean/style.css`;
+   [`fixtures/astro-consumer`](fixtures/astro-consumer) fixture installs the Cerulean theme and the
+   editorial typography preset, imports both `style.css` entries and renders an `.ez-editorial`
+   article;
 4. simulates the CSS cascade for explicit light/dark and system light/dark, including an explicit
    mode overriding the opposite OS preference;
 5. checks that `theme.json`, the generated CSS and the runtime metadata agree, that the theme tarball

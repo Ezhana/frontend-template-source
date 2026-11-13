@@ -1,4 +1,5 @@
 @import '@ezhana/design-theme-cerulean/style.css';
+@import '@ezhana/typography-editorial/style.css';
 
 html {
   background: var(--color-bg);

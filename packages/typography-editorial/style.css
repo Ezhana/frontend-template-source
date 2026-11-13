@@ -1,0 +1,253 @@
+/**
+ * @ezhana/typography-editorial — CSS-only editorial typography for rendered long-form content.
+ *
+ * Everything is scoped to `.ez-editorial`; this file styles no page, document root or component.
+ * Colors, fonts, borders and focus rings come from the active @ezhana theme's semantic custom
+ * properties (see README.md). The design values follow docs/DESIGN.md and are independently
+ * expressed; the visual reference is the MIT-licensed Astro Blog Starter stylesheet.
+ *
+ * Deliberately unlayered: a reset inside a cascade layer (for example Tailwind Preflight) must not
+ * win over the markers and rhythm restored here. The `.ez-editorial` scope keeps that safe.
+ */
+
+.ez-editorial {
+  /* Public customization surface. These are preset settings, not design tokens. */
+  --ez-editorial-font-size: 1.25rem;
+  --ez-editorial-line-height: 1.7;
+  --ez-editorial-heading-scale: 1.25;
+  --ez-editorial-heading-line-height: 1.2;
+  --ez-editorial-paragraph-spacing: 1.5em;
+  --ez-editorial-block-spacing: 2em;
+
+  color: var(--color-fg, inherit);
+  font-family: var(--font-family-sans, inherit);
+  font-size: var(--ez-editorial-font-size);
+  font-weight: var(--font-weight-body, 400);
+  line-height: var(--ez-editorial-line-height);
+  overflow-wrap: break-word;
+  text-align: start;
+}
+
+.ez-editorial h1,
+.ez-editorial h2,
+.ez-editorial h3,
+.ez-editorial h4,
+.ez-editorial h5,
+.ez-editorial h6 {
+  margin: 0 0 0.5rem;
+  color: var(--color-fg-strong, inherit);
+  font-family: var(--font-family-heading, var(--font-family-sans, inherit));
+  font-weight: var(--font-weight-bold, 700);
+  line-height: var(--ez-editorial-heading-line-height);
+}
+
+/*
+ * A 1.25 modular scale. h6 is the body size, so h1–h5 multiply the scale 5–1 times. Raising
+ * `--ez-editorial-heading-scale` scales the whole heading hierarchy without touching each level.
+ */
+.ez-editorial h1 {
+  font-size: calc(
+    1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+      var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+      var(--ez-editorial-heading-scale)
+  );
+}
+
+.ez-editorial h2 {
+  font-size: calc(
+    1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+      var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale)
+  );
+}
+
+.ez-editorial h3 {
+  font-size: calc(
+    1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+      var(--ez-editorial-heading-scale)
+  );
+}
+
+.ez-editorial h4 {
+  font-size: calc(1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale));
+}
+
+.ez-editorial h5 {
+  font-size: calc(1em * var(--ez-editorial-heading-scale));
+}
+
+.ez-editorial h6 {
+  font-size: 1em;
+}
+
+.ez-editorial p {
+  margin: 0 0 var(--ez-editorial-paragraph-spacing);
+}
+
+.ez-editorial > :last-child,
+.ez-editorial blockquote > :last-child,
+.ez-editorial li > :last-child,
+.ez-editorial figure > :last-child,
+.ez-editorial td > :last-child,
+.ez-editorial th > :last-child {
+  margin-block-end: 0;
+}
+
+.ez-editorial strong,
+.ez-editorial b {
+  font-weight: var(--font-weight-bold, 700);
+}
+
+.ez-editorial a {
+  color: var(--color-accent, currentColor);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
+.ez-editorial a:hover {
+  color: var(--color-accent-hover, var(--color-accent, currentColor));
+  text-decoration-thickness: 2px;
+}
+
+.ez-editorial a:focus-visible {
+  outline: var(--border-width-strong, 2px) solid var(--color-focus-ring, currentColor);
+  outline-offset: 2px;
+}
+
+/* Lists: restore markers and indentation even when Preflight removed them. */
+.ez-editorial ul,
+.ez-editorial ol {
+  margin: 0 0 var(--ez-editorial-block-spacing);
+  padding: 0;
+  padding-inline-start: 1.5em;
+}
+
+.ez-editorial ul {
+  list-style: disc outside;
+}
+
+.ez-editorial ol {
+  list-style: decimal outside;
+}
+
+.ez-editorial li {
+  margin-block: 0.35em;
+}
+
+.ez-editorial li > ul,
+.ez-editorial li > ol {
+  margin-block: 0.35em 0;
+}
+
+.ez-editorial blockquote {
+  margin: 0 0 var(--ez-editorial-block-spacing);
+  padding: 0;
+  padding-inline-start: 1.25rem;
+  border-inline-start: 4px solid var(--color-accent, currentColor);
+  color: var(--color-fg, inherit);
+  font-size: 1.333em;
+}
+
+.ez-editorial code {
+  padding: 0.1em 0.25em;
+  border-radius: 2px;
+  background: var(--color-bg-subtle, transparent);
+  color: var(--color-fg-strong, inherit);
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+  font-size: 1em;
+}
+
+.ez-editorial pre {
+  max-width: 100%;
+  margin: 0 0 var(--ez-editorial-block-spacing);
+  padding: 1.5em;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--color-bg-subtle, transparent);
+  color: var(--color-fg-strong, inherit);
+  font-family: var(--font-family-mono, ui-monospace, monospace);
+}
+
+/*
+ * Reset only the inline-code presentation for the code block itself. Do not use `all: unset` and
+ * do not touch descendants: syntax highlighters may wrap lines and tokens inside this element.
+ */
+.ez-editorial pre code {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+/* Tables: full width with simple rules; narrow viewports turn the table into a scroll container. */
+.ez-editorial table {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 var(--ez-editorial-block-spacing);
+  border-collapse: collapse;
+}
+
+.ez-editorial th,
+.ez-editorial td {
+  padding: 0.5em 0.75em;
+  border-bottom: var(--border-width-default, 1px) solid var(--color-border, currentColor);
+  overflow-wrap: anywhere;
+  text-align: start;
+  vertical-align: top;
+}
+
+.ez-editorial th {
+  color: var(--color-fg-strong, inherit);
+  font-weight: var(--font-weight-bold, 700);
+}
+
+.ez-editorial thead th {
+  border-bottom-width: var(--border-width-strong, 2px);
+}
+
+.ez-editorial caption {
+  padding-block-end: 0.5em;
+  color: var(--color-fg-muted, inherit);
+  font-size: 0.875em;
+  text-align: start;
+}
+
+.ez-editorial img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.ez-editorial figure {
+  margin: 0 0 var(--ez-editorial-block-spacing);
+}
+
+.ez-editorial figure img {
+  display: block;
+}
+
+.ez-editorial figcaption {
+  margin-block-start: 0.5em;
+  color: var(--color-fg-muted, inherit);
+  font-size: 0.875em;
+  line-height: var(--font-line-height-caption, 1.4);
+}
+
+.ez-editorial hr {
+  margin: var(--ez-editorial-block-spacing) 0;
+  border: 0;
+  border-top: var(--border-width-default, 1px) solid var(--color-border, currentColor);
+}
+
+@media (max-width: 720px) {
+  .ez-editorial {
+    --ez-editorial-font-size: 1.125rem;
+  }
+
+  .ez-editorial table {
+    display: block;
+    overflow-x: auto;
+  }
+}

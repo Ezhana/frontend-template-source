@@ -30,6 +30,7 @@ const PACKAGES = {
   core: 'packages/design-tokens',
   cerulean: 'packages/design-theme-cerulean',
   ocean: 'packages/design-theme-ocean',
+  typography: 'packages/typography-editorial',
 }
 
 let failures = 0
@@ -282,9 +283,10 @@ for (const [key, packageDir] of Object.entries(PACKAGES)) {
 const singleDir = await mkdtemp(join(tmpdir(), 'ezhana-astro-single-'))
 await copyProject(fixtureDir, singleDir)
 
-const singlePacks = await stageTarballs(singleDir, ['core', 'cerulean'])
+const singlePacks = await stageTarballs(singleDir, ['core', 'cerulean', 'typography'])
 const singleManifest = await readJson(join(singleDir, 'package.json'))
 singleManifest.dependencies['@ezhana/design-theme-cerulean'] = singlePacks.cerulean
+singleManifest.dependencies['@ezhana/typography-editorial'] = singlePacks.typography
 // The theme declares @ezhana/design-tokens as a normal dependency. The harness installs it from the
 // locally packed tarball because the version being verified is not published yet.
 singleManifest.pnpm = { overrides: { '@ezhana/design-tokens': singlePacks.core } }
@@ -292,10 +294,11 @@ await writeFile(join(singleDir, 'package.json'), `${JSON.stringify(singleManifes
 
 const declaredConsumerDeps = Object.keys(singleManifest.dependencies).sort()
 check(
-  declaredConsumerDeps.length === 2 &&
+  declaredConsumerDeps.length === 3 &&
     declaredConsumerDeps[0] === '@ezhana/design-theme-cerulean' &&
-    declaredConsumerDeps[1] === 'astro',
-  `consumer installs only the theme package (+ astro): ${declaredConsumerDeps.join(', ')}`,
+    declaredConsumerDeps[1] === '@ezhana/typography-editorial' &&
+    declaredConsumerDeps[2] === 'astro',
+  `consumer installs the theme + typography preset (+ astro): ${declaredConsumerDeps.join(', ')}`,
 )
 
 const singleConfig = await readText(join(singleDir, 'astro.config.mjs'))
@@ -307,11 +310,13 @@ check(
 const singleCSS = await readText(join(singleDir, 'src/styles/global.css'))
 const cssImports = [...singleCSS.matchAll(/@import\s+['"]([^'"]+)['"]/g)].map((match) => match[1])
 check(
-  cssImports.length === 1 && cssImports[0] === '@ezhana/design-theme-cerulean/style.css',
-  `consumer imports exactly the theme style.css entry (${cssImports.join(', ')})`,
+  cssImports.length === 2 &&
+    cssImports[0] === '@ezhana/design-theme-cerulean/style.css' &&
+    cssImports[1] === '@ezhana/typography-editorial/style.css',
+  `consumer imports the theme and typography style.css entries (${cssImports.join(', ')})`,
 )
 
-process.stdout.write('\nInstalling the packed theme into the Astro consumer...\n')
+process.stdout.write('\nInstalling the packed packages into the Astro consumer...\n')
 await run('pnpm', ['install', '--no-frozen-lockfile'], singleDir)
 
 const installedTheme = join(singleDir, 'node_modules', '@ezhana', 'design-theme-cerulean')
@@ -378,12 +383,26 @@ check(
   !/<script/.test(page('index.html')),
   'system-theme page ships no JavaScript (styling is CSS-only)',
 )
+check(
+  /class="ez-editorial"/.test(page('index.html')),
+  'editorial content uses the public .ez-editorial scope',
+)
 
 const bundledCss = (await Promise.all(cssFiles.map((file) => readText(join(singleDist, file)))))
   .join('\n')
   .replace(/\s+/g, ' ')
 check(bundledCss.includes('--color-accent:'), 'built CSS contains semantic tokens')
 check(bundledCss.includes('@font-face'), 'built CSS contains the self-hosted font faces')
+check(bundledCss.includes('.ez-editorial'), 'built CSS contains the editorial scope')
+check(
+  bundledCss.includes('--ez-editorial-font-size'),
+  'built CSS contains the editorial customization settings',
+)
+check(
+  // Lightning CSS may rewrite max-width to the range syntax during the Astro build.
+  /@media\s*\((?:max-width:\s*720px|width\s*<=\s*720px)\)/.test(bundledCss),
+  'built CSS contains the responsive typography breakpoint',
+)
 check(
   /data-theme=(?:"cerulean"|cerulean)/.test(bundledCss),
   'built CSS contains the theme selector',

@@ -105,6 +105,8 @@ npm 依赖：根目录和应用的配置通过 workspace 解析它们，因此�
   Cerulean 与 Ocean 支持明暗两种模式；Quest、Onyx、Obsidian 仅提供暗色模式，声明为
   `modes: ['dark']`。
 - `@ezhana/theme` 是可选的主题切换运行时；仅做样式时不需要它。
+- `@ezhana/typography-editorial` 是可选的纯 CSS 长文排版预设。生成器不会自动安装；需要文章排版的应用可
+  单独添加，并用 `.ez-editorial` 限定内容范围。
 - 颜色模式默认跟随操作系统（`prefers-color-scheme`）。
 - `data-theme` 选择主题；只有显式选择颜色模式时才写 `data-color-mode`。
 - React 和 Vue 应用都会生成主题切换器。
@@ -189,6 +191,7 @@ export const themeManager = createThemeManager({ themes: themeDefinitions })
 - [`@ezhana/design-theme-ocean`](https://www.npmjs.com/package/@ezhana/design-theme-ocean)
 - [`@ezhana/design-theme-onyx`](https://www.npmjs.com/package/@ezhana/design-theme-onyx)
 - [`@ezhana/design-theme-quest`](https://www.npmjs.com/package/@ezhana/design-theme-quest)
+- [`@ezhana/typography-editorial`](https://www.npmjs.com/package/@ezhana/typography-editorial)
 
 ## CI
 

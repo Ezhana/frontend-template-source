@@ -10,19 +10,21 @@ The architecture decision behind the current CSS-first preset design is
 
 ## Packages at a glance
 
-| Package                                                                        | Kind            | Responsibility                                                                                      | Not responsible for           |
-| ------------------------------------------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------------- | ----------------------------- |
-| [`@ezhana/design-tokens`](../packages/design-tokens/README.md)                 | build-time data | primitive scale, semantic contract, default theme, complete core stylesheet, contract JSON, types   | themes, runtime state, DOM    |
-| [`@ezhana/theme-builder`](../packages/theme-builder/README.md)                 | build-time tool | validate a theme package against the contract; emit the complete preset, split CSS, fonts, metadata | runtime state, app wiring     |
-| [`@ezhana/design-theme-cerulean`](../packages/design-theme-cerulean/README.md) | theme package   | Cerulean palette, Public Sans, semantic overrides, light + dark                                     | other themes, app code        |
-| [`@ezhana/design-theme-ocean`](../packages/design-theme-ocean/README.md)       | theme package   | Ocean palette, pill-shaped controls, light + dark                                                   | other themes, app code        |
-| [`@ezhana/design-theme-onyx`](../packages/design-theme-onyx/README.md)         | theme package   | Onyx black-gold business palette, Public Sans, dark-only                                            | other themes, app code        |
-| [`@ezhana/design-theme-quest`](../packages/design-theme-quest/README.md)       | theme package   | QuestUI fantasy palette, Cinzel/Spectral/Fira Code, dark-only                                       | other themes, app code        |
-| [`@ezhana/design-theme-obsidian`](../packages/design-theme-obsidian/README.md) | theme package   | Obsidian & Gold palette, Inter + Playfair Display, dark-only                                        | other themes, app code        |
-| [`@ezhana/theme`](../packages/theme/README.md)                                 | runtime         | optional theme/mode state: definitions array, persistence, `prefers-color-scheme`, cross-tab sync   | CSS, token values, components |
+| Package                                                                        | Kind            | Responsibility                                                                                      | Not responsible for             |
+| ------------------------------------------------------------------------------ | --------------- | --------------------------------------------------------------------------------------------------- | ------------------------------- |
+| [`@ezhana/design-tokens`](../packages/design-tokens/README.md)                 | build-time data | primitive scale, semantic contract, default theme, complete core stylesheet, contract JSON, types   | themes, runtime state, DOM      |
+| [`@ezhana/theme-builder`](../packages/theme-builder/README.md)                 | build-time tool | validate a theme package against the contract; emit the complete preset, split CSS, fonts, metadata | runtime state, app wiring       |
+| [`@ezhana/design-theme-cerulean`](../packages/design-theme-cerulean/README.md) | theme package   | Cerulean palette, Public Sans, semantic overrides, light + dark                                     | other themes, app code          |
+| [`@ezhana/design-theme-ocean`](../packages/design-theme-ocean/README.md)       | theme package   | Ocean palette, pill-shaped controls, light + dark                                                   | other themes, app code          |
+| [`@ezhana/design-theme-onyx`](../packages/design-theme-onyx/README.md)         | theme package   | Onyx black-gold business palette, Public Sans, dark-only                                            | other themes, app code          |
+| [`@ezhana/design-theme-quest`](../packages/design-theme-quest/README.md)       | theme package   | QuestUI fantasy palette, Cinzel/Spectral/Fira Code, dark-only                                       | other themes, app code          |
+| [`@ezhana/design-theme-obsidian`](../packages/design-theme-obsidian/README.md) | theme package   | Obsidian & Gold palette, Inter + Playfair Display, dark-only                                        | other themes, app code          |
+| [`@ezhana/typography-editorial`](../packages/typography-editorial/README.md)   | CSS preset      | scoped editorial typography for long-form content, theme-aware and Preflight-resilient              | page layout, palette, fonts, JS |
+| [`@ezhana/theme`](../packages/theme/README.md)                                 | runtime         | optional theme/mode state: definitions array, persistence, `prefers-color-scheme`, cross-tab sync   | CSS, token values, components   |
 
-The split is deliberate: tokens and themes are **static CSS data**, and the optional runtime is
-**state + DOM attributes**. No package knows about React or Vue; apps add tiny adapters.
+The split is deliberate: tokens, theme presets and typography are **static CSS data**, and the
+optional runtime is **state + DOM attributes**. No package knows about React or Vue; apps add tiny
+adapters.
 
 ## Installation
 
@@ -204,6 +206,37 @@ should be able to change.
 
 The full grouped reference, default values, theme contract and contrast guarantees live in
 [`packages/design-tokens/README.md`](../packages/design-tokens/README.md#token-reference).
+
+## Editorial typography
+
+Rendered long-form content is styled by the optional, CSS-only
+[`@ezhana/typography-editorial`](../packages/typography-editorial/README.md) preset:
+
+```bash
+pnpm add @ezhana/typography-editorial
+```
+
+```css
+@import '@ezhana/design-theme-cerulean/style.css';
+@import '@ezhana/typography-editorial/style.css';
+```
+
+```html
+<article class="ez-editorial">
+  <!-- rendered Markdown or article content -->
+</article>
+```
+
+The preset owns headings, paragraphs, lists, links and focus rings, blockquotes, inline code and
+code-block containers, tables, images/figures and rules. It reads the active theme's semantic
+variables, so it follows `data-theme` and `data-color-mode` automatically; it declares no palette
+and ships no JavaScript or fonts. It does not own the reading column, page layout, Markdown parsing
+or syntax highlighting.
+
+Six package-scoped properties tune the preset on `.ez-editorial`: `--ez-editorial-font-size`,
+`--ez-editorial-line-height`, `--ez-editorial-heading-scale`, `--ez-editorial-heading-line-height`,
+`--ez-editorial-paragraph-spacing` and `--ez-editorial-block-spacing`. See the package README for the
+defaults and the full element coverage.
 
 ## Theme switching
 
@@ -469,15 +502,15 @@ is the integration test for the published packages:
 pnpm test:consumer
 ```
 
-`pnpm test:consumer` packs `@ezhana/design-tokens`, `@ezhana/design-theme-cerulean` and
-`@ezhana/design-theme-ocean` with `pnpm pack`, installs the tarballs into throwaway Astro projects
-and verifies:
+`pnpm test:consumer` packs `@ezhana/design-tokens`, `@ezhana/design-theme-cerulean`,
+`@ezhana/design-theme-ocean` and `@ezhana/typography-editorial` with `pnpm pack`, installs the
+tarballs into throwaway Astro projects and verifies:
 
 - install, dev server and production build succeed with no Astro/Vite CSS workaround;
-- the single-theme project declares only the theme + Astro as dependencies and imports only
-  `@ezhana/design-theme-cerulean/style.css`;
-- the built CSS contains the semantic tokens, the theme selector and `@font-face`, and the build
-  emits the font files;
+- the single-theme project declares the theme + typography preset + Astro as dependencies and
+  imports `@ezhana/design-theme-cerulean/style.css` plus `@ezhana/typography-editorial/style.css`;
+- the built CSS contains the semantic tokens, the theme selector, `@font-face`, the scoped editorial
+  rules and the responsive typography breakpoint, and the build emits the font files;
 - the cascade resolves the Cerulean accent for explicit light/dark, system light/dark, and explicit
   light/dark against the opposite OS preference;
 - `theme.json`, the generated CSS and the metadata agree on ids, labels, modes and every override;
@@ -571,5 +604,9 @@ Ezhana CSS works in Tailwind projects without it.
   and adapters.
 - [`packages/theme-builder/README.md`](../packages/theme-builder/README.md) — custom theme
   configuration, artifacts, fonts and validation.
+- [`packages/typography-editorial/README.md`](../packages/typography-editorial/README.md) — editorial
+  typography scope, customization contract, theme mapping and accessibility.
 - [`docs/create-app.md`](create-app.md) — how the generator wires a themed React/Vue app.
 - [ADR 0005](adr/0005-css-first-theme-presets.md) — current CSS-first preset architecture.
+- [ADR 0006](adr/0006-editorial-typography-preset.md) — editorial typography preset scope,
+  token-only styling and the unlayered decision.
