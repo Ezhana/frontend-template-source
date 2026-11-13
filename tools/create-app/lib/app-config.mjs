@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
-import { detectOrder, frameworks } from './registry.mjs'
+import { frameworks } from './registry.mjs'
 
 const toolRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -69,17 +69,6 @@ const run = (command, args, cwd, label) =>
       else reject(new Error(`${label ?? command} exited with code ${code}`))
     })
   })
-
-const detectFramework = (manifest, target) => {
-  const dependencies = { ...manifest.dependencies, ...manifest.devDependencies }
-  for (const name of detectOrder) {
-    if (frameworks[name].detect(dependencies)) return name
-  }
-
-  throw new Error(
-    `Could not determine the framework for ${target}. Pass --framework <${Object.keys(frameworks).join('|')}>.`,
-  )
-}
 
 const catalogVersion = (catalog, name) => {
   const version = catalog[name]
@@ -218,7 +207,7 @@ export default {
 `
 }
 
-export const configureApp = async ({ target, framework, features, install = true }) => {
+export const applyConfig = async ({ target, framework, features, install = true }) => {
   const selected = normalizeFeatures(features)
   if (!hasFeatures(selected)) {
     throw new Error(
@@ -227,18 +216,10 @@ export const configureApp = async ({ target, framework, features, install = true
   }
 
   const targetPath = resolve(target)
-  let manifest
-  try {
-    manifest = await readJson(join(targetPath, 'package.json'))
-  } catch {
-    throw new Error(`No package.json found in ${targetPath}. Point configure at an app directory.`)
-  }
-
-  const frameworkKey = framework ?? detectFramework(manifest, targetPath)
-  const recipe = frameworks[frameworkKey]
+  const recipe = frameworks[framework]
   if (!recipe) {
     throw new Error(
-      `Unknown framework "${frameworkKey}". Available frameworks: ${Object.keys(frameworks).join(', ')}.`,
+      `Unknown framework "${framework}". Available frameworks: ${Object.keys(frameworks).join(', ')}.`,
     )
   }
 
@@ -284,5 +265,5 @@ export const configureApp = async ({ target, framework, features, install = true
     )
   }
 
-  return { framework: frameworkKey, files, specs, workspaceRoot }
+  return { framework, files, specs, workspaceRoot }
 }

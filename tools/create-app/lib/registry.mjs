@@ -18,7 +18,6 @@ export const frameworks = {
     ],
     eslintConfig: '@ezhana/eslint-config-next',
     prettierPlugins: [],
-    detect: (dependencies) => Boolean(dependencies.next),
   },
   vue: {
     label: 'Vue',
@@ -28,7 +27,6 @@ export const frameworks = {
     defaultFlags: ['--ts', '--force'],
     eslintConfig: '@ezhana/eslint-config-vue',
     prettierPlugins: [],
-    detect: (dependencies) => Boolean(dependencies.vue),
   },
   astro: {
     label: 'Astro',
@@ -46,7 +44,6 @@ export const frameworks = {
     ],
     eslintConfig: '@ezhana/eslint-config-astro',
     prettierPlugins: ['prettier-plugin-astro'],
-    detect: (dependencies) => Boolean(dependencies.astro),
   },
   nuxt: {
     label: 'Nuxt',
@@ -63,7 +60,6 @@ export const frameworks = {
     ],
     eslintConfig: '@ezhana/eslint-config-nuxt',
     prettierPlugins: [],
-    detect: (dependencies) => Boolean(dependencies.nuxt || dependencies['nuxt-nightly']),
   },
   sveltekit: {
     label: 'SvelteKit',
@@ -81,11 +77,7 @@ export const frameworks = {
     ],
     eslintConfig: '@ezhana/eslint-config-svelte',
     prettierPlugins: ['prettier-plugin-svelte'],
-    detect: (dependencies) => Boolean(dependencies['@sveltejs/kit']),
   },
 }
 
 export const frameworkNames = Object.keys(frameworks)
-
-/** Vue is last: Nuxt and Astro apps also depend on vue. */
-export const detectOrder = ['next', 'nuxt', 'sveltekit', 'astro', 'vue']

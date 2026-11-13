@@ -55,7 +55,7 @@ jobs:
       - name: Verify published generator supports the template workflow
         run: |
           version=$(node -p "require('./tools/create-app/package.json').version")
-          help=$(pnpm dlx "create-ezhana-app@$version" configure --help)
+          help=$(pnpm dlx "create-ezhana-app@$version" --help)
           printf '%s\n' "$help" | grep -q 'shared ESLint config package'
           printf '%s\n' "$help" | grep -q -- '--defaults'
           printf '%s\n' "$help" | grep -q -- '--theme'

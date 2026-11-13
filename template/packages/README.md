@@ -16,8 +16,7 @@ packages/
 ```
 
 They are **workspace packages**, not published npm dependencies. The root `eslint.config.mjs` and
-`prettier.config.mjs` compose them, and apps configured with `pnpm create:app configure --eslint
---prettier` import the framework-mapped `@ezhana/eslint-config-*` package and
+`prettier.config.mjs` compose them, and apps created with `pnpm create:app ... --eslint --prettier` import the framework-mapped `@ezhana/eslint-config-*` package and
 `@ezhana/prettier-config` through `workspace:*` dependencies. The mapping lives in the published
 generator's registry, not in this directory.
 

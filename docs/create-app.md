@@ -19,7 +19,6 @@ pnpm create:app sveltekit my-sveltekit-app
 pnpm create:app next my-next-app --defaults
 pnpm create:app vue my-vue-app --defaults --eslint --prettier
 pnpm create:app next my-next-app --defaults --theme ocean
-pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 Apps are created under `apps/<name>` by default. Use `--target <path>` to generate elsewhere. The
@@ -40,14 +39,14 @@ maps a framework to its scaffolder:
 | `nuxt`      | `nuxi@latest`            | `init --template minimal`                                 |
 | `sveltekit` | `sv@latest`              | `create --template minimal --types ts --no-add-ons`       |
 
-Each entry also defines `interactiveFlags`, the ESLint config package used by `--eslint`, the
-Prettier plugins used by `--prettier`, and a `package.json` detector for `configure`.
+Each entry also defines `interactiveFlags`, the ESLint config package used by `--eslint`, and the
+Prettier plugins used by `--prettier`.
 
 ## Lifecycle
 
 ```text
 preflight → official scaffold → metadata patch → move → optional theme CSS
-          → install → optional configure → verify
+          → install → optional app config → verify
 ```
 
 1. **preflight**: resolve the framework and target (`apps/<name>` by default); the target must be
@@ -64,7 +63,7 @@ preflight → official scaffold → metadata patch → move → optional theme C
    the theme package's `style.css` import, and add the theme package. If no CSS file is found, warn
    and skip the theme.
 6. **install**: the theme package with `pnpm add`, otherwise `pnpm install --no-frozen-lockfile`.
-7. **optional configure**: write `eslint.config.mjs` / `prettier.config.mjs` and add their
+7. **optional app config**: write `eslint.config.mjs` / `prettier.config.mjs` and add their
    dependencies when `--eslint` / `--prettier` is passed.
 8. **verify**: run ESLint if configured, otherwise the app's `lint` script when present, then
    `pnpm build`.
@@ -104,8 +103,9 @@ Dependencies are added with `pnpm add -D`: the config package as `workspace:*`, 
 their catalog versions.
 
 The shared rules live in `packages/eslint-config-*` and `packages/prettier-config`; edit them there.
-`configure` overwrites the files it owns and does not delete Oxlint or other scaffold configuration,
-rewrite scripts, or migrate old configs.
+The flags overwrite the files they own during creation and do not delete Oxlint or other scaffold
+configuration, rewrite scripts, or migrate old configs. There is no standalone command for
+existing apps.
 
 The lint/format features require the app to be inside a pnpm workspace that ships these packages
 (the generated template or this repository). Outside such a workspace they stop with an error before

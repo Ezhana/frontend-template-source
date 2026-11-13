@@ -11,7 +11,6 @@ pnpm create:app next my-app                  # official CLI interactive, framewo
 pnpm create:app next my-app --defaults       # registry defaults, no prompts
 pnpm create:app vue my-app --defaults --eslint --prettier
 pnpm create:app next my-app --defaults --theme ocean
-pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 Apps are created under `apps/<name>` and become part of the pnpm workspace. Run create from the
@@ -30,15 +29,14 @@ for CI. Non-interactive environments without `--defaults` fail with a clear erro
 
 Each entry in [`lib/registry.mjs`](./lib/registry.mjs) defines:
 
-| Field              | Meaning                                                          |
-| ------------------ | ---------------------------------------------------------------- |
-| `package`          | published scaffolder package, e.g. `create-next-app@latest`      |
-| `args`             | argument builder that inserts the project directory and flags    |
-| `interactiveFlags` | flags used when the official CLI should prompt                   |
-| `defaultFlags`     | flags used by `--defaults`                                       |
-| `eslintConfig`     | workspace ESLint config package used by `--eslint` / `configure` |
-| `prettierPlugins`  | extra Prettier plugins added by `--prettier`                     |
-| `detect`           | package.json detection used by `configure`                       |
+| Field              | Meaning                                                       |
+| ------------------ | ------------------------------------------------------------- |
+| `package`          | published scaffolder package, e.g. `create-next-app@latest`   |
+| `args`             | argument builder that inserts the project directory and flags |
+| `interactiveFlags` | flags used when the official CLI should prompt                |
+| `defaultFlags`     | flags used by `--defaults`                                    |
+| `eslintConfig`     | workspace ESLint config package used by `--eslint`            |
+| `prettierPlugins`  | extra Prettier plugins added by `--prettier`                  |
 
 To add a framework, add one registry entry and (if needed) a shared ESLint config package.
 
@@ -56,8 +54,8 @@ The written files contain no rules: the rules live in `packages/eslint-config-*/
 workspace that ships these packages; `--target` outside the workspace cannot be combined with
 `--eslint` / `--prettier`.
 
-`configure` detects the framework from `package.json` and accepts `--framework` as an override. It
-overwrites the config files it owns and does not delete or rewrite scaffold configuration, scripts
+The flags are creation-only: the tool does not reconfigure an existing app. It overwrites the
+config files it owns during creation and does not delete or rewrite scaffold configuration, scripts
 or dependencies.
 
 ## Theme CSS
@@ -88,20 +86,6 @@ There is no runtime, switcher, anti-flash script or framework-specific overlay.
 | `--no-verify`        | add dependencies but skip lint/build verification                       |
 | `--keep-temp`        | keep the staging directory when generation fails                        |
 | `--list`             | list available frameworks                                               |
-
-## Configure an existing app
-
-```bash
-pnpm create:app configure apps/my-app --eslint --prettier
-```
-
-| Option               | Effect                                                           |
-| -------------------- | ---------------------------------------------------------------- |
-| `--target <path>`    | app directory (default: current directory)                       |
-| `--framework <name>` | framework override; otherwise inferred from `package.json`       |
-| `--eslint`           | write `eslint.config.mjs` and add the shared ESLint package      |
-| `--prettier`         | write `prettier.config.mjs` / `.prettierignore` and add Prettier |
-| `--no-install`       | write files only; print the `pnpm add` command                   |
 
 Requires Node.js 24 and pnpm 12, and network access for the first run (the official scaffolders and
 dependencies are downloaded).

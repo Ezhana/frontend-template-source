@@ -27,9 +27,6 @@ pnpm create:app next my-app --defaults --eslint --prettier
 
 # 把主题包的 style.css 注入应用全局 CSS
 pnpm create:app next my-app --defaults --theme ocean
-
-# 或稍后配置已有应用
-pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 生成的应用默认保留官方脚手架自己的工具链，除非显式选择共享配置。应用共用根目录的提交钩子和 CI 配置。
@@ -78,12 +75,8 @@ prettier-config
 根目录的 `eslint.config.mjs` 引入 `@ezhana/eslint-config-base`，根目录的 `prettier.config.mjs` 重新导出
 `@ezhana/prettier-config`，因此在 `packages/` 中修改规则会作用于 workspace 根目录。
 
-默认情况下 `create:app` 不改动脚手架的 lint/format 设置。如需把共享配置写入应用，可在创建时传
-`--eslint` / `--prettier`，或稍后执行：
-
-```bash
-pnpm create:app configure apps/my-app --eslint --prettier
-```
+默认情况下 `create:app` 不改动脚手架的 lint/format 设置。如需把共享配置写入应用，请在创建时传
+`--eslint` / `--prettier`；工具不提供针对已有应用的单独配置命令。
 
 工具会在应用根目录写入 `eslint.config.mjs` 和 `prettier.config.mjs`，引入按框架映射的配置包，并以
 `workspace:*` 加入依赖。Astro 和 SvelteKit 还会加入对应的 Prettier 插件。它不会删除脚手架配置，也不会

@@ -29,9 +29,6 @@ pnpm create:app next my-app --defaults --eslint --prettier
 
 # inject a theme package's style.css into the app's global CSS
 pnpm create:app next my-app --defaults --theme ocean
-
-# or configure an existing app later
-pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 Generated apps keep the official scaffold's own tooling unless you ask for the shared lint/format
@@ -84,14 +81,10 @@ The root `eslint.config.mjs` imports `@ezhana/eslint-config-base` and the root
 `prettier.config.mjs` re-exports `@ezhana/prettier-config`, so a rule change in `packages/` applies
 to the workspace root.
 
-By default `create:app` leaves the scaffold's tooling untouched. To write the shared config into an
-app, either pass `--eslint` / `--prettier` when creating it or run:
+By default `create:app` leaves the scaffold's tooling untouched. Pass `--eslint` / `--prettier` when
+creating an app to write the shared config. There is no separate command for existing apps.
 
-```bash
-pnpm create:app configure apps/my-app --eslint --prettier
-```
-
-The tool writes `eslint.config.mjs` and `prettier.config.mjs` at the app root, imports the
+The flags write `eslint.config.mjs` and `prettier.config.mjs` at the app root, import the
 framework-mapped config package, and adds the packages as `workspace:*` dependencies. Astro and
 SvelteKit also get their Prettier plugins. It does not delete scaffold configuration or rewrite
 `package.json` scripts; update those yourself if you want `pnpm lint` to use ESLint.

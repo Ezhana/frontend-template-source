@@ -13,7 +13,7 @@ repository is generated from this repository; no full sample apps are committed 
 - Shared ESLint config packages for the base, TypeScript, React, Vue, Astro, Next.js, Nuxt and
   Svelte rule sets (workspace source, not published)
 - Shared Prettier config package (workspace source, not published)
-- Opt-in app configs written by `create:app configure` that compose the shared packages
+- Opt-in app configs written by `create:app --eslint` / `--prettier` that compose the shared packages
 - CSS-first design tokens: DTCG sources compiled with Style Dictionary into one layered stylesheet,
   resolved JSON, a versioned theme contract and typed metadata
 - Zero-JavaScript theming: `data-theme` selects a theme, optional `data-color-mode` forces a color
@@ -34,7 +34,7 @@ repository is generated from this repository; no full sample apps are committed 
 - Registry-driven generation of Next.js / Vue / Astro / Nuxt / SvelteKit apps; interactive by default,
   non-interactive with `--defaults`
 - Minimal CSS-only theme injection via `create:app --theme`; no overlay, runtime or switcher
-- Opt-in ESLint/Prettier configuration via `create:app --eslint` / `--prettier` or `create:app configure`
+- Opt-in ESLint/Prettier configuration via `create:app --eslint` / `--prettier`
 - Generated `frontend-template` repository export, including the shared config packages under its
   `packages/`
 - lint-staged with simple-git-hooks
@@ -76,7 +76,7 @@ frontend-template-source/
 ├── tools/create-app/               # published create-ezhana-app dispatcher
 │   ├── lib/registry.mjs            # framework → CLI / flags / lint config
 │   ├── lib/create.mjs
-│   ├── lib/configure.mjs
+│   ├── lib/app-config.mjs
 │   └── bin/create-app.mjs
 │
 ├── fixtures/astro-consumer/        # minimal Astro consumer used by pnpm test:consumer
@@ -114,13 +114,12 @@ app-level overrides:
 
 ```bash
 pnpm create:app next my-app --eslint --prettier
-# or, for an existing app:
-pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 The config features require the app to live inside a workspace that ships these packages (this
-repository or the generated template); `configure` errors elsewhere. By default no lint/format
-config is written: the official scaffold's own output is preserved.
+repository or the generated template). By default no lint/format config is written: the official
+scaffold's own output is preserved. The flags apply at creation time; existing apps are not
+reconfigured by the tool.
 
 ### Design system packages
 
@@ -316,9 +315,6 @@ pnpm create:app next my-next-app --defaults --eslint --prettier
 
 # inject a theme package's style.css into the app's global CSS
 pnpm create:app next my-next-app --defaults --theme ocean
-
-# or configure an existing app later
-pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 The generator then:
@@ -348,9 +344,9 @@ Run `pnpm create:app` without arguments for an interactive framework/name prompt
 is created under `apps/<name>`; use `--target <path>` for a different directory. In non-interactive
 environments, pass `--defaults`.
 
-`configure` detects the framework from `package.json` and accepts `--framework` as an override. It
-overwrites the root config files it owns and adds the workspace config packages and their
-dependencies, but it does not delete scaffold configs, rewrite scripts or migrate old setups.
+The config flags are creation-only: there is no separate `configure` subcommand. They write the
+root config files and add the workspace config packages and their dependencies, but do not delete
+scaffold configs, rewrite scripts or migrate old setups.
 
 Generated app commands:
 
@@ -391,7 +387,7 @@ pnpm check
 
 The command dispatches to the official `create-next-app` / `create-vue` / `create-astro` / `nuxi` /
 `sv` CLI. It is interactive by default; use `--defaults` for CI. Lint/format configuration is opt-in
-with `--eslint` / `--prettier` or `create:app configure`; `--theme` injects a theme CSS `@import`
+with `--eslint` / `--prettier`; `--theme` injects a theme CSS `@import`
 when a global CSS file is present. The generated app appears under `apps/<name>`.
 
 To add your own package, create `packages/<name>`, reference it with `"workspace:*"` from an app,
@@ -628,13 +624,12 @@ The repository has two layers of lint/format configuration:
    shared packages and contain no rules of their own, only an extension point for app-level
    overrides.
 
-`pnpm create:app` does not write lint/format config by default. Use `--eslint` / `--prettier`, or
-the `configure` subcommand, when you want the shared rules. The config features require the app to be
-inside a workspace that ships the packages (this repository or the generated template):
+`pnpm create:app` does not write lint/format config by default. Use `--eslint` / `--prettier` when
+creating an app. The config features require the app to be inside a workspace that ships the
+packages (this repository or the generated template):
 
 ```bash
 pnpm create:app next my-app --defaults --eslint --prettier
-pnpm create:app configure apps/my-app --eslint --prettier
 ```
 
 ## Git Hooks

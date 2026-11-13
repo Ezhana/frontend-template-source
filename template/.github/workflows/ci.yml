@@ -43,8 +43,8 @@ jobs:
         run: pnpm build
 
   # Exercises the published create-ezhana-app package pinned in devDependencies: official
-  # scaffolders in --defaults mode, the framework-mapped config writer, the configure subcommand
-  # and the minimal theme CSS injection.
+  # scaffolders in --defaults mode, the framework-mapped config writer and the minimal theme CSS
+  # injection.
   #
   # One app is generated per job on purpose. The generator adds apps/<name> to the workspace; a
   # second `pnpm create:app` in the same job would make pnpm verify the (now stale) lockfile before
@@ -84,9 +84,6 @@ jobs:
           - framework: sveltekit
             lint_package: svelte
             mode: configured
-          - framework: vue
-            lint_package: vue
-            mode: configure-command
           - framework: next
             lint_package: next
             mode: theme
@@ -118,12 +115,6 @@ jobs:
             pnpm create:app ${{ matrix.framework }} generated-app --defaults --no-install
           fi
 
-      # Run the installed bin directly. A second pnpm script invocation would make pnpm validate the
-      # lockfile after apps/generated-app was added as an importer, and fail on the frozen lockfile.
-      - name: Write configs through configure
-        if: matrix.mode == 'configure-command'
-        run: node node_modules/create-ezhana-app/bin/create-app.mjs configure apps/generated-app --eslint --prettier --no-install
-
       - name: Check default generated files
         if: matrix.mode == 'default'
         run: |
@@ -131,7 +122,7 @@ jobs:
           test -f apps/generated-app/README.md
 
       - name: Check configured generated files
-        if: matrix.mode == 'configured' || matrix.mode == 'configure-command'
+        if: matrix.mode == 'configured'
         run: |
           test -f apps/generated-app/eslint.config.mjs
           test -f apps/generated-app/prettier.config.mjs

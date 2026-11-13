@@ -117,7 +117,7 @@ jobs:
           tarball=$(ls "$RUNNER_TEMP"/create-ezhana-app-*.tgz)
           tar -tzf "$tarball" | grep -qx 'package/bin/create-app.mjs'
           tar -tzf "$tarball" | grep -qx 'package/lib/create.mjs'
-          tar -tzf "$tarball" | grep -qx 'package/lib/configure.mjs'
+          tar -tzf "$tarball" | grep -qx 'package/lib/app-config.mjs'
           tar -tzf "$tarball" | grep -qx 'package/lib/registry.mjs'
           tar -tzf "$tarball" | grep -qx 'package/templates/prettierignore'
           tar -tzf "$tarball" | grep -qx 'package/versions.json'

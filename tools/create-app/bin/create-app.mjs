@@ -3,12 +3,10 @@ import { createInterface } from 'node:readline/promises'
 import { resolve } from 'node:path'
 import process, { stdin, stdout } from 'node:process'
 
-import { configureApp, hasFeatures, normalizeFeatures } from '../lib/configure.mjs'
 import { createApp } from '../lib/create.mjs'
 import { frameworks, frameworkNames } from '../lib/registry.mjs'
 
 const usage = `Usage: create-app [framework] [name] [options]
-       create-app configure [target] [options]
 
 Create a Next.js, Vue, Astro, Nuxt or SvelteKit app under ./apps/<name> by default.
 The official scaffolder runs interactively by default; pass --defaults for its registry defaults.
@@ -31,21 +29,12 @@ Create options:
   --list              List available frameworks
   -h, --help          Show this help
 
-Configure options:
-  --target <path>     App directory (default: current directory)
-  --framework <name>  Framework override: ${frameworkNames.join(', ')}
-  --eslint            Write eslint.config.mjs and add the shared ESLint config package
-  --prettier          Write prettier.config.mjs/.prettierignore and add the shared Prettier config
-  --no-install        Write config files only; print the pnpm add command
-  -h, --help          Show configure help
-
 Examples:
   pnpm create:app
   pnpm create:app next my-app
   pnpm create:app next my-app --defaults
   pnpm create:app vue my-app --defaults --eslint --prettier
   pnpm create:app next my-app --defaults --theme ocean
-  pnpm create:app configure apps/my-app --eslint --prettier
 `
 
 const parseCreateArgs = (argv) => {
@@ -99,45 +88,6 @@ const parseCreateArgs = (argv) => {
   options.framework = options.framework ?? positional.shift()
   options.name = options.name ?? positional.shift()
   if (positional.length > 0) throw new Error(`Unexpected arguments: ${positional.join(' ')}`)
-  return options
-}
-
-const parseConfigureArgs = (argv) => {
-  const args = [...argv]
-  const options = {
-    install: true,
-    features: { eslint: false, prettier: false },
-  }
-  const positional = []
-  while (args.length > 0) {
-    const arg = args.shift()
-    if (arg === '-h' || arg === '--help') {
-      options.help = true
-    } else if (arg === '--target') {
-      options.target = args.shift()
-    } else if (arg === '--framework') {
-      options.framework = args.shift()
-    } else if (arg === '--eslint') {
-      options.features.eslint = true
-    } else if (arg === '--prettier') {
-      options.features.prettier = true
-    } else if (arg === '--no-install') {
-      options.install = false
-    } else if (arg.startsWith('-')) {
-      throw new Error(`Unknown option: ${arg}\n\n${usage}`)
-    } else {
-      positional.push(arg)
-    }
-  }
-
-  if (options.target && positional.length > 0) {
-    throw new Error('Pass the app directory either positionally or with --target, not both.')
-  }
-  if (positional.length > 1) {
-    throw new Error(`Unexpected arguments: ${positional.slice(1).join(' ')}`)
-  }
-
-  options.target = options.target ?? positional[0] ?? '.'
   return options
 }
 
@@ -232,36 +182,12 @@ const runCreate = async (argv) => {
   await createApp({ ...options, target })
 }
 
-const runConfigure = async (argv) => {
-  const options = parseConfigureArgs(argv)
-
-  if (options.help) {
-    stdout.write(usage)
-    return
-  }
-
-  const selected = normalizeFeatures(options.features)
-  if (!hasFeatures(selected)) {
-    throw new Error(
-      'No configuration features selected. Pass --eslint and/or --prettier.\n\n' + usage,
-    )
-  }
-
-  if (options.framework) validateFramework(options.framework)
-
-  await configureApp({
-    target: resolve(options.target),
-    framework: options.framework,
-    features: selected,
-    install: options.install,
-  })
-}
-
 const run = async () => {
   const argv = process.argv.slice(2)
   if (argv[0] === 'configure') {
-    await runConfigure(argv.slice(1))
-    return
+    throw new Error(
+      'The configure subcommand was removed. Pass --eslint, --prettier or --theme when creating the app.',
+    )
   }
   await runCreate(argv)
 }

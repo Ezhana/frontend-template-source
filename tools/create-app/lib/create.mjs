@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from '
 import { basename, dirname, join, relative } from 'node:path'
 import process from 'node:process'
 
-import { configureApp, hasFeatures, normalizeFeatures, readVersionManifest } from './configure.mjs'
+import { applyConfig, hasFeatures, normalizeFeatures, readVersionManifest } from './app-config.mjs'
 import { frameworks } from './registry.mjs'
 
 const LOCKFILES = ['pnpm-lock.yaml', 'package-lock.json', 'yarn.lock', 'bun.lockb']
@@ -240,7 +240,7 @@ export const createApp = async ({
       else await installAppDependencies(targetPath)
 
       if (hasFeatures(selected)) {
-        await configureApp({
+        await applyConfig({
           target: targetPath,
           framework,
           features: selected,
@@ -264,7 +264,7 @@ export const createApp = async ({
         )
       }
       if (hasFeatures(selected)) {
-        await configureApp({
+        await applyConfig({
           target: targetPath,
           framework,
           features: selected,

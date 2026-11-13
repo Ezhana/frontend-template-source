@@ -83,8 +83,7 @@ The generated root `package.json` has:
 - `interactiveFlags` used when the official CLI should prompt;
 - `defaultFlags` used by `--defaults`;
 - the workspace ESLint config package used by `--eslint`;
-- the Prettier plugins added by `--prettier`;
-- a `package.json` detector used by `configure`.
+- the Prettier plugins added by `--prettier`.
 
 The generator patches `name`/`private`, removes generated lockfiles, `node_modules`, `.git` and
 `pnpm-workspace.yaml`, moves the app to `apps/<name>`, optionally injects a theme CSS `@import` into
