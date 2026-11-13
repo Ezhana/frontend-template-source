@@ -1,6 +1,6 @@
 {
   "name": "@ezhana/typography-editorial",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "CSS-only editorial typography preset for long-form content: scoped to .ez-editorial, theme-aware and framework-agnostic.",
   "exports": {
     "./style.css": "./style.css",
