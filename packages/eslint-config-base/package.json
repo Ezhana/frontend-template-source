@@ -1,7 +1,6 @@
 {
   "name": "@ezhana/eslint-config-base",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
   "description": "Base ESLint flat config for JavaScript and TypeScript projects.",
   "type": "module",
   "exports": {
@@ -9,7 +8,8 @@
   },
   "files": [
     "index.js",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "eslint",
@@ -29,5 +29,13 @@
     "@eslint/js": "10.0.1",
     "eslint-config-prettier": "10.1.8",
     "globals": "17.12.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/eslint-config-base"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -1,7 +1,6 @@
 {
   "name": "@ezhana/eslint-config-vue",
-  "version": "0.1.1",
-  "private": true,
+  "version": "0.2.0",
   "description": "ESLint flat config for Vue and TypeScript projects.",
   "type": "module",
   "exports": {
@@ -9,7 +8,8 @@
   },
   "files": [
     "index.js",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "eslint",
@@ -29,10 +29,18 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@ezhana/eslint-config-base": "workspace:*",
-    "@ezhana/eslint-config-typescript": "workspace:*",
+    "@ezhana/eslint-config-base": "workspace:^",
+    "@ezhana/eslint-config-typescript": "workspace:^",
     "eslint-plugin-vue": "~10.11.0",
     "typescript-eslint": "8.70.0",
     "vue-eslint-parser": "10.4.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/eslint-config-vue"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

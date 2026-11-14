@@ -1,7 +1,11 @@
 # ADR 0004: Lint/format configs ship as workspace packages
 
-- **Status:** Accepted; rewritten in place on 2026-11-01. Replaces the earlier "app-owned
-  self-contained configs" decision.
+> **Status: superseded by [ADR 0007](0007-publish-shared-configs.md) on 2026-11-14.** The packages
+> are now public npm packages and are no longer copied into the generated template. This record is
+> kept for its historical context.
+
+- **Status:** Superseded by [ADR 0007](0007-publish-shared-configs.md). Was accepted and rewritten
+  in place on 2026-11-01; it replaced the earlier "app-owned self-contained configs" decision.
 - **Date:** 2026-11-01
 - **Scope:** the five `@ezhana/*` config packages, the generated `frontend-template` repository,
   `create-ezhana-app`

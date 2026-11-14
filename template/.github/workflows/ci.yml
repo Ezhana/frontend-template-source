@@ -108,7 +108,8 @@ jobs:
       - name: Create ${{ matrix.framework }} app
         run: |
           if [ "${{ matrix.mode }}" = "configured" ]; then
-            pnpm create:app ${{ matrix.framework }} generated-app --defaults --no-install --eslint --prettier
+            # Installs the published @ezhana config packages and verifies with ESLint + build.
+            pnpm create:app ${{ matrix.framework }} generated-app --defaults --eslint --prettier
           elif [ "${{ matrix.mode }}" = "theme" ]; then
             pnpm create:app ${{ matrix.framework }} generated-app --defaults --no-install --theme ocean
           else
@@ -129,6 +130,9 @@ jobs:
           test -f apps/generated-app/.prettierignore
           grep -q "@ezhana/eslint-config-${{ matrix.lint_package }}" apps/generated-app/eslint.config.mjs
           grep -q '@ezhana/prettier-config' apps/generated-app/prettier.config.mjs
+          grep -q '"@ezhana/eslint-config-${{ matrix.lint_package }}": "\^' apps/generated-app/package.json
+          grep -q '"@ezhana/prettier-config": "\^' apps/generated-app/package.json
+          ! grep -q '"workspace:' apps/generated-app/package.json
 
       - name: Check theme injection
         if: matrix.mode == 'theme'

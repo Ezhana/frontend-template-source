@@ -58,49 +58,50 @@ pnpm --filter ./apps/my-app build
 
 ## Lint 与格式化
 
-lint/format 规则位于 `packages/` 下的共享 workspace 包中：
+lint/format 规则位于已发布的 npm 包中：
 
 ```text
-eslint-config-base
-eslint-config-typescript
-eslint-config-react
-eslint-config-vue
-eslint-config-astro
-eslint-config-next
-eslint-config-nuxt
-eslint-config-svelte
-prettier-config
+@ezhana/eslint-config-base
+@ezhana/eslint-config-typescript
+@ezhana/eslint-config-react
+@ezhana/eslint-config-vue
+@ezhana/eslint-config-astro
+@ezhana/eslint-config-next
+@ezhana/eslint-config-nuxt
+@ezhana/eslint-config-svelte
+@ezhana/prettier-config
 ```
 
-根目录的 `eslint.config.mjs` 引入 `@ezhana/eslint-config-base`，根目录的 `prettier.config.mjs` 重新导出
-`@ezhana/prettier-config`，因此在 `packages/` 中修改规则会作用于 workspace 根目录。
+根目录的 `eslint.config.mjs` 组合 `@ezhana/eslint-config-base`，根目录的 `prettier.config.mjs` 重新导出
+`@ezhana/prettier-config`；它们都是普通 devDependency。如需更新规则，请升级这些依赖，或在根目录配置中
+添加 workspace 级覆盖。
 
 默认情况下 `create:app` 不改动脚手架的 lint/format 设置。如需把共享配置写入应用，请在创建时传
 `--eslint` / `--prettier`；工具不提供针对已有应用的单独配置命令。
 
 工具会在应用根目录写入 `eslint.config.mjs` 和 `prettier.config.mjs`，引入按框架映射的配置包，并以
-`workspace:*` 加入依赖。Astro 和 SvelteKit 还会加入对应的 Prettier 插件；插件在应用的
-`prettier.config.mjs` 中以模块方式引入，因此从 workspace 根目录运行 Prettier（根 `format` 脚本和提交钩子）
-时也能正确加载。它不会删除脚手架配置，也不会修改 `package.json` 脚本；如果需要 `pnpm lint` 使用 ESLint，
-请自行调整脚本。
+`^<version>` 加入普通 devDependency（同时加入 `@ezhana/prettier-config`）。Astro 和 SvelteKit 还会加入
+对应的 Prettier 插件；插件在应用的 `prettier.config.mjs` 中以模块方式引入，因此从 workspace 根目录运行
+Prettier（根 `format` 脚本和提交钩子）时也能正确加载。它不会删除脚手架配置，也不会修改 `package.json`
+脚本；如果需要 `pnpm lint` 使用 ESLint，请自行调整脚本。
 
-如需为所有应用修改规则，请修改对应的 `packages/eslint-config-*/index.js`（或
-`packages/prettier-config/index.js`），或在单个应用的配置中添加覆盖。
+如需修改规则，请在单个应用中添加覆盖，或在根目录配置中添加 workspace 级覆盖。共享规则本身位于已发布的
+包中，不在本仓库内。
 
 ## 共享包
 
-`packages/` 包含共享的 lint/format 配置包（即上文的九个配置包）。它们是 workspace 包而不是已发布的
-npm 依赖：根目录和应用的配置通过 workspace 解析它们，因此请保留该目录及这些包。
+`packages/` 用于放置你自己的 workspace 包；模板默认不包含任何包。共享的 lint/format 配置是 npm
+devDependency 而不是 workspace 包，因此没有需要复制或保持同步的内容。
 
-可以在它们旁边添加自己的共享包：
+可以添加自己的共享包：
 
 - 创建 `packages/<name>`，包含 `package.json`、`src/` 和构建脚本；
 - 在应用中通过 `"workspace:*"` 引用；
-- 在 `pnpm build` 之前执行 `pnpm build:packages`（配置包没有构建步骤，会被跳过）。
+- 在 `pnpm build` 之前执行 `pnpm build:packages`。
 
 详见 [`packages/README.md`](packages/README.md)。
 
-已发布的 `@ezhana/*` 主题和令牌包是普通 npm 依赖，不链接 workspace 源码。
+已发布的 `@ezhana/*` 配置、主题和令牌包都是普通 npm 依赖，不链接 workspace 源码。
 
 ## 主题
 

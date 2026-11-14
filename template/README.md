@@ -24,7 +24,7 @@ pnpm create:app astro my-app --defaults
 pnpm create:app nuxt my-app --defaults
 pnpm create:app sveltekit my-app --defaults
 
-# write root-level ESLint/Prettier configs that compose the shared packages
+# write ESLint/Prettier configs that compose the published shared packages
 pnpm create:app next my-app --defaults --eslint --prettier
 
 # inject a theme package's style.css into the app's global CSS
@@ -63,54 +63,53 @@ pnpm --filter ./apps/my-app build
 
 ## Lint and format
 
-The lint/format rules live in the shared workspace packages under `packages/`:
+The lint/format rules live in published npm packages:
 
 ```text
-eslint-config-base
-eslint-config-typescript
-eslint-config-react
-eslint-config-vue
-eslint-config-astro
-eslint-config-next
-eslint-config-nuxt
-eslint-config-svelte
-prettier-config
+@ezhana/eslint-config-base
+@ezhana/eslint-config-typescript
+@ezhana/eslint-config-react
+@ezhana/eslint-config-vue
+@ezhana/eslint-config-astro
+@ezhana/eslint-config-next
+@ezhana/eslint-config-nuxt
+@ezhana/eslint-config-svelte
+@ezhana/prettier-config
 ```
 
-The root `eslint.config.mjs` imports `@ezhana/eslint-config-base` and the root
-`prettier.config.mjs` re-exports `@ezhana/prettier-config`, so a rule change in `packages/` applies
-to the workspace root.
+The root `eslint.config.mjs` composes `@ezhana/eslint-config-base` and the root
+`prettier.config.mjs` re-exports `@ezhana/prettier-config`; both are regular devDependencies. Update
+those dependencies to get rule changes, or add workspace-wide overrides in the root config files.
 
 By default `create:app` leaves the scaffold's tooling untouched. Pass `--eslint` / `--prettier` when
 creating an app to write the shared config. There is no separate command for existing apps.
 
 The flags write `eslint.config.mjs` and `prettier.config.mjs` at the app root, import the
-framework-mapped config package, and adds the packages as `workspace:*` dependencies. Astro and
-SvelteKit also get their Prettier plugins. The plugins are imported as modules in the app's
-`prettier.config.mjs`, so Prettier loads them from the app regardless of the working directory —
-including the root `format` script and the pre-commit hook, which run from the workspace root. It
-does not delete scaffold configuration or rewrite `package.json` scripts; update those yourself if
-you want `pnpm lint` to use ESLint.
+framework-mapped config package, and add it (plus `@ezhana/prettier-config`) as a normal `^<version>`
+devDependency. Astro and SvelteKit also get their Prettier plugins. The plugins are imported as
+modules in the app's `prettier.config.mjs`, so Prettier loads them from the app regardless of the
+working directory — including the root `format` script and the pre-commit hook, which run from the
+workspace root. It does not delete scaffold configuration or rewrite `package.json` scripts; update
+those yourself if you want `pnpm lint` to use ESLint.
 
-Change rules for every app in the matching `packages/eslint-config-*/index.js` (or
-`packages/prettier-config/index.js`), or add overrides in the individual app config.
+Add app-specific overrides in the app config, or workspace-wide overrides in the root config. The
+shared rules themselves live in the published packages, not in this repository.
 
 ## Packages
 
-`packages/` contains the shared lint/format config packages (the nine config packages described
-above). They are workspace packages, not published npm dependencies: the root and app configs
-resolve them through the workspace, so keep the directory and the packages.
+`packages/` is for your own workspace packages; the template ships none. The shared lint/format
+configs are npm devDependencies, not workspace packages, so there is nothing to copy or keep in
+sync.
 
-Add your own shared packages alongside them:
+Add your own shared packages:
 
 - create `packages/<name>` with a `package.json`, `src/` and a build script;
 - reference it from an app with `"workspace:*"`;
-- run `pnpm build:packages` before `pnpm build` (the config packages have no build step and are
-  skipped).
+- run `pnpm build:packages` before `pnpm build`.
 
 See [`packages/README.md`](packages/README.md).
 
-The published `@ezhana/*` theme and token packages are regular npm dependencies, not linked
+The published `@ezhana/*` config, theme and token packages are regular npm dependencies, not linked
 workspace sources.
 
 ## Themes

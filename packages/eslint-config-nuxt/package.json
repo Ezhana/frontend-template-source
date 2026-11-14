@@ -1,7 +1,6 @@
 {
   "name": "@ezhana/eslint-config-nuxt",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
   "description": "ESLint flat config for Nuxt and TypeScript projects.",
   "type": "module",
   "exports": {
@@ -9,7 +8,8 @@
   },
   "files": [
     "index.js",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "eslint",
@@ -29,6 +29,14 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@ezhana/eslint-config-vue": "workspace:*"
+    "@ezhana/eslint-config-vue": "workspace:^"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/eslint-config-nuxt"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

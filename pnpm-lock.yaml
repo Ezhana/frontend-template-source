@@ -343,10 +343,10 @@ importers:
   packages/eslint-config-astro:
     dependencies:
       '@ezhana/eslint-config-base':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-base
       '@ezhana/eslint-config-typescript':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-typescript
       eslint:
         specifier: 'catalog:'
@@ -379,10 +379,10 @@ importers:
   packages/eslint-config-next:
     dependencies:
       '@ezhana/eslint-config-base':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-base
       '@ezhana/eslint-config-react':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-react
       '@next/eslint-plugin-next':
         specifier: 16.4.6
@@ -397,7 +397,7 @@ importers:
   packages/eslint-config-nuxt:
     dependencies:
       '@ezhana/eslint-config-vue':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-vue
       eslint:
         specifier: 'catalog:'
@@ -412,10 +412,10 @@ importers:
         specifier: 5.20.0
         version: 5.20.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.2)
       '@ezhana/eslint-config-base':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-base
       '@ezhana/eslint-config-typescript':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-typescript
       eslint:
         specifier: 'catalog:'
@@ -430,10 +430,10 @@ importers:
   packages/eslint-config-svelte:
     dependencies:
       '@ezhana/eslint-config-base':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-base
       '@ezhana/eslint-config-typescript':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-typescript
       eslint:
         specifier: 'catalog:'
@@ -457,7 +457,7 @@ importers:
   packages/eslint-config-typescript:
     dependencies:
       '@ezhana/eslint-config-base':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-base
       eslint:
         specifier: 'catalog:'
@@ -472,10 +472,10 @@ importers:
   packages/eslint-config-vue:
     dependencies:
       '@ezhana/eslint-config-base':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-base
       '@ezhana/eslint-config-typescript':
-        specifier: workspace:*
+        specifier: workspace:^
         version: link:../eslint-config-typescript
       eslint:
         specifier: 'catalog:'

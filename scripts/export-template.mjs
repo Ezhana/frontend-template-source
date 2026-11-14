@@ -5,9 +5,8 @@
  * The exported template is a workspace starter with an empty `apps/`; users choose a framework
  * with `pnpm create:app`. The command runs the published `create-ezhana-app` package, pinned as an
  * exact devDependency so the generated lockfile covers it — the generator is not vendored into the
- * template repository. The `@ezhana` lint/format config packages are copied into the template's
- * `packages/` directory as workspace packages (they are not published to npm); theme packages are
- * installed from npm by the generator.
+ * template repository. The `@ezhana` lint/format config packages are published to npm and pinned as
+ * regular semver devDependencies, exactly like the theme packages the generator installs.
  *
  * Usage:
  *   node scripts/export-template.mjs [--out <dir>] [--install]
@@ -18,7 +17,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, relative, sep } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
@@ -37,22 +36,12 @@ const ROOT_FILES = [
   'pnpm-workspace.yaml',
 ]
 
-// The lint/format rules live only in these packages. They stay private in the source repository
-// and are copied into the generated template's `packages/` directory as workspace packages, so
-// the generated root configs and apps can compose them with `workspace:*` dependencies.
-const CONFIG_PACKAGES = [
-  { dir: 'eslint-config-base', name: '@ezhana/eslint-config-base' },
-  { dir: 'eslint-config-typescript', name: '@ezhana/eslint-config-typescript' },
-  { dir: 'eslint-config-react', name: '@ezhana/eslint-config-react' },
-  { dir: 'eslint-config-vue', name: '@ezhana/eslint-config-vue' },
-  { dir: 'eslint-config-astro', name: '@ezhana/eslint-config-astro' },
-  { dir: 'eslint-config-next', name: '@ezhana/eslint-config-next' },
-  { dir: 'eslint-config-nuxt', name: '@ezhana/eslint-config-nuxt' },
-  { dir: 'eslint-config-svelte', name: '@ezhana/eslint-config-svelte' },
-  { dir: 'prettier-config', name: '@ezhana/prettier-config' },
-]
-
-const WORKSPACE_CONFIG_PACKAGES = new Set(CONFIG_PACKAGES.map(({ name }) => name))
+// The generated template root composes these published packages as normal devDependencies. They are
+// not copied into the template: the source repository below `packages/` is their only home.
+const ROOT_CONFIG_PACKAGES = {
+  '@ezhana/eslint-config-base': 'eslint-config-base',
+  '@ezhana/prettier-config': 'prettier-config',
+}
 
 const parseArgs = () => {
   const args = process.argv.slice(2)
@@ -94,9 +83,26 @@ const readCreateAppVersion = async () => {
   return manifest.version
 }
 
+const readPackageVersion = async (dir) => {
+  const manifest = await readJson(join(sourceRoot, 'packages', dir, 'package.json'))
+  if (!manifest.version) {
+    throw new Error(`packages/${dir}/package.json is missing a version.`)
+  }
+  return manifest.version
+}
+
+const readRootConfigVersions = async () => {
+  const versions = {}
+  for (const [name, dir] of Object.entries(ROOT_CONFIG_PACKAGES)) {
+    versions[name] = await readPackageVersion(dir)
+  }
+  return versions
+}
+
 const createRootManifest = async (outDir) => {
   const sourceRootManifest = await readJson(join(sourceRoot, 'package.json'))
   const createAppVersion = await readCreateAppVersion()
+  const configVersions = await readRootConfigVersions()
 
   const manifest = {
     name: 'frontend-template',
@@ -121,8 +127,8 @@ const createRootManifest = async (outDir) => {
     engines: sourceRootManifest.engines,
     'simple-git-hooks': sourceRootManifest['simple-git-hooks'],
     devDependencies: {
-      '@ezhana/eslint-config-base': 'workspace:*',
-      '@ezhana/prettier-config': 'workspace:*',
+      '@ezhana/eslint-config-base': `^${configVersions['@ezhana/eslint-config-base']}`,
+      '@ezhana/prettier-config': `^${configVersions['@ezhana/prettier-config']}`,
       'create-ezhana-app': createAppVersion,
       eslint: 'catalog:',
       'lint-staged': sourceRootManifest.devDependencies['lint-staged'],
@@ -136,18 +142,6 @@ const createRootManifest = async (outDir) => {
   return createAppVersion
 }
 
-const copyConfigPackages = async (outDir) => {
-  for (const { dir } of CONFIG_PACKAGES) {
-    await cp(join(sourceRoot, 'packages', dir), join(outDir, 'packages', dir), {
-      recursive: true,
-      filter: (path) => {
-        const parts = relative(join(sourceRoot, 'packages', dir), path).split(sep)
-        return !parts.includes('node_modules') && basename(path) !== 'CHANGELOG.md'
-      },
-    })
-  }
-}
-
 const copyRootFiles = async (outDir) => {
   for (const file of ROOT_FILES) {
     const from = join(sourceRoot, file)
@@ -159,6 +153,14 @@ const copyRootFiles = async (outDir) => {
       // This exclusion list only exists for source-repo dependency policy; the template does not
       // need it and should stay focused on the workspaces + catalog.
       content = content.replace(/\nminimumReleaseAgeExclude:\n(?:[ ]{2}- .*\n)+/g, '\n')
+      // The source repository links local @ezhana/* packages for matching semver ranges so
+      // create:app can be tested before a release. The template ships no local config packages,
+      // so remove the whole marked block and let the ranges resolve from npm.
+      content = content.replace(
+        /\n# BEGIN source-only workspace linking[\s\S]*?# END source-only workspace linking\n/,
+        '\n',
+      )
+      content = content.replace(/\n+$/, '\n')
       // `tools/*` exists so the generator can be published from the source repo; the template
       // consumes the published package instead.
       content = content.replace(/^[ ]{2}- 'tools\/\*'\n/m, '')
@@ -183,21 +185,18 @@ const copyRootFiles = async (outDir) => {
 
 const validateOutput = async (outDir) => {
   const problems = []
+  const configVersions = await readRootConfigVersions()
 
-  const checkWorkspaceDependencies = (label, manifest) => {
+  const checkNoWorkspaceDependencies = (label, manifest) => {
     const dependencies = {
       ...manifest.dependencies,
       ...manifest.devDependencies,
       ...manifest.peerDependencies,
     }
     for (const [name, spec] of Object.entries(dependencies)) {
-      if (
-        typeof spec === 'string' &&
-        spec.startsWith('workspace:') &&
-        !WORKSPACE_CONFIG_PACKAGES.has(name)
-      ) {
+      if (typeof spec === 'string' && spec.startsWith('workspace:')) {
         problems.push(
-          `${label}: ${name} must not be a workspace: dependency; only the lint/format config packages are local`,
+          `${label}: ${name} must be a published semver dependency, not workspace:; the template ships no config sources`,
         )
       }
     }
@@ -205,10 +204,10 @@ const validateOutput = async (outDir) => {
 
   const rootManifest = await readJson(join(outDir, 'package.json'))
   const dependencies = { ...rootManifest.dependencies, ...rootManifest.devDependencies }
-  checkWorkspaceDependencies('package.json', rootManifest)
-  for (const name of ['@ezhana/eslint-config-base', '@ezhana/prettier-config']) {
-    if (dependencies[name] !== 'workspace:*') {
-      problems.push(`root devDependencies must include ${name} as workspace:*`)
+  checkNoWorkspaceDependencies('package.json', rootManifest)
+  for (const [name, version] of Object.entries(configVersions)) {
+    if (dependencies[name] !== `^${version}`) {
+      problems.push(`root devDependencies must include ${name}@^${version}`)
     }
   }
   if (rootManifest.scripts?.['create:app'] !== 'create-ezhana-app') {
@@ -226,23 +225,13 @@ const validateOutput = async (outDir) => {
     if (!(await exists(join(outDir, file)))) problems.push(`${file} is missing`)
   }
 
-  for (const { dir, name } of CONFIG_PACKAGES) {
-    const manifestPath = join(outDir, 'packages', dir, 'package.json')
-    if (!(await exists(manifestPath))) {
-      problems.push(`packages/${dir} is missing`)
-      continue
-    }
-    const manifest = await readJson(manifestPath)
-    if (manifest.name !== name) problems.push(`packages/${dir}/package.json must be ${name}`)
-    if (manifest.private !== true) {
-      problems.push(`packages/${dir}/package.json must stay private`)
-    }
-    if ('publishConfig' in manifest) {
-      problems.push(`packages/${dir}/package.json must not define publishConfig`)
-    }
-    checkWorkspaceDependencies(`packages/${dir}/package.json`, manifest)
-    if (!(await exists(join(outDir, 'packages', dir, 'index.js')))) {
-      problems.push(`packages/${dir}/index.js is missing`)
+  // The config packages are npm dependencies now; any directory here would be a vendored copy.
+  const packageEntries = await readdir(join(outDir, 'packages'), { withFileTypes: true })
+  for (const entry of packageEntries) {
+    if (entry.isDirectory()) {
+      problems.push(
+        `packages/${entry.name} must not be vendored; the shared config packages are npm dependencies`,
+      )
     }
   }
 
@@ -257,7 +246,7 @@ const validateOutput = async (outDir) => {
     }
     const content = await readFile(path, 'utf8')
     if (!content.includes(packageName)) {
-      problems.push(`${file} must compose ${packageName} instead of copying its rules`)
+      problems.push(`${file} must compose the published ${packageName} package`)
     }
   }
 
@@ -341,9 +330,9 @@ const main = async () => {
   await mkdir(resolvedOut, { recursive: true })
 
   await cp(skeletonDir, resolvedOut, { recursive: true })
-  await copyConfigPackages(resolvedOut)
   await copyRootFiles(resolvedOut)
   const createAppVersion = await createRootManifest(resolvedOut)
+  const configVersions = await readRootConfigVersions()
   await validateOutput(resolvedOut)
 
   if (install) installLockfile(resolvedOut, createAppVersion)
@@ -352,7 +341,9 @@ const main = async () => {
   process.stdout.write(
     `Template exported to ${relative(sourceRoot, resolvedOut) || resolvedOut}\n` +
       '  apps: empty (create with pnpm create:app)\n' +
-      '  packages: shared lint/format config packages (copied from this repository)\n' +
+      '  packages: empty workspace package slots (no vendored configs)\n' +
+      `  lint/format: @ezhana/eslint-config-base@^${configVersions['@ezhana/eslint-config-base']}, ` +
+      `@ezhana/prettier-config@^${configVersions['@ezhana/prettier-config']} (npm devDependencies)\n` +
       `  create:app: create-ezhana-app@${createAppVersion} (published package, pinned in devDependencies)\n` +
       (install
         ? '  pnpm-lock.yaml generated\n'

@@ -2,7 +2,8 @@
 
 - **Status:** Accepted; the generator distribution section is superseded by
   [ADR 0002](0002-distribute-create-app-via-npm.md). The lint/format patch rules are amended by
-  [ADR 0004](0004-app-owned-lint-format-configs.md).
+  [ADR 0004](0004-app-owned-lint-format-configs.md) and
+  [ADR 0007](0007-publish-shared-configs.md).
 - **Date:** 2026-10-27
 - **Scope:** `frontend-template` distribution and `tools/create-app`
 

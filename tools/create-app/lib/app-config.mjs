@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -32,15 +32,6 @@ export const normalizeFeatures = (features = {}) => {
 export const hasFeatures = (features) => features.eslint || features.prettier
 
 const readJson = async (path) => JSON.parse(await readFile(path, 'utf8'))
-
-const exists = async (path) => {
-  try {
-    await stat(path)
-    return true
-  } catch {
-    return false
-  }
-}
 
 export const readVersionManifest = async () => {
   const manifest = await readJson(join(toolRoot, 'versions.json'))
@@ -76,11 +67,22 @@ const catalogVersion = (catalog, name) => {
   return version
 }
 
-const eslintSpecs = (framework, catalog) => {
+const publishedVersion = (versions, name) => {
+  const version = versions.get(name)
+  if (!version) {
+    throw new Error(
+      `versions.json is missing the published version of "${name}". Run pnpm sync:create-app; ` +
+        'the config package must be published before an app can depend on it.',
+    )
+  }
+  return `^${version}`
+}
+
+const eslintSpecs = (framework, catalog, versions) => {
   const specs = [
     `eslint@${catalogVersion(catalog, 'eslint')}`,
     `typescript@${catalogVersion(catalog, 'typescript')}`,
-    `${framework.eslintConfig}@workspace:*`,
+    `${framework.eslintConfig}@${publishedVersion(versions, framework.eslintConfig)}`,
   ]
 
   // eslint-plugin-astro resolves the TypeScript parser from the app directory.
@@ -91,98 +93,16 @@ const eslintSpecs = (framework, catalog) => {
   return specs
 }
 
-const prettierSpecs = (framework, catalog) => [
+const prettierSpecs = (framework, catalog, versions) => [
   `prettier@${catalogVersion(catalog, 'prettier')}`,
-  '@ezhana/prettier-config@workspace:*',
+  `@ezhana/prettier-config@${publishedVersion(versions, '@ezhana/prettier-config')}`,
   ...framework.prettierPlugins.map((plugin) => `${plugin}@${catalogVersion(catalog, plugin)}`),
 ]
 
-const findWorkspaceRoot = async (start) => {
-  let dir = start
-  while (true) {
-    if (await exists(join(dir, 'pnpm-workspace.yaml'))) return dir
-    const parent = dirname(dir)
-    if (parent === dir) return null
-    dir = parent
-  }
-}
-
-const readWorkspacePackageNames = async (workspaceRoot) => {
-  let patterns = []
-  try {
-    const workspace = await readFile(join(workspaceRoot, 'pnpm-workspace.yaml'), 'utf8')
-    const section = workspace.match(/^packages:\n((?: {2}- .*\n?)+)/m)?.[1] ?? ''
-    for (const line of section.split('\n')) {
-      const match = line.match(/^ {2}- ['"]?([^'"\s]+)['"]?\s*$/)
-      if (match) patterns.push(match[1])
-    }
-  } catch {
-    patterns = []
-  }
-
-  const names = new Set()
-  const addManifest = async (dir) => {
-    try {
-      const manifest = await readJson(join(dir, 'package.json'))
-      if (manifest.name) names.add(manifest.name)
-    } catch {
-      // A workspace entry without a manifest is not a package.
-    }
-  }
-
-  for (const pattern of patterns) {
-    if (pattern.endsWith('/*')) {
-      const base = join(workspaceRoot, pattern.slice(0, -2))
-      let entries
-      try {
-        entries = await readdir(base, { withFileTypes: true })
-      } catch {
-        continue
-      }
-      for (const entry of entries) {
-        if (entry.isDirectory()) await addManifest(join(base, entry.name))
-      }
-    } else if (!pattern.includes('*')) {
-      await addManifest(join(workspaceRoot, pattern))
-    }
-  }
-
-  return names
-}
-
-const requiredConfigPackages = (features, framework) => {
-  const names = []
-  if (features.eslint) names.push(framework.eslintConfig)
-  if (features.prettier) names.push('@ezhana/prettier-config')
-  return names
-}
-
-const assertWorkspaceConfigPackages = async (targetPath, features, framework) => {
-  const workspaceRoot = await findWorkspaceRoot(targetPath)
-  if (!workspaceRoot) {
-    throw new Error(
-      `Could not find a pnpm workspace above ${targetPath}. Lint/format configuration composes ` +
-        'the @ezhana config packages shipped in packages/; run inside the frontend-template ' +
-        'workspace.',
-    )
-  }
-
-  const names = await readWorkspacePackageNames(workspaceRoot)
-  const missing = requiredConfigPackages(features, framework).filter((name) => !names.has(name))
-  if (missing.length > 0) {
-    throw new Error(
-      `The workspace at ${workspaceRoot} is missing ${missing.join(', ')}. The frontend-template ` +
-        'workspace ships these packages under packages/; run inside it instead of a standalone ' +
-        'app directory.',
-    )
-  }
-
-  return workspaceRoot
-}
-
 const eslintConfigContent = (framework) =>
-  `// ESLint config for this app. The shared rule set lives in ${framework.eslintConfig} — edit
-// that package to change rules for every app, or add app-specific overrides to the array below.
+  `// ESLint config for this app. The shared rule set lives in the published
+// ${framework.eslintConfig} package; update that dependency to get rule changes, or add
+// app-specific overrides to the array below.
 import config from '${framework.eslintConfig}'
 import { defineConfig } from 'eslint/config'
 
@@ -203,7 +123,9 @@ const pluginBinding = (plugin) => {
 
 const prettierConfigContent = (framework) => {
   if (framework.prettierPlugins.length === 0) {
-    return `// Prettier config for this app. The shared options live in packages/prettier-config.
+    return `// Prettier config for this app. The shared options live in the published
+// @ezhana/prettier-config package; update that dependency to get option changes, or add
+// app-specific overrides here.
 export { default } from '@ezhana/prettier-config'
 `
   }
@@ -216,7 +138,9 @@ export { default } from '@ezhana/prettier-config'
     (plugin) => `import * as ${pluginBinding(plugin)} from '${plugin}'`,
   )
   const plugins = framework.prettierPlugins.map(pluginBinding).join(', ')
-  return `// Prettier config for this app. The shared options live in packages/prettier-config.
+  return `// Prettier config for this app. The shared options live in the published
+// @ezhana/prettier-config package; update that dependency to get option changes, or add
+// app-specific overrides here.
 // The plugins are imported as modules on purpose: Prettier resolves plugin names against the
 // process cwd, so names break when the root format script or lint-staged runs them from the
 // workspace root. Module imports are resolved from this app's node_modules instead.
@@ -246,15 +170,14 @@ export const applyConfig = async ({ target, framework, features, install = true 
     )
   }
 
-  const { catalog } = await readVersionManifest()
-  const workspaceRoot = await assertWorkspaceConfigPackages(targetPath, selected, recipe)
+  const { catalog, versions } = await readVersionManifest()
   const files = []
   const specs = []
 
   if (selected.eslint) {
     await writeFile(join(targetPath, 'eslint.config.mjs'), eslintConfigContent(recipe))
     files.push('eslint.config.mjs')
-    specs.push(...eslintSpecs(recipe, catalog))
+    specs.push(...eslintSpecs(recipe, catalog, versions))
   }
 
   if (selected.prettier) {
@@ -264,7 +187,7 @@ export const applyConfig = async ({ target, framework, features, install = true 
       await readFile(join(toolRoot, 'templates/prettierignore'), 'utf8'),
     )
     files.push('prettier.config.mjs', '.prettierignore')
-    specs.push(...prettierSpecs(recipe, catalog))
+    specs.push(...prettierSpecs(recipe, catalog, versions))
   }
 
   if (install) {
@@ -279,7 +202,8 @@ export const applyConfig = async ({ target, framework, features, install = true 
     )
   }
   process.stdout.write(
-    '\nThe rules live in packages/eslint-config-* and packages/prettier-config; edit them there.\n',
+    '\nThe rules live in the published @ezhana/eslint-config-* and @ezhana/prettier-config packages; ' +
+      'bump those dependencies to pick up rule changes.\n',
   )
   process.stdout.write('package.json scripts were not changed.\n')
   if (selected.eslint) {
@@ -288,5 +212,5 @@ export const applyConfig = async ({ target, framework, features, install = true 
     )
   }
 
-  return { framework, files, specs, workspaceRoot }
+  return { framework, files, specs }
 }

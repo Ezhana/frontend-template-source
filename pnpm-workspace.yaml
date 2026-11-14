@@ -32,3 +32,11 @@ minimumReleaseAgeExclude:
   - eslint-plugin-react-rsc@5.20.0
   - eslint-plugin-react-web-api@5.20.0
   - eslint-plugin-react-x@5.20.0
+
+# BEGIN source-only workspace linking (stripped by scripts/export-template.mjs)
+# Generated apps request an @ezhana/* semver range; prefer the local package so create:app can be
+# tested before a release. The exported template has no local copies and resolves from the registry.
+linkWorkspacePackages: true
+preferWorkspacePackages: true
+saveWorkspaceProtocol: false
+# END source-only workspace linking

@@ -1,8 +1,8 @@
 # @ezhana/eslint-config-typescript
 
-> **Shared workspace package.** The React, Vue, Astro, Next.js, Nuxt and Svelte config packages compose it. It is workspace source
-> under `packages/`, not an npm dependency; edit the shared rules in [`index.js`](./index.js). Apps
-> import the package from their thin `eslint.config.mjs`.
+> **Published npm package.** The React, Vue, Astro, Next.js, Nuxt and Svelte config packages compose
+> it. It is published to npm as `@ezhana/eslint-config-typescript`; edit the shared rules in
+> [`index.js`](./index.js) and release with Changesets.
 
 ESLint flat config for TypeScript projects.
 

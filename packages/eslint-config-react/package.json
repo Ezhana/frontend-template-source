@@ -1,7 +1,6 @@
 {
   "name": "@ezhana/eslint-config-react",
-  "version": "0.1.1",
-  "private": true,
+  "version": "0.2.0",
   "description": "ESLint flat config for React and TypeScript projects.",
   "type": "module",
   "exports": {
@@ -9,7 +8,8 @@
   },
   "files": [
     "index.js",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "eslint",
@@ -28,9 +28,17 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@ezhana/eslint-config-base": "workspace:*",
-    "@ezhana/eslint-config-typescript": "workspace:*",
+    "@ezhana/eslint-config-base": "workspace:^",
+    "@ezhana/eslint-config-typescript": "workspace:^",
     "@eslint-react/eslint-plugin": "5.20.0",
     "eslint-plugin-react-hooks": "7.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/eslint-config-react"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

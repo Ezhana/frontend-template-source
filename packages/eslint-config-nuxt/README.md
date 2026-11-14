@@ -1,8 +1,8 @@
 # @ezhana/eslint-config-nuxt
 
-> **Shared workspace package.** Apps configured with `--eslint` import it from their thin
-> `eslint.config.mjs`. It is workspace source under `packages/`, not an npm dependency; edit the
-> shared rules in [`index.js`](./index.js).
+> **Published npm package.** `create-ezhana-app --eslint` adds it as a devDependency and the
+> generated app imports it from a thin `eslint.config.mjs`. Edit the shared rules in
+> [`index.js`](./index.js) and release with Changesets.
 
 ESLint flat config for Nuxt and TypeScript projects.
 

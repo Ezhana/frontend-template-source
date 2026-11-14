@@ -1,8 +1,8 @@
 # @ezhana/eslint-config-base
 
-> **Shared workspace package.** The workspace root and the framework config packages compose it. It
-> is workspace source under `packages/`, not an npm dependency; edit the shared rules in
-> [`index.js`](./index.js). Apps import the package from their thin `eslint.config.mjs`.
+> **Published npm package.** The workspace root and the framework config packages compose it. It
+> is published to npm as `@ezhana/eslint-config-base`; edit the shared rules in
+> [`index.js`](./index.js) and release with Changesets.
 
 Base ESLint flat config for frontend JavaScript projects.
 

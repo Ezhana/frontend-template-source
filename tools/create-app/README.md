@@ -35,18 +35,18 @@ Each entry in [`lib/registry.mjs`](./lib/registry.mjs) defines:
 | `args`             | argument builder that inserts the project directory and flags |
 | `interactiveFlags` | flags used when the official CLI should prompt                |
 | `defaultFlags`     | flags used by `--defaults`                                    |
-| `eslintConfig`     | workspace ESLint config package used by `--eslint`            |
+| `eslintConfig`     | published ESLint config package used by `--eslint`            |
 | `prettierPlugins`  | extra Prettier plugins added by `--prettier`                  |
 
 To add a framework, add one registry entry and (if needed) a shared ESLint config package.
 
 ## Lint and format
 
-`--eslint` writes `eslint.config.mjs` at the app root and adds the framework-mapped workspace
-config package plus `eslint` and `typescript` at the catalog versions from `versions.json`.
+`--eslint` writes `eslint.config.mjs` at the app root and adds the framework-mapped config package
+from npm (`^<version>` from `versions.json`) plus `eslint` and `typescript` at the catalog versions.
 
 `--prettier` writes `prettier.config.mjs` and `.prettierignore` at the app root and adds
-`@ezhana/prettier-config`, `prettier`, and any registry `prettierPlugins` (for example
+`@ezhana/prettier-config` from npm, `prettier`, and any registry `prettierPlugins` (for example
 `prettier-plugin-astro` and `prettier-plugin-svelte`).
 
 Registry plugins are imported as modules in the generated config
@@ -55,10 +55,11 @@ package name instead makes Prettier resolve it against its process cwd, which is
 when the root `format` script or the lint-staged hook runs; the plugin is only installed in the app,
 so the name lookup fails. Module imports resolve from the app config file instead.
 
-The written files contain no rules: the rules live in `packages/eslint-config-*/index.js` and
-`packages/prettier-config/index.js`. The lint/format features require the app to be inside a pnpm
-workspace that ships these packages; `--target` outside the workspace cannot be combined with
-`--eslint` / `--prettier`.
+The written files contain no rules: the rules live in the published `@ezhana/eslint-config-*` and
+`@ezhana/prettier-config` packages. The generator adds them as regular devDependencies at the
+versions recorded in `versions.json`, so `--eslint` / `--prettier` work for any target, including
+`--target` outside a pnpm workspace. Values in `versions.json` must exist on npm before installing
+them; the generated template's CI exercises the full install path after a release.
 
 The flags are creation-only: the tool does not reconfigure an existing app. It overwrites the
 config files it owns during creation and does not delete or rewrite scaffold configuration, scripts

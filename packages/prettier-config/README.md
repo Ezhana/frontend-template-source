@@ -1,8 +1,8 @@
 # @ezhana/prettier-config
 
-> **Shared workspace package.** The workspace root and configured apps re-export it from their
-> `prettier.config.mjs`. It is workspace source under `packages/`, not an npm dependency; edit the
-> shared options in [`index.js`](./index.js).
+> **Published npm package.** The workspace root and configured apps re-export it from their
+> `prettier.config.mjs`. Edit the shared options in [`index.js`](./index.js) and release with
+> Changesets.
 
 Shared Prettier configuration for frontend projects.
 

@@ -92,8 +92,8 @@ Examples of official prompts:
 
 `--eslint` / `--prettier` write files at the **app root** and never inspect framework internals:
 
-- `eslint.config.mjs` imports the framework's workspace config package
-  (`@ezhana/eslint-config-next|vue|astro|nuxt|svelte`);
+- `eslint.config.mjs` imports the framework's published config package
+  (`@ezhana/eslint-config-next|vue|astro|nuxt|svelte`) and spreads it into `defineConfig`;
 - `prettier.config.mjs` re-exports `@ezhana/prettier-config` and enables the registry's Prettier
   plugins. The plugins are imported as modules (`import * as astro from 'prettier-plugin-astro'`),
   not listed as names: Prettier resolves plugin names against the process cwd, so a name entry
@@ -101,18 +101,19 @@ Examples of official prompts:
   lint-staged pre-commit hook do) while the plugin is installed only in the app;
 - `.prettierignore` is the shared file.
 
-Dependencies are added with `pnpm add -D`: the config package as `workspace:*`, plus `eslint`,
-`typescript` and `prettier` at the catalog versions from `versions.json`, and any Prettier plugins at
-their catalog versions.
+Dependencies are added with `pnpm add -D`: the config package at `^<version>` from `versions.json`,
+plus `eslint`, `typescript` and `prettier` at the catalog versions, and any Prettier plugins at their
+catalog versions. The config package is a normal npm dependency, not a workspace package.
 
-The shared rules live in `packages/eslint-config-*` and `packages/prettier-config`; edit them there.
-The flags overwrite the files they own during creation and do not delete Oxlint or other scaffold
-configuration, rewrite scripts, or migrate old configs. There is no standalone command for
-existing apps.
+The shared rules live in the published `@ezhana/eslint-config-*` and `@ezhana/prettier-config`
+packages; edit them in this source repository and release a new version. The flags overwrite the
+files they own during creation and do not delete Oxlint or other scaffold configuration, rewrite
+scripts, or migrate old configs. There is no standalone command for existing apps.
 
-The lint/format features require the app to be inside a pnpm workspace that ships these packages
-(the generated template or this repository). Outside such a workspace they stop with an error before
-writing files.
+The lint/format features work for any target, including `--target` outside a workspace, because the
+dependencies come from npm. In this source repository, `pnpm-workspace.yaml` prefers local packages
+for matching semver ranges, so the flags link the workspace sources during development and can be
+tested before a release.
 
 ## Theme CSS
 
@@ -159,18 +160,21 @@ npm package; see [ADR 0002](adr/0002-distribute-create-app-via-npm.md). The gene
 ```
 
 `scripts/export-template.mjs` reads the version from `tools/create-app/package.json`, injects the
-devDependency and script, and never copies the tool into the template. It also copies the nine
-shared config packages into the template's `packages/`. Users run `pnpm install` once before the
-command, which puts the pinned generator (and its integrity) in the template's `pnpm-lock.yaml`.
+devDependency and script, and never copies the tool into the template. It writes the template's
+root `package.json` with semver devDependencies on `@ezhana/eslint-config-base` and
+`@ezhana/prettier-config`; it does not copy the config packages into the template. Users run
+`pnpm install` once before the command, which puts the pinned generator, the config packages and
+their integrity in the template's `pnpm-lock.yaml`.
 
-`versions.json` is regenerated from the **non-private** package manifests under `packages/` (theme
-and token packages) plus the workspace catalog by the package's `prepack` hook (and manually with
-`pnpm sync:create-app`). The shared config packages are private, so they are not listed there; the
-template export copies them into the template's `packages/`.
+`versions.json` is regenerated from the **non-private** package manifests under `packages/` (theme,
+token and shared config packages) plus the workspace catalog by the package's `prepack` hook (and
+manually with `pnpm sync:create-app`). The config packages are public now, so they are listed there
+and generated apps depend on the exact versions the generator release was built with.
 
 ## Shared config packages
 
-`packages/eslint-config-*` and `packages/prettier-config` are **workspace packages**: private, not
-published to npm, and the single source of the lint/format rules. The framework mapping lives in the
-create-app registry, not in duplicated template files. See
-[ADR 0004](adr/0004-app-owned-lint-format-configs.md).
+`packages/eslint-config-*` and `packages/prettier-config` are **published npm packages** and the
+single source of the lint/format rules. The framework mapping lives in the create-app registry, not
+in duplicated template files. See
+[ADR 0007](adr/0007-publish-shared-configs.md) (which supersedes
+[ADR 0004](adr/0004-app-owned-lint-format-configs.md)).

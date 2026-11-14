@@ -1,7 +1,6 @@
 {
   "name": "@ezhana/prettier-config",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
   "description": "Shared Prettier configuration for frontend projects.",
   "type": "module",
   "exports": {
@@ -9,7 +8,8 @@
   },
   "files": [
     "index.js",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "prettier",
@@ -22,5 +22,13 @@
   },
   "peerDependencies": {
     "prettier": "catalog:"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/prettier-config"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

@@ -6,3 +6,4 @@
 - [ADR 0004: Lint/format configs ship as workspace packages](0004-app-owned-lint-format-configs.md)
 - [ADR 0005: CSS-first theme presets](0005-css-first-theme-presets.md)
 - [ADR 0006: Editorial typography as a scoped CSS preset](0006-editorial-typography-preset.md)
+- [ADR 0007: Publish the shared lint/format configs as npm packages](0007-publish-shared-configs.md)

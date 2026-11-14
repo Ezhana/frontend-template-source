@@ -49,9 +49,19 @@ jobs:
           version=$(node -p "require('./tools/create-app/package.json').version")
           pnpm view "create-ezhana-app@$version" version
 
+      # The template and its generated apps depend on these packages from npm; an unpublished
+      # version would make `pnpm install --lockfile-only` and the template CI fail.
+      - name: Verify shared config packages are published
+        run: |
+          for dir in packages/eslint-config-* packages/prettier-config; do
+            name=$(node -p "require('./$dir/package.json').name")
+            version=$(node -p "require('./$dir/package.json').version")
+            pnpm view "$name@$version" version
+          done
+
       # An old published version makes the generated template's CI fail. Run the published bin so the
-      # export only proceeds when the pinned release writes configs that compose the shared workspace
-      # config packages shipped in the template and supports the --defaults/--theme workflow.
+      # export only proceeds when the pinned release writes configs that compose the published
+      # @ezhana config packages and supports the --defaults/--theme workflow.
       - name: Verify published generator supports the template workflow
         run: |
           version=$(node -p "require('./tools/create-app/package.json').version")

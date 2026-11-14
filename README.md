@@ -11,9 +11,10 @@ repository is generated from this repository; no full sample apps are committed 
 - Centralized dependency versions with pnpm Catalog
 - ESLint 10 Flat Config
 - Shared ESLint config packages for the base, TypeScript, React, Vue, Astro, Next.js, Nuxt and
-  Svelte rule sets (workspace source, not published)
-- Shared Prettier config package (workspace source, not published)
-- Opt-in app configs written by `create:app --eslint` / `--prettier` that compose the shared packages
+  Svelte rule sets (published npm packages)
+- Shared Prettier config package (published npm package)
+- Opt-in app configs written by `create:app --eslint` / `--prettier` that depend on the published
+  packages instead of copied rule sets
 - CSS-first design tokens: DTCG sources compiled with Style Dictionary into one layered stylesheet,
   resolved JSON, a versioned theme contract and typed metadata
 - Zero-JavaScript theming: `data-theme` selects a theme, optional `data-color-mode` forces a color
@@ -35,8 +36,8 @@ repository is generated from this repository; no full sample apps are committed 
   non-interactive with `--defaults`
 - Minimal CSS-only theme injection via `create:app --theme`; no overlay, runtime or switcher
 - Opt-in ESLint/Prettier configuration via `create:app --eslint` / `--prettier`
-- Generated `frontend-template` repository export, including the shared config packages under its
-  `packages/`
+- Generated `frontend-template` repository export, consuming the shared config packages as npm
+  devDependencies
 - lint-staged with simple-git-hooks
 - GitHub Actions CI
 - Changesets for package versioning and releases
@@ -63,15 +64,15 @@ frontend-template-source/
 │   ├── design-theme-obsidian/      # official Obsidian & Gold theme (dark-only)
 │   ├── typography-editorial/       # CSS-only editorial typography preset (no JS)
 │   ├── theme/                      # optional theme/mode state runtime (no CSS)
-│   ├── eslint-config-base/         # shared config package (not published)
-│   ├── eslint-config-typescript/   # shared config package (not published)
-│   ├── eslint-config-vue/          # shared config package (not published)
-│   ├── eslint-config-react/        # shared config package (not published)
-│   ├── eslint-config-astro/        # shared config package (not published)
-│   ├── eslint-config-next/         # shared config package (not published)
-│   ├── eslint-config-nuxt/         # shared config package (not published)
-│   ├── eslint-config-svelte/       # shared config package (not published)
-│   └── prettier-config/            # shared config package (not published)
+│   ├── eslint-config-base/         # published shared config package
+│   ├── eslint-config-typescript/   # published shared config package
+│   ├── eslint-config-vue/          # published shared config package
+│   ├── eslint-config-react/        # published shared config package
+│   ├── eslint-config-astro/        # published shared config package
+│   ├── eslint-config-next/         # published shared config package
+│   ├── eslint-config-nuxt/         # published shared config package
+│   ├── eslint-config-svelte/       # published shared config package
+│   └── prettier-config/            # published shared config package
 │
 ├── tools/create-app/               # published create-ezhana-app dispatcher
 │   ├── lib/registry.mjs            # framework → CLI / flags / lint config
@@ -93,33 +94,37 @@ frontend-template-source/
 └── pnpm-lock.yaml
 ```
 
-The nine shared config packages are the single source of lint/format rules: this repository's root
-configs, the exported template's root configs and the apps generated in it all compose them.
+The nine shared config packages are the single source of lint/format rules. This repository's root
+configs compose them from the workspace; the exported template and generated apps depend on them as
+published npm packages. See [ADR 0007](docs/adr/0007-publish-shared-configs.md).
 
 ## Packages
 
-### Shared lint/format config packages (not published)
+### Shared lint/format config packages (published)
 
 `packages/eslint-config-base`, `packages/eslint-config-typescript`,
 `packages/eslint-config-react`, `packages/eslint-config-vue`, `packages/eslint-config-astro`,
 `packages/eslint-config-next`, `packages/eslint-config-nuxt`, `packages/eslint-config-svelte` and
-`packages/prettier-config` are private workspace packages and the **single source of the lint/format rules**. They are not
-published to npm.
+`packages/prettier-config` are public npm packages (`@ezhana/*`) and the **single source of the
+lint/format rules**. They are versioned and published with Changesets.
 
-This repository's root configs compose them, `scripts/export-template.mjs` copies them into the
-generated template under `packages/`, and the template's root configs compose them there. Generated
-apps get thin `eslint.config.mjs` / `prettier.config.mjs` files that import the packages, so users
-edit rules in `packages/eslint-config-*/index.js` (or `packages/prettier-config/index.js`) or add
-app-level overrides:
+This repository's root configs compose them from the workspace. `scripts/export-template.mjs` no
+longer copies them: the generated template's root `package.json` depends on
+`@ezhana/eslint-config-base` and `@ezhana/prettier-config` with semver ranges, and its `packages/`
+directory is reserved for the user's own packages. Generated apps get thin `eslint.config.mjs` /
+`prettier.config.mjs` files that import the framework-mapped package added as a normal
+devDependency:
 
 ```bash
 pnpm create:app next my-app --eslint --prettier
+# devDependencies: @ezhana/eslint-config-next@^<version>, @ezhana/prettier-config@^<version>
 ```
 
-The config features require the app to live inside a workspace that ships these packages (this
-repository or the generated template). By default no lint/format config is written: the official
-scaffold's own output is preserved. The flags apply at creation time; existing apps are not
-reconfigured by the tool.
+By default no lint/format config is written: the official scaffold's own output is preserved. The
+flags apply at creation time; existing apps are not reconfigured by the tool. The config features
+work for any `--target`, not only inside this repository's workspace. To change rules, edit
+`packages/eslint-config-*/index.js` or `packages/prettier-config/index.js`, release a new version,
+and bump the dependency (or add app-level overrides).
 
 ### Design system packages
 
@@ -329,23 +334,24 @@ The generator then:
    `style.css` `@import`, and adds the theme package. If no global CSS exists, it warns and skips the
    theme;
 5. with `--eslint` / `--prettier`, writes `eslint.config.mjs` and/or `prettier.config.mjs` at the app
-   root, adds the framework-mapped workspace config package, and installs the dependencies;
+   root, adds the framework-mapped published config package as a normal devDependency, and installs
+   the dependencies;
 6. installs the scaffold's dependencies (or the theme package) and verifies with ESLint when
    configured, otherwise the app's lint script when present, then `pnpm build`.
 
 There is no theme overlay, switcher, runtime or anti-flash script. Theme integration is only the
 CSS `@import` described above.
 
-The config features need the app to be inside a workspace that ships the shared config packages
-(this repository or the generated template); `--target` outside the workspace cannot be combined
-with `--eslint` / `--prettier`.
+The config features work for any target: the packages come from npm, so `--target` outside a
+workspace is allowed. In this source repository the local packages are linked for matching semver
+ranges, so config changes can be tested before a release.
 
 Run `pnpm create:app` without arguments for an interactive framework/name prompt. By default the app
 is created under `apps/<name>`; use `--target <path>` for a different directory. In non-interactive
 environments, pass `--defaults`.
 
 The config flags are creation-only: there is no separate `configure` subcommand. They write the
-root config files and add the workspace config packages and their dependencies, but do not delete
+app config files and add the published config packages and their dependencies, but do not delete
 scaffold configs, rewrite scripts or migrate old setups.
 
 Generated app commands:
@@ -371,10 +377,10 @@ is not copied into the template. See
 The generated `frontend-template` repository is a **workspace starter with no default apps**:
 
 - `apps/` — empty; users choose a stack with one command;
-- `packages/` — the nine shared lint/format config packages, plus room for your own workspace
-  packages;
+- `packages/` — empty, reserved for your own workspace packages; the shared lint/format configs are
+  npm devDependencies;
 - `README.md` (English) and `README.zh-CN.md` (中文);
-- root lint/format configs that compose the packages, commit hooks and CI.
+- root lint/format configs that compose the npm packages, commit hooks and CI.
 
 ```bash
 pnpm install        # installs root tooling and the pinned create-ezhana-app generator
@@ -391,8 +397,9 @@ with `--eslint` / `--prettier`; `--theme` injects a theme CSS `@import`
 when a global CSS file is present. The generated app appears under `apps/<name>`.
 
 To add your own package, create `packages/<name>`, reference it with `"workspace:*"` from an app,
-and run `pnpm build:packages` before `pnpm build`. Keep the shared config packages: the root and app
-lint/format configs resolve them through the workspace. See the template's `packages/README.md`.
+and run `pnpm build:packages` before `pnpm build`. The shared lint/format configs are npm
+dependencies, so they do not appear under `packages/`; bump `@ezhana/eslint-config-*` /
+`@ezhana/prettier-config` to get rule updates. See the template's `packages/README.md`.
 
 ### Consume the design system in any app
 
@@ -600,10 +607,11 @@ This repository is the source/development monorepo. The public template reposito
 it: the `template/` skeleton supplies the workspace files and root configs, and the generator is
 published as [`create-ezhana-app`](https://www.npmjs.com/package/create-ezhana-app) and pinned as an
 exact devDependency (`create:app` → `create-ezhana-app`); no generator code is copied into the
-template. `scripts/export-template.mjs` copies the nine private lint/format config packages into the
-template's `packages/`, where the root and app configs compose them as `workspace:*` dependencies;
-the published `@ezhana` token and theme packages are installed from npm. The template keeps the
-`apps/` + `packages/` monorepo layout.
+template. `scripts/export-template.mjs` copies the skeleton and writes a root manifest that depends
+on the published `@ezhana/eslint-config-base` and `@ezhana/prettier-config` with semver ranges; the
+lint/format packages are no longer copied into the template, and `packages/` is reserved for user
+packages. Token and theme packages are also installed from npm. The template keeps the `apps/` +
+`packages/` monorepo layout.
 
 ```bash
 pnpm export:template --install          # generate dist-template/frontend-template
@@ -618,15 +626,15 @@ model, required GitHub variables/secrets, and the user-package workflow.
 The repository has two layers of lint/format configuration:
 
 1. **Shared config packages** in `packages/eslint-config-*` and `packages/prettier-config` hold the
-   rules. This repository's root configs compose them; the packages are private and are not
-   published.
+   rules and are published to npm. This repository's root configs compose them from the workspace;
+   the template and generated apps depend on them as normal npm packages.
 2. **Thin app configs** are written by `create-ezhana-app` into generated apps. They import the
-   shared packages and contain no rules of their own, only an extension point for app-level
+   installed packages and contain no rules of their own, only an extension point for app-level
    overrides.
 
 `pnpm create:app` does not write lint/format config by default. Use `--eslint` / `--prettier` when
-creating an app. The config features require the app to be inside a workspace that ships the
-packages (this repository or the generated template):
+creating an app. The generator adds the published packages as `^<version>` devDependencies, so the
+flags work inside or outside a workspace:
 
 ```bash
 pnpm create:app next my-app --defaults --eslint --prettier
@@ -693,9 +701,10 @@ pnpm check
 
 ## Versioning and Releases
 
-Published design/theme packages and the generator are versioned and released with Changesets. The
-lint/format config packages under `packages/` are private workspace packages, so Changesets neither
-versions nor publishes them; the template export copies them into the generated template.
+Published design/theme packages, the shared lint/format config packages and the generator are
+versioned and released with Changesets. A release publishes the config packages before
+`create-ezhana-app` and before the template export, because the template and generated apps depend
+on those versions from npm.
 
 The repository uses Changesets for package versioning:
 
@@ -709,13 +718,14 @@ Review pending releases:
 pnpm changeset:status
 ```
 
-Apply version changes:
+Apply version changes (this also refreshes `tools/create-app/versions.json`):
 
 ```bash
 pnpm changeset:version
 ```
 
-Publish packages:
+Publish packages. Publish the config packages together with the generator release, before
+re-exporting the template:
 
 ```bash
 pnpm changeset:publish
@@ -782,15 +792,15 @@ package because it accepts theme definitions structurally.
 
 ### Config is shared once, apps extend it
 
-The ESLint/Prettier rules live in the shared workspace packages. Generated apps get thin configs
-that compose them and can add app-level overrides, so a rule change is made once instead of copied
-per app.
+The ESLint/Prettier rules live in the shared npm config packages. Generated apps get thin configs
+that depend on and compose them, so a rule change is made once instead of copied per app.
 
-### Tooling source ships as workspace packages, not npm packages
+### Shared tooling ships as npm packages
 
-The lint/format config packages remain private and unpublished. The generated template carries them
-as workspace source under `packages/`, so its root and app configs compose them without an npm
-release.
+The lint/format config packages are published as `@ezhana/*` npm packages. The generated template
+and its apps depend on them with semver ranges, so rule fixes are a dependency bump instead of a
+template re-export. The source repository links its local packages for matching ranges during
+development; the exported workspace resolves them from the registry.
 
 ### Explicit, opt-in configuration
 

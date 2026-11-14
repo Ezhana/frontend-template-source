@@ -1,35 +1,33 @@
 # packages/
 
-This directory ships the shared lint/format config packages for this workspace:
+Workspace packages you own. The template intentionally ships no packages here; add shared code as
+your monorepo grows.
+
+The ESLint/Prettier rules are **not** in this directory. They live in the published npm packages:
 
 ```text
-packages/
-├── eslint-config-base/        # base ESLint flat config (JS rules, browser globals)
-├── eslint-config-typescript/  # base + TypeScript rules
-├── eslint-config-react/       # TypeScript + React rules (used by Next.js)
-├── eslint-config-vue/         # TypeScript + Vue 3 rules
-├── eslint-config-astro/       # TypeScript + Astro rules
-├── eslint-config-next/        # React/TypeScript + Next.js rules
-├── eslint-config-nuxt/        # Vue/TypeScript rules with Nuxt auto-import tolerance
-├── eslint-config-svelte/      # TypeScript + Svelte rules
-└── prettier-config/           # shared Prettier options
+@ezhana/eslint-config-base
+@ezhana/eslint-config-typescript
+@ezhana/eslint-config-react
+@ezhana/eslint-config-vue
+@ezhana/eslint-config-astro
+@ezhana/eslint-config-next
+@ezhana/eslint-config-nuxt
+@ezhana/eslint-config-svelte
+@ezhana/prettier-config
 ```
 
-They are **workspace packages**, not published npm dependencies. The root `eslint.config.mjs` and
-`prettier.config.mjs` compose them, and apps created with `pnpm create:app ... --eslint --prettier` import the framework-mapped `@ezhana/eslint-config-*` package and
-`@ezhana/prettier-config` through `workspace:*` dependencies. The mapping lives in the published
-generator's registry, not in this directory.
-
-Themes do not live here: the published `@ezhana/design-theme-*` theme packages are npm dependencies
-that apps can add with `pnpm create:app --theme`. Use this directory for your own shared code,
-alongside the config packages.
+The root `eslint.config.mjs` / `prettier.config.mjs` compose the base and Prettier packages, and
+apps created with `pnpm create:app ... --eslint --prettier` add the framework-mapped package as a
+normal devDependency. Update those npm dependencies to pick up rule changes; do not copy the
+packages into this directory.
 
 ## Changing rules
 
-- Edit `packages/eslint-config-*/index.js` or `packages/prettier-config/index.js`. A rule change
-  applies to the workspace root and to every configured app.
-- Put app-specific overrides in the app's `eslint.config.mjs` / `prettier.config.mjs`, not here.
-- The config packages have no build step, so `pnpm build:packages` skips them.
+- Put workspace-wide overrides in the root `eslint.config.mjs` / `prettier.config.mjs`.
+- Put app-specific overrides in that app's config file.
+- The shared `@ezhana/*` config packages are read-only npm dependencies. To change rules for every
+  consumer, update the package in the source repository and release a new version.
 
 ## Adding a package
 
@@ -89,7 +87,6 @@ add your own release/versioning workflow (for example Changesets) if you want to
 
 ## Conventions
 
-- Keep the config packages in place; all workspace and app lint/format configuration resolves them.
 - Keep `type: "module"` and explicit `exports` with `types` and `default` entries.
 - Build TypeScript packages to `dist/` and keep `dist/` out of git (already ignored).
 - Prefer `workspace:*` for internal dependencies inside this monorepo.

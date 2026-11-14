@@ -1,7 +1,6 @@
 {
   "name": "@ezhana/eslint-config-svelte",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.2.0",
   "description": "ESLint flat config for SvelteKit and TypeScript projects.",
   "type": "module",
   "exports": {
@@ -9,7 +8,8 @@
   },
   "files": [
     "index.js",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "keywords": [
     "eslint",
@@ -29,11 +29,19 @@
     "typescript": "catalog:"
   },
   "dependencies": {
-    "@ezhana/eslint-config-base": "workspace:*",
-    "@ezhana/eslint-config-typescript": "workspace:*",
+    "@ezhana/eslint-config-base": "workspace:^",
+    "@ezhana/eslint-config-typescript": "workspace:^",
     "eslint-plugin-svelte": "3.24.1",
     "svelte-eslint-parser": "1.10.1",
     "typescript-eslint": "8.70.0",
     "svelte": "^5.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ezhana/frontend-template-source.git",
+    "directory": "packages/eslint-config-svelte"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

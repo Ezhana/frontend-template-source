@@ -83,9 +83,9 @@ jobs:
           cache: true
           require-lockfile: true
 
-      # Generate inside the workspace: with --eslint/--prettier the app depends on the @ezhana
-      # config packages shipped in packages/ through workspace:* dependencies, so it cannot live
-      # outside the pnpm workspace.
+      # Generate inside the workspace: with --eslint/--prettier the app asks for the published
+      # @ezhana config packages, and the source workspace links its local packages for matching
+      # semver ranges (see pnpm-workspace.yaml), so this exercises the sources before a release.
       - name: Generate app
         run: pnpm create:app ${{ matrix.framework }} generated-app ${{ matrix.features }}
 
@@ -102,8 +102,9 @@ jobs:
           test -f apps/generated-app/.prettierignore
           grep -q "@ezhana/eslint-config-${{ matrix.lint_package }}" apps/generated-app/eslint.config.mjs
           grep -q '@ezhana/prettier-config' apps/generated-app/prettier.config.mjs
-          grep -q '"@ezhana/eslint-config-${{ matrix.lint_package }}": "workspace:' apps/generated-app/package.json
-          grep -q '"@ezhana/prettier-config": "workspace:' apps/generated-app/package.json
+          grep -q '"@ezhana/eslint-config-${{ matrix.lint_package }}": "\^' apps/generated-app/package.json
+          grep -q '"@ezhana/prettier-config": "\^' apps/generated-app/package.json
+          ! grep -q '"workspace:' apps/generated-app/package.json
 
       # The pre-commit hook and the root format script run Prettier from the workspace root. The
       # app config must load there too, including the plugins that are installed only in the app.
