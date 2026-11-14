@@ -111,9 +111,10 @@ files they own during creation and do not delete Oxlint or other scaffold config
 scripts, or migrate old configs. There is no standalone command for existing apps.
 
 The lint/format features work for any target, including `--target` outside a workspace, because the
-dependencies come from npm. In this source repository, `pnpm-workspace.yaml` prefers local packages
-for matching semver ranges, so the flags link the workspace sources during development and can be
-tested before a release.
+dependencies come from npm. In this source repository the config install passes pnpm's
+prefer/link-workspace-packages flags, so matching `@ezhana/*` config ranges link the local sources
+during development and can be tested before a release. The flags apply only to the config install;
+theme packages still resolve from the registry.
 
 ## Theme CSS
 

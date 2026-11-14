@@ -191,7 +191,24 @@ export const applyConfig = async ({ target, framework, features, install = true 
   }
 
   if (install) {
-    await run('pnpm', ['add', '-D', ...specs], targetPath, 'Adding lint/format dependencies')
+    // Prefer a matching workspace package while keeping the consumer-facing `^<version>` spec.
+    // In the source repository this links packages/eslint-config-* and packages/prettier-config so
+    // the generator can be tested before a release. The generated template has no local copies, so
+    // the same specs resolve from npm there. The flags are scoped to this install on purpose: a
+    // theme package must still resolve from the registry.
+    await run(
+      'pnpm',
+      [
+        'add',
+        '-D',
+        ...specs,
+        '--config.prefer-workspace-packages=true',
+        '--config.link-workspace-packages=true',
+        '--config.save-workspace-protocol=false',
+      ],
+      targetPath,
+      'Adding lint/format dependencies',
+    )
     await rm(join(targetPath, 'pnpm-workspace.yaml'), { force: true })
   }
 

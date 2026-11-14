@@ -799,8 +799,9 @@ that depend on and compose them, so a rule change is made once instead of copied
 
 The lint/format config packages are published as `@ezhana/*` npm packages. The generated template
 and its apps depend on them with semver ranges, so rule fixes are a dependency bump instead of a
-template re-export. The source repository links its local packages for matching ranges during
-development; the exported workspace resolves them from the registry.
+template re-export. In this source repository the generator asks pnpm to link the local config
+packages for matching ranges during development; the exported workspace and npm consumers resolve
+them from the registry.
 
 ### Explicit, opt-in configuration
 

@@ -109,12 +109,10 @@ that:
 - `create:app` points at the published package with an exact version;
 - `apps/` is empty, `packages/` contains no package directories, and `tools/` is absent;
 - the root configs import the published packages instead of copying rules;
-- the generated `pnpm-workspace.yaml` omits the source-only tools glob and local-linking settings.
+- the generated `pnpm-workspace.yaml` omits the source-only tools glob.
 
 `--install` runs `pnpm install --lockfile-only` in the generated directory. Run it after the
-`@ezhana` config/theme/token versions and the `create-ezhana-app` version exist on npm. The exported
-template does not use the source repository's local-link preference; the same semver ranges resolve
-from the registry.
+`@ezhana` config/theme/token versions and the `create-ezhana-app` version exist on npm.
 
 ## CI
 
@@ -126,11 +124,13 @@ tests. The source matrix lives in `.github/workflows/create-app.yml` and covers:
 - `--defaults --eslint --prettier` for all five;
 - `--defaults --theme ocean` for Next.js and `--defaults --theme cerulean` for Vue.
 
-In the source repository, a generated app's `^<version>` config dependency links the local workspace
-package (see the marked block in `pnpm-workspace.yaml`), so the matrix tests the current rules before
-a release. In the template repository, the configured matrix installs the published packages and
-runs the generator's ESLint and build verification. The export workflow verifies that every config
-version referenced by the template exists on npm before exporting.
+In the source repository, the generator passes pnpm's prefer/link-workspace-packages flags for the
+config install, so an app's `^<version>` config dependency links the local workspace package and the
+matrix tests the current rules before a release. Those flags are scoped to the config install; theme
+packages and scaffold dependencies still come from the registry. In the template repository, the
+configured matrix installs the published packages and runs the generator's ESLint and build
+verification. The export workflow verifies that every config version referenced by the template
+exists on npm before exporting.
 
 Interactive mode is not exercised in CI because GitHub Actions has no TTY.
 

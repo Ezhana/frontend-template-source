@@ -84,8 +84,9 @@ jobs:
           require-lockfile: true
 
       # Generate inside the workspace: with --eslint/--prettier the app asks for the published
-      # @ezhana config packages, and the source workspace links its local packages for matching
-      # semver ranges (see pnpm-workspace.yaml), so this exercises the sources before a release.
+      # @ezhana config packages, and the generator asks pnpm to prefer the local workspace packages
+      # for matching semver ranges, so this exercises the sources before a release. Theme packages
+      # still resolve from the registry.
       - name: Generate app
         run: pnpm create:app ${{ matrix.framework }} generated-app ${{ matrix.features }}
 

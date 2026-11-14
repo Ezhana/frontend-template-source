@@ -153,14 +153,6 @@ const copyRootFiles = async (outDir) => {
       // This exclusion list only exists for source-repo dependency policy; the template does not
       // need it and should stay focused on the workspaces + catalog.
       content = content.replace(/\nminimumReleaseAgeExclude:\n(?:[ ]{2}- .*\n)+/g, '\n')
-      // The source repository links local @ezhana/* packages for matching semver ranges so
-      // create:app can be tested before a release. The template ships no local config packages,
-      // so remove the whole marked block and let the ranges resolve from npm.
-      content = content.replace(
-        /\n# BEGIN source-only workspace linking[\s\S]*?# END source-only workspace linking\n/,
-        '\n',
-      )
-      content = content.replace(/\n+$/, '\n')
       // `tools/*` exists so the generator can be published from the source repo; the template
       // consumes the published package instead.
       content = content.replace(/^[ ]{2}- 'tools\/\*'\n/m, '')

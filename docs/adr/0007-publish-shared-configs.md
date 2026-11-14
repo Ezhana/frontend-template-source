@@ -96,13 +96,16 @@ implementation behind `defineConfig`) a string in `extends` refers to a register
 not to an npm package. A normal ESM import of the installed package is the supported way to compose
 a shared config package.
 
-### 4. The source repository prefers its local packages
+### 4. The config install prefers local packages
 
-So that the generator can be tested before a release, the source `pnpm-workspace.yaml` enables
-`linkWorkspacePackages`, `preferWorkspacePackages` and disables `saveWorkspaceProtocol` inside a
-marked block. A matching `@ezhana/*` semver range in a generated app links the local workspace
-package while `package.json` keeps the consumer-facing `^<version>` spec. The export strips the
-marked block, so the template resolves the same ranges from the registry.
+So that the generator can be tested before a release, the `pnpm add -D` run that adds the config
+packages passes `--config.prefer-workspace-packages=true`,
+`--config.link-workspace-packages=true` and `--config.save-workspace-protocol=false`. Against the
+source workspace, a matching `@ezhana/eslint-config-*` / `@ezhana/prettier-config` range links the
+local package while `package.json` keeps the consumer-facing `^<version>` spec. The flags are
+scoped to that one install: theme packages and every other dependency still resolve from the
+registry. In the exported template there are no local config packages, so the same specs resolve
+from npm.
 
 ### 5. Release order
 
@@ -135,9 +138,9 @@ npm before running `pnpm install --lockfile-only`.
 - Nine more public npm release artifacts to version and support.
 - Template and app installs need the config packages on npm; the export cannot run before publish.
   The release order and the export-workflow check make this explicit.
-- Source-repository testing depends on the local-linking settings; the exported workspace does not
-  carry them. The source workflow and the template workflow therefore exercise different resolution
-  paths (links vs registry), although both use the same `^<version>` manifests.
+- Source-repository config installs link the local packages, while template and consumer installs
+  resolve from the registry. The source workflow and the template workflow therefore exercise
+  different resolution paths (links vs registry), although both use the same `^<version>` manifests.
 - Users who want a different rule set must add overrides in their config or fork the package; they
   can no longer edit a copied source file in `packages/`.
 
