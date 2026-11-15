@@ -78,9 +78,19 @@ function parseDeclarations(body) {
   return declarations
 }
 
+/**
+ * Every element rule excludes the `.not-prose` escape hatch through this zero-specificity guard.
+ * Tests pass unguarded selectors and let `ruleFor` add the guard, so assertions stay readable.
+ */
+const escapeGuard = ':where(:not(.not-prose):not(.not-prose *))'
+
 const rules = parseRules(css)
 const selectorSet = new Set(rules.flatMap((rule) => rule.selectors))
-const ruleFor = (selector) => rules.filter((rule) => rule.selectors.includes(selector))
+const ruleFor = (selector) =>
+  rules.filter(
+    (rule) =>
+      rule.selectors.includes(selector) || rule.selectors.includes(`${selector}${escapeGuard}`),
+  )
 /** Merge the top-level declarations for a selector, with later rules winning. */
 const declarationsFor = (selector) => {
   const matches = ruleFor(selector).filter((rule) => rule.atRules.length === 0)
@@ -124,6 +134,7 @@ const publicVariables = [
   '--ez-editorial-font-size',
   '--ez-editorial-heading-line-height',
   '--ez-editorial-heading-scale',
+  '--ez-editorial-heading-scale-compact',
   '--ez-editorial-line-height',
   '--ez-editorial-paragraph-spacing',
 ]
@@ -151,15 +162,32 @@ test('every selector is opt-in under .ez-editorial', () => {
 
   for (const selector of selectorSet) {
     assert.ok(selector.startsWith('.ez-editorial'), `Unscoped selector found: "${selector}"`)
+    const unguarded = selector.endsWith(escapeGuard)
+      ? selector.slice(0, -escapeGuard.length)
+      : selector
     for (const unscoped of [' body', ' html', ' main', ' :root', ' *']) {
       assert.ok(
-        !selector.includes(unscoped),
+        !unguarded.includes(unscoped),
         `Selector "${selector}" reaches outside the editorial root`,
       )
     }
   }
 
   assert.ok(hasSelector('.ez-editorial'), 'Missing the .ez-editorial root rule')
+})
+
+test('component subtrees can opt out of the editorial element rules', () => {
+  for (const selector of selectorSet) {
+    if (selector === '.ez-editorial') continue
+    assert.ok(
+      selector.endsWith(escapeGuard),
+      `"${selector}" must exclude the .not-prose escape hatch`,
+    )
+  }
+
+  assert.ok(hasSelector('.ez-editorial'), 'Missing the .ez-editorial root rule')
+  assert.match(readme, /\.not-prose/, 'README.md does not document the escape hatch')
+  assert.match(css, /:where\(:not\(\.not-prose\)/, 'The guard must stay at zero specificity')
 })
 
 test('the stylesheet contains no import, reset, layer or runtime hook', () => {
@@ -242,6 +270,7 @@ test('body typography follows the reference reading rhythm', () => {
   assert.equal(root.get('--ez-editorial-font-size'), '1.25rem')
   assert.equal(root.get('--ez-editorial-line-height'), '1.7')
   assert.equal(root.get('--ez-editorial-heading-scale'), '1.25')
+  assert.equal(root.get('--ez-editorial-heading-scale-compact'), '1.15')
   assert.equal(root.get('--ez-editorial-heading-line-height'), '1.2')
   assert.equal(root.get('--ez-editorial-paragraph-spacing'), '1.5em')
   assert.equal(root.get('--ez-editorial-block-spacing'), '2em')
@@ -255,7 +284,7 @@ test('body typography follows the reference reading rhythm', () => {
   assert.equal(root.get('overflow-wrap'), 'break-word')
 })
 
-test('headings use compact leading, strong foreground and the 1.25 scale', () => {
+test('headings use compact leading, strong foreground and a fluid ladder', () => {
   for (const level of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']) {
     const shared = declarationsFor(`.ez-editorial ${level}`)
     if (level === 'h1') {
@@ -278,12 +307,61 @@ test('headings use compact leading, strong foreground and the 1.25 scale', () =>
     ['h5', 1],
   ]) {
     const font = declarationsFor(`.ez-editorial ${level}`).get('font-size')
-    assert.match(font, /^calc\(\s*1em \* /, `${level} must scale from the body size`)
-    const uses = font.match(/var\(--ez-editorial-heading-scale\)/g) ?? []
-    assert.equal(uses.length, power, `${level} must multiply the scale ${power} time(s)`)
+    assert.match(font, /^clamp\(\s*calc\(/, `${level} must clamp a computed size`)
+
+    const uses = (pattern) => font.match(pattern)?.length ?? 0
+    assert.equal(
+      uses(/var\(--ez-editorial-heading-scale-compact\)/g),
+      power * 2,
+      `${level} must anchor its floor and preferred size on the compact ladder (${power}×2)`,
+    )
+    assert.equal(
+      uses(/var\(--ez-editorial-heading-scale\)/g),
+      power,
+      `${level} must use the full ladder ${power} time(s) as its ceiling`,
+    )
+    assert.equal(
+      uses(/\d+(?:\.\d+)?vw/g),
+      1,
+      `${level} must add exactly one viewport term to stay fluid`,
+    )
+
+    // The viewport term is added to a length, never multiplied by one; `1em * clamp(…vw…)`
+    // would be a length squared. The three clamp() arguments are the floor, the fluid
+    // preferred size and the ceiling, in that order.
+    assert.match(font, /\+ \d+(?:\.\d+)?vw/)
+    assert.doesNotMatch(font, /\*\s*\d+(?:\.\d+)?vw/)
+    assert.doesNotMatch(font, /\d+(?:\.\d+)?vw\s*\*/)
+    const [minimum, preferred, maximum] = font.split(',')
+    assert.match(minimum, /--ez-editorial-heading-scale-compact\)/)
+    assert.doesNotMatch(minimum, /vw/)
+    assert.match(preferred, /--ez-editorial-heading-scale-compact\)/)
+    assert.match(preferred, /vw/)
+    assert.match(maximum, /var\(--ez-editorial-heading-scale\)/)
+    assert.doesNotMatch(maximum, /compact|vw/)
   }
 
   assert.equal(declarationsFor('.ez-editorial h6').get('font-size'), '1em')
+  assert.doesNotMatch(
+    stripComments(css),
+    /calc\(\s*1em\s*\*\s*clamp\(/,
+    'A heading must not multiply the body length by a clamp that can yield a length',
+  )
+})
+
+test('heading sizing is continuous and not stepped at the body breakpoint', () => {
+  const mediaRules = rules.filter((rule) => rule.atRules.length > 0)
+  assert.ok(mediaRules.length > 0, 'Expected the body/table media rules')
+
+  for (const rule of mediaRules) {
+    for (const selector of rule.selectors) {
+      assert.doesNotMatch(
+        selector,
+        /[hH][1-6]/,
+        `"${selector}" must not step heading sizes at a viewport breakpoint`,
+      )
+    }
+  }
 })
 
 test('paragraph rhythm and trailing whitespace are deliberate', () => {
@@ -303,7 +381,9 @@ test('the mobile reading size and table scroll switch at 720px', () => {
   assert.equal(mobileRoot.length, 1, 'Expected one mobile .ez-editorial rule')
   assert.equal(mobileRoot[0].declarations.get('--ez-editorial-font-size'), '1.125rem')
 
-  const mobileTable = mobileRules.filter((rule) => rule.selectors.includes('.ez-editorial table'))
+  const mobileTable = mobileRules.filter((rule) =>
+    rule.selectors.includes(`.ez-editorial table${escapeGuard}`),
+  )
   assert.equal(mobileTable.length, 1, 'Expected one mobile table rule')
   assert.equal(mobileTable[0].declarations.get('display'), 'block')
   assert.equal(mobileTable[0].declarations.get('overflow-x'), 'auto')

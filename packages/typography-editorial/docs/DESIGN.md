@@ -75,6 +75,8 @@ Use `.ez-editorial` as the public scope unless repository conventions require a 
 
 The preset must not require a `.prose` class, which is commonly associated with Tailwind Typography and other libraries.
 
+The preset also provides a component escape hatch. Any subtree marked `.not-prose` is excluded from every editorial element rule, so a self-contained component embedded in an article (friend links, a card, a call to action) keeps its own typography regardless of the surrounding article structure. The escape hatch removes editorial presentation only; it neither resets nor restyles the component, and the subtree still inherits ambient font, size, color and leading like any other descendant.
+
 ## 5. Layout guidance (consumer responsibility)
 
 The reference layout uses a centered, single-column reading area approximately `720px` wide, with horizontal safety padding and generous vertical space.
@@ -113,6 +115,8 @@ Headings use a compact line-height of `1.2`. Their sizes follow an approximately
 | `h6`    |           `1em` |            `20px` |            `18px` |
 
 The values above describe the supplied reference stylesheet. Preserve their visual relationship. The implementation may express the scale with CSS custom properties, `em`, `rem`, or `clamp()` provided the result remains faithful and responsive.
+
+The implementation treats the scale as a fluid ladder rather than a fixed step. Each of `h1`–`h5` is a `clamp()` between a compact ladder for narrow viewports and the full `1.25` ladder for wide viewports; the compact ladder is the package setting `--ez-editorial-heading-scale-compact` (default `1.15`). Both clamp bounds multiply the body size (`1em`) by unitless ratios, and the viewport term is added rather than multiplied, so the fluid expression cannot produce a length squared. `h6` remains at the body size. The table above still describes the wide-viewport ceiling; small screens compress the same hierarchy toward the compact ladder.
 
 ### Font family
 
@@ -267,10 +271,12 @@ The reference changes body text from `20px` to `18px` at `720px` and reduces the
 For the typography package:
 
 - keep the body-size transition at approximately `720px`, unless a fluid implementation better preserves the same visual result
-- maintain readable heading proportions on small screens
+- maintain readable heading proportions on small screens: heading sizes are a continuous `clamp()` between the compact and full ladders and are not stepped at the body breakpoint
 - prevent long code lines and tables from forcing the page wider
 - keep images fluid
 - avoid introducing separate mobile-only visual language
+
+The body step at `720px` does not by itself keep the heading hierarchy readable: if headings only inherit the body size, their ratios stay fixed and the top of the ladder remains oversized on small screens. The heading ladder therefore has its own narrow-viewport parameter, `--ez-editorial-heading-scale-compact`, instead of riding the body breakpoint.
 
 The package must not set page or viewport widths; the consumer owns the reading container.
 
@@ -287,7 +293,7 @@ The package must not set page or viewport widths; the consumer owns the reading 
 
 ## 11. Customization contract
 
-Expose a small, documented set of package-scoped CSS custom properties only where they provide meaningful editorial customization, for example body size, line-height, heading scale, and content rhythm.
+Expose a small, documented set of package-scoped CSS custom properties only where they provide meaningful editorial customization, for example body size, line-height, the heading ladder (full and compact ratios), and content rhythm.
 
 Use an Ezhana-specific prefix for these local properties. They are typography preset settings, not global Design Tokens.
 
@@ -298,7 +304,7 @@ Do not expose every margin, border, or font property as a public variable. Keep 
 The implementation is faithful to this design when:
 
 1. A plain Markdown article is calm, readable, and content-focused.
-2. The type hierarchy follows the reference's approximately 1.25 scale.
+2. The type hierarchy follows the reference's approximately 1.25 scale at wide viewports and compresses toward the compact ladder on small screens.
 3. Body line-height is spacious and headings remain compact.
 4. The design works on desktop and mobile without changing its visual identity.
 5. Links, quotes, inline code, code blocks, tables, images, and lists are styled consistently.
@@ -307,3 +313,4 @@ The implementation is faithful to this design when:
 8. It does not require Astro or any JavaScript runtime.
 9. It does not interfere with Shiki or another syntax highlighter.
 10. All styles are opt-in through the editorial root class.
+11. A component subtree marked `.not-prose` is not restyled by the preset.

@@ -399,6 +399,15 @@ check(
   'built CSS contains the editorial customization settings',
 )
 check(
+  bundledCss.includes('--ez-editorial-heading-scale-compact'),
+  'built CSS contains the compact heading ladder setting',
+)
+check(
+  /clamp\(\s*calc\(\s*1em\s*\*\s*var\(--ez-editorial-heading-scale-compact\)/.test(bundledCss),
+  'built CSS contains the fluid heading clamp ladder',
+)
+check(/\.not-prose\s*\*\)/.test(bundledCss), 'built CSS contains the editorial escape hatch')
+check(
   // Lightning CSS may rewrite max-width to the range syntax during the Astro build.
   /@media\s*\((?:max-width:\s*720px|width\s*<=\s*720px)\)/.test(bundledCss),
   'built CSS contains the responsive typography breakpoint',

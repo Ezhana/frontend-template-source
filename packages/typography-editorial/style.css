@@ -2,6 +2,11 @@
  * @ezhana/typography-editorial — CSS-only editorial typography for rendered long-form content.
  *
  * Everything is scoped to `.ez-editorial`; this file styles no page, document root or component.
+ * A component embedded inside article content can opt out of the editorial element rules with the
+ * Tailwind-compatible `.not-prose` escape hatch; every element selector excludes that subtree
+ * through a zero-specificity `:where()` guard, so the escape hatch does not raise the preset's
+ * specificity.
+ *
  * Colors, fonts, borders and focus rings come from the active @ezhana theme's semantic custom
  * properties (see README.md). The design values follow docs/DESIGN.md and are independently
  * expressed; the visual reference is the MIT-licensed Astro Blog Starter stylesheet.
@@ -15,6 +20,7 @@
   --ez-editorial-font-size: 1.25rem;
   --ez-editorial-line-height: 1.7;
   --ez-editorial-heading-scale: 1.25;
+  --ez-editorial-heading-scale-compact: 1.15;
   --ez-editorial-heading-line-height: 1.2;
   --ez-editorial-paragraph-spacing: 1.5em;
   --ez-editorial-block-spacing: 2em;
@@ -28,12 +34,12 @@
   text-align: start;
 }
 
-.ez-editorial h1,
-.ez-editorial h2,
-.ez-editorial h3,
-.ez-editorial h4,
-.ez-editorial h5,
-.ez-editorial h6 {
+.ez-editorial h1:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial h2:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial h3:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial h4:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial h5:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial h6:where(:not(.not-prose):not(.not-prose *)) {
   margin: 0 0 0.5rem;
   color: var(--color-fg-strong, inherit);
   font-family: var(--font-family-heading, var(--font-family-sans, inherit));
@@ -42,104 +48,155 @@
 }
 
 /*
- * A 1.25 modular scale. h6 is the body size, so h1–h5 multiply the scale 5–1 times. Raising
- * `--ez-editorial-heading-scale` scales the whole heading hierarchy without touching each level.
+ * Fluid heading ladder. Each level is a clamp() between two unitless modular ladders: the compact
+ * ladder for narrow viewports and the full ladder for wide ones. Both bounds multiply 1em by an
+ * unmodified ratio, and the preferred value *adds* a viewport term to the compact size, so no
+ * length is ever multiplied by another length. The interpolation is continuous, which is why the
+ * heading ladder does not need its own step at the body's 720px breakpoint: it has its own
+ * narrow-viewport setting, `--ez-editorial-heading-scale-compact`, and h6 stays at the body size.
+ * Each viewport slope is tuned so the full ladder is reached at roughly a 1200px viewport.
  */
-.ez-editorial h1 {
-  font-size: calc(
-    1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
-      var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
-      var(--ez-editorial-heading-scale)
+.ez-editorial h1:where(:not(.not-prose):not(.not-prose *)) {
+  font-size: clamp(
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact)
+    ),
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact) + 1.73vw
+    ),
+    calc(
+      1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+        var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+        var(--ez-editorial-heading-scale)
+    )
   );
 }
 
-.ez-editorial h2 {
-  font-size: calc(
-    1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
-      var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale)
+.ez-editorial h2:where(:not(.not-prose):not(.not-prose *)) {
+  font-size: clamp(
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact)
+    ),
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) +
+        1.15vw
+    ),
+    calc(
+      1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+        var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale)
+    )
   );
 }
 
-.ez-editorial h3 {
-  font-size: calc(
-    1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
-      var(--ez-editorial-heading-scale)
+.ez-editorial h3:where(:not(.not-prose):not(.not-prose *)) {
+  font-size: clamp(
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact)
+    ),
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) *
+        var(--ez-editorial-heading-scale-compact) + 0.72vw
+    ),
+    calc(
+      1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale) *
+        var(--ez-editorial-heading-scale)
+    )
   );
 }
 
-.ez-editorial h4 {
-  font-size: calc(1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale));
+.ez-editorial h4:where(:not(.not-prose):not(.not-prose *)) {
+  font-size: clamp(
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact)
+    ),
+    calc(
+      1em * var(--ez-editorial-heading-scale-compact) * var(--ez-editorial-heading-scale-compact) +
+        0.4vw
+    ),
+    calc(1em * var(--ez-editorial-heading-scale) * var(--ez-editorial-heading-scale))
+  );
 }
 
-.ez-editorial h5 {
-  font-size: calc(1em * var(--ez-editorial-heading-scale));
+.ez-editorial h5:where(:not(.not-prose):not(.not-prose *)) {
+  font-size: clamp(
+    calc(1em * var(--ez-editorial-heading-scale-compact)),
+    calc(1em * var(--ez-editorial-heading-scale-compact) + 0.17vw),
+    calc(1em * var(--ez-editorial-heading-scale))
+  );
 }
 
-.ez-editorial h6 {
+.ez-editorial h6:where(:not(.not-prose):not(.not-prose *)) {
   font-size: 1em;
 }
 
-.ez-editorial p {
+.ez-editorial p:where(:not(.not-prose):not(.not-prose *)) {
   margin: 0 0 var(--ez-editorial-paragraph-spacing);
 }
 
-.ez-editorial > :last-child,
-.ez-editorial blockquote > :last-child,
-.ez-editorial li > :last-child,
-.ez-editorial figure > :last-child,
-.ez-editorial td > :last-child,
-.ez-editorial th > :last-child {
+.ez-editorial > :last-child:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial blockquote > :last-child:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial li > :last-child:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial figure > :last-child:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial td > :last-child:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial th > :last-child:where(:not(.not-prose):not(.not-prose *)) {
   margin-block-end: 0;
 }
 
-.ez-editorial strong,
-.ez-editorial b {
+.ez-editorial strong:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial b:where(:not(.not-prose):not(.not-prose *)) {
   font-weight: var(--font-weight-bold, 700);
 }
 
-.ez-editorial a {
+.ez-editorial a:where(:not(.not-prose):not(.not-prose *)) {
   color: var(--color-accent, currentColor);
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
 }
 
-.ez-editorial a:hover {
+.ez-editorial a:hover:where(:not(.not-prose):not(.not-prose *)) {
   color: var(--color-accent-hover, var(--color-accent, currentColor));
   text-decoration-thickness: 2px;
 }
 
-.ez-editorial a:focus-visible {
+.ez-editorial a:focus-visible:where(:not(.not-prose):not(.not-prose *)) {
   outline: var(--border-width-strong, 2px) solid var(--color-focus-ring, currentColor);
   outline-offset: 2px;
 }
 
 /* Lists: restore markers and indentation even when Preflight removed them. */
-.ez-editorial ul,
-.ez-editorial ol {
+.ez-editorial ul:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial ol:where(:not(.not-prose):not(.not-prose *)) {
   margin: 0 0 var(--ez-editorial-block-spacing);
   padding: 0;
   padding-inline-start: 1.5em;
 }
 
-.ez-editorial ul {
+.ez-editorial ul:where(:not(.not-prose):not(.not-prose *)) {
   list-style: disc outside;
 }
 
-.ez-editorial ol {
+.ez-editorial ol:where(:not(.not-prose):not(.not-prose *)) {
   list-style: decimal outside;
 }
 
-.ez-editorial li {
+.ez-editorial li:where(:not(.not-prose):not(.not-prose *)) {
   margin-block: 0.35em;
 }
 
-.ez-editorial li > ul,
-.ez-editorial li > ol {
+.ez-editorial li > ul:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial li > ol:where(:not(.not-prose):not(.not-prose *)) {
   margin-block: 0.35em 0;
 }
 
-.ez-editorial blockquote {
+.ez-editorial blockquote:where(:not(.not-prose):not(.not-prose *)) {
   margin: 0 0 var(--ez-editorial-block-spacing);
   padding: 0;
   padding-inline-start: 1.25rem;
@@ -148,7 +205,7 @@
   font-size: 1.333em;
 }
 
-.ez-editorial code {
+.ez-editorial code:where(:not(.not-prose):not(.not-prose *)) {
   padding: 0.1em 0.25em;
   border-radius: 2px;
   background: var(--color-bg-subtle, transparent);
@@ -157,7 +214,7 @@
   font-size: 1em;
 }
 
-.ez-editorial pre {
+.ez-editorial pre:where(:not(.not-prose):not(.not-prose *)) {
   max-width: 100%;
   margin: 0 0 var(--ez-editorial-block-spacing);
   padding: 1.5em;
@@ -172,7 +229,7 @@
  * Reset only the inline-code presentation for the code block itself. Do not use `all: unset` and
  * do not touch descendants: syntax highlighters may wrap lines and tokens inside this element.
  */
-.ez-editorial pre code {
+.ez-editorial pre code:where(:not(.not-prose):not(.not-prose *)) {
   padding: 0;
   border-radius: 0;
   background: none;
@@ -182,15 +239,15 @@
 }
 
 /* Tables: full width with simple rules; narrow viewports turn the table into a scroll container. */
-.ez-editorial table {
+.ez-editorial table:where(:not(.not-prose):not(.not-prose *)) {
   width: 100%;
   max-width: 100%;
   margin: 0 0 var(--ez-editorial-block-spacing);
   border-collapse: collapse;
 }
 
-.ez-editorial th,
-.ez-editorial td {
+.ez-editorial th:where(:not(.not-prose):not(.not-prose *)),
+.ez-editorial td:where(:not(.not-prose):not(.not-prose *)) {
   padding: 0.5em 0.75em;
   border-bottom: var(--border-width-default, 1px) solid var(--color-border, currentColor);
   overflow-wrap: anywhere;
@@ -198,44 +255,44 @@
   vertical-align: top;
 }
 
-.ez-editorial th {
+.ez-editorial th:where(:not(.not-prose):not(.not-prose *)) {
   color: var(--color-fg-strong, inherit);
   font-weight: var(--font-weight-bold, 700);
 }
 
-.ez-editorial thead th {
+.ez-editorial thead th:where(:not(.not-prose):not(.not-prose *)) {
   border-bottom-width: var(--border-width-strong, 2px);
 }
 
-.ez-editorial caption {
+.ez-editorial caption:where(:not(.not-prose):not(.not-prose *)) {
   padding-block-end: 0.5em;
   color: var(--color-fg-muted, inherit);
   font-size: 0.875em;
   text-align: start;
 }
 
-.ez-editorial img {
+.ez-editorial img:where(:not(.not-prose):not(.not-prose *)) {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
 }
 
-.ez-editorial figure {
+.ez-editorial figure:where(:not(.not-prose):not(.not-prose *)) {
   margin: 0 0 var(--ez-editorial-block-spacing);
 }
 
-.ez-editorial figure img {
+.ez-editorial figure img:where(:not(.not-prose):not(.not-prose *)) {
   display: block;
 }
 
-.ez-editorial figcaption {
+.ez-editorial figcaption:where(:not(.not-prose):not(.not-prose *)) {
   margin-block-start: 0.5em;
   color: var(--color-fg-muted, inherit);
   font-size: 0.875em;
   line-height: var(--font-line-height-caption, 1.4);
 }
 
-.ez-editorial hr {
+.ez-editorial hr:where(:not(.not-prose):not(.not-prose *)) {
   margin: var(--ez-editorial-block-spacing) 0;
   border: 0;
   border-top: var(--border-width-default, 1px) solid var(--color-border, currentColor);
@@ -246,7 +303,7 @@
     --ez-editorial-font-size: 1.125rem;
   }
 
-  .ez-editorial table {
+  .ez-editorial table:where(:not(.not-prose):not(.not-prose *)) {
     display: block;
     overflow-x: auto;
   }

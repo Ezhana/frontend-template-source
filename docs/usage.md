@@ -233,9 +233,12 @@ variables, so it follows `data-theme` and `data-color-mode` automatically; it de
 and ships no JavaScript or fonts. It does not own the reading column, page layout, Markdown parsing
 or syntax highlighting.
 
-Six package-scoped properties tune the preset on `.ez-editorial`: `--ez-editorial-font-size`,
-`--ez-editorial-line-height`, `--ez-editorial-heading-scale`, `--ez-editorial-heading-line-height`,
-`--ez-editorial-paragraph-spacing` and `--ez-editorial-block-spacing`. See the package README for the
+Seven package-scoped properties tune the preset on `.ez-editorial`:
+`--ez-editorial-font-size`, `--ez-editorial-line-height`, `--ez-editorial-heading-scale`,
+`--ez-editorial-heading-scale-compact`, `--ez-editorial-heading-line-height`,
+`--ez-editorial-paragraph-spacing` and `--ez-editorial-block-spacing`. Headings interpolate between
+the full and compact ratios with `clamp()`, independently of the body's `720px` step. A component
+that owns its own typography opts out inside `.not-prose`; see the package README for the
 defaults and the full element coverage.
 
 ## Theme switching

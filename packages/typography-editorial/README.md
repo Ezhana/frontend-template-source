@@ -16,6 +16,9 @@ blockquotes, inline code and code-block containers, tables, images/figures and h
 does not own page layout, the reading column, the palette, fonts, theme switching, Markdown parsing,
 syntax highlighting, UI components or JavaScript behavior.
 
+A component embedded in the content that owns its own typography can opt out of the editorial
+element rules: wrap it in `.not-prose`. See [Escaped components](#escaped-components).
+
 The authoritative design specification is [`docs/DESIGN.md`](./docs/DESIGN.md).
 
 ## Installation
@@ -92,45 +95,82 @@ That layout is guidance for the application; it is not part of this package.
 
 ## What it styles
 
-| Content            | Behavior                                                                                                    |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Body text          | `1.25rem` / `1.7` on desktop, `1.125rem` at `720px` and below; start-aligned (left in LTR), never justified |
-| Headings `h1`–`h6` | A `1.25` modular scale with `1.2` leading, strong foreground and a compact `0.5rem` bottom margin           |
-| Paragraphs         | A deliberate `1.5em` bottom rhythm (the reference's prose variant uses `2em`)                               |
-| Emphasis           | `strong`/`b` use the theme's bold weight                                                                    |
-| Links              | Theme accent with an underline; hover uses `--color-accent-hover`; keyboard focus draws a ring              |
-| Lists              | Visible `disc`/`decimal` markers, `1.5em` indentation, nested lists and modest item separation              |
-| Blockquotes        | A `4px` accent inline-start rule, `1.25rem` padding and `1.333em` text; no background or shadow             |
-| Inline code        | Subtle `--color-bg-subtle` surface, `2px` radius, monospace role                                            |
-| Code blocks        | Generic `pre` container with `1.5em` padding, `8px` radius and horizontal overflow                          |
-| Tables             | Full width, simple row rules, strong header text; long cell content wraps and narrow viewports scroll       |
-| Images and figures | Fluid images (`max-width: 100%`, automatic height, `8px` radius) with muted captions                        |
-| Horizontal rules   | A `1px` semantic border with generous, restrained vertical spacing                                          |
+| Content            | Behavior                                                                                                                                                  |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Body text          | `1.25rem` / `1.7` on desktop, `1.125rem` at `720px` and below; start-aligned (left in LTR), never justified                                               |
+| Headings `h1`–`h6` | A fluid `clamp()` ladder from a `1.15` compact floor to the `1.25` full ratio, with `1.2` leading, strong foreground and a compact `0.5rem` bottom margin |
+| Paragraphs         | A deliberate `1.5em` bottom rhythm (the reference's prose variant uses `2em`)                                                                             |
+| Emphasis           | `strong`/`b` use the theme's bold weight                                                                                                                  |
+| Links              | Theme accent with an underline; hover uses `--color-accent-hover`; keyboard focus draws a ring                                                            |
+| Lists              | Visible `disc`/`decimal` markers, `1.5em` indentation, nested lists and modest item separation                                                            |
+| Blockquotes        | A `4px` accent inline-start rule, `1.25rem` padding and `1.333em` text; no background or shadow                                                           |
+| Inline code        | Subtle `--color-bg-subtle` surface, `2px` radius, monospace role                                                                                          |
+| Code blocks        | Generic `pre` container with `1.5em` padding, `8px` radius and horizontal overflow                                                                        |
+| Tables             | Full width, simple row rules, strong header text; long cell content wraps and narrow viewports scroll                                                     |
+| Images and figures | Fluid images (`max-width: 100%`, automatic height, `8px` radius) with muted captions                                                                      |
+| Horizontal rules   | A `1px` semantic border with generous, restrained vertical spacing                                                                                        |
 
 ## Customization
 
-The preset exposes six package-scoped CSS custom properties. They are preset settings, not global
+The preset exposes seven package-scoped CSS custom properties. They are preset settings, not global
 design tokens, and can be overridden on `.ez-editorial` after the import.
 
-| Property                             | Default                       | Purpose                                       |
-| ------------------------------------ | ----------------------------- | --------------------------------------------- |
-| `--ez-editorial-font-size`           | `1.25rem` (`1.125rem` ≤720px) | Body reading size                             |
-| `--ez-editorial-line-height`         | `1.7`                         | Body leading                                  |
-| `--ez-editorial-heading-scale`       | `1.25`                        | Modular scale used by `h1`–`h5`               |
-| `--ez-editorial-heading-line-height` | `1.2`                         | Heading leading                               |
-| `--ez-editorial-paragraph-spacing`   | `1.5em`                       | Space below paragraphs                        |
-| `--ez-editorial-block-spacing`       | `2em`                         | Space below lists, quotes, code, tables, etc. |
+| Property                               | Default                       | Purpose                                       |
+| -------------------------------------- | ----------------------------- | --------------------------------------------- |
+| `--ez-editorial-font-size`             | `1.25rem` (`1.125rem` ≤720px) | Body reading size                             |
+| `--ez-editorial-line-height`           | `1.7`                         | Body leading                                  |
+| `--ez-editorial-heading-scale`         | `1.25`                        | Full modular ratio for `h1`–`h5`              |
+| `--ez-editorial-heading-scale-compact` | `1.15`                        | Compact modular ratio for narrow screens      |
+| `--ez-editorial-heading-line-height`   | `1.2`                         | Heading leading                               |
+| `--ez-editorial-paragraph-spacing`     | `1.5em`                       | Space below paragraphs                        |
+| `--ez-editorial-block-spacing`         | `2em`                         | Space below lists, quotes, code, tables, etc. |
 
 ```css
 .ez-editorial {
   --ez-editorial-font-size: 1.125rem;
   --ez-editorial-paragraph-spacing: 2em; /* the reference prose rhythm */
   --ez-editorial-heading-scale: 1.2;
+  --ez-editorial-heading-scale-compact: 1.1;
 }
 ```
 
-`--ez-editorial-heading-scale` multiplies the body size five times for `h1`, four for `h2`, down to
-once for `h5`; `h6` stays at the body size. Changing it rescales the whole hierarchy consistently.
+Each of `h1`–`h5` is a `clamp()` between two modular ladders: the compact ladder
+(`--ez-editorial-heading-scale-compact`, `1.15` by default) and the full ladder
+(`--ez-editorial-heading-scale`, `1.25` by default), with a viewport term that makes the transition
+continuous. Headings therefore keep readable proportions on small screens and grow toward the full
+ratio on wide ones; `h6` stays at the body size. Because the two bounds multiply `1em` by unitless
+ratios and the viewport term is added, the ladder never multiplies one length by another. Its
+interpolation is continuous rather than switched at the body's `720px` breakpoint. Keep the compact
+ratio at or below the full ratio, and override both settings together when rescaling the hierarchy.
+
+## Escaped components
+
+Article content often embeds a component that owns its own typography, such as friend links, a card
+or a call to action. Mark the component subtree with the `not-prose` class and the preset's element
+rules stop at that boundary:
+
+```html
+<article class="ez-editorial">
+  <p>…article copy…</p>
+
+  <section class="not-prose">
+    <h2>Friend links</h2>
+    <!-- The component's own CSS controls this heading, not the article's section sizes. -->
+  </section>
+</article>
+```
+
+Every element rule carries a zero-specificity `:where(:not(.not-prose):not(.not-prose *))` guard,
+so the escape hatch does not raise the preset's specificity and application CSS keeps overriding it
+as before. The subtree still inherits the ambient `font-family`, `font-size`, `color` and
+`line-height` from the article, like any other descendant; the component's own `rem`/`em` styles
+take over from there. The escape hatch is opt-in: the rest of the article remains editorial.
+
+The class uses the familiar Tailwind Typography spelling, so component markup written for that
+convention works unchanged. It excludes the marked element itself and all of its descendants, with
+no extra markup beyond the class. The preset deliberately does not reset the subtree's inherited
+base size or family; a component that needs a page-independent baseline should set its own
+`font-size`/`line-height` on the escaped root.
 
 ## Theme integration
 
@@ -164,7 +204,12 @@ Because every selector is scoped to `.ez-editorial`, that choice cannot leak int
 page.
 
 The preset does not import or depend on Tailwind and does not ship a reset. It works with or without
-Preflight, and with the application's own CSS after it if that CSS needs to win.
+Preflight, and with the application's own CSS after it if that CSS needs to win. The `.not-prose`
+escape hatch uses Tailwind Typography's class spelling for compatibility, but it is plain CSS: no
+Tailwind installation or typography plugin is required.
+
+The fluid heading ladder uses `clamp()`, and the escape hatch uses `:where()` and a complex
+`:not()`. These are evergreen-browser features; the preset ships no fallback stylesheet.
 
 ## Code blocks and syntax highlighting
 
@@ -184,6 +229,8 @@ and horizontal overflow. The preset:
   outline from the theme's focus token.
 - List markers are restored, never suppressed without an accessible alternative.
 - Body sizes use `rem` and `em`, so browser zoom and user font scaling are respected.
+- Heading sizes clamp between `em`-based bounds with no fixed pixel sizes, so they follow user font
+  scaling as well as the viewport.
 - Body text is start-aligned, not justified, with no global letter-spacing changes.
 - Blockquote rules and list indentation use logical properties, so they follow the writing direction.
 - Images are never cropped with `object-fit: cover`.
@@ -200,9 +247,9 @@ pnpm --filter @ezhana/typography-editorial test
 ```
 
 The test suite checks the single-entry package contract, selector scoping, token-name validity
-against the generated `@ezhana/design-tokens` contract, the `1.25` scale and reading rhythm,
-element coverage, Preflight resilience, syntax-highlighter safety and the absence of hard-coded
-colors, layout ownership or theme switching.
+against the generated `@ezhana/design-tokens` contract, the fluid clamp ladder and reading rhythm,
+the `.not-prose` escape hatch, element coverage, Preflight resilience, syntax-highlighter safety
+and the absence of hard-coded colors, layout ownership or theme switching.
 
 `style.css` is the source and the published artifact. There is no build step, JavaScript entry or
 generated CSS.

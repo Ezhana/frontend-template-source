@@ -266,8 +266,11 @@ pnpm add @ezhana/typography-editorial
 </article>
 ```
 
-The preset exposes six package-scoped custom properties for editorial tuning (body size, leading,
-heading scale, heading leading, paragraph spacing and block spacing) and no global tokens. See
+The preset exposes seven package-scoped custom properties for editorial tuning (body size, leading,
+the full and compact heading ratios, heading leading, paragraph spacing and block spacing) and no
+global tokens. Heading sizes interpolate continuously between the two ratios, so they do not step
+at the body's `720px` breakpoint. A component that owns its typography opts out of every editorial
+element rule inside `.not-prose`. See
 [`packages/typography-editorial/README.md`](packages/typography-editorial/README.md) and the
 [design specification](packages/typography-editorial/docs/DESIGN.md).
 
