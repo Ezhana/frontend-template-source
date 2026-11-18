@@ -518,8 +518,8 @@ const expectedAccent = {
   dark: themeJson.resolved.dark['color.accent'].value,
 }
 
-check(expectedAccent.light === '#007ba7', 'theme.json light accent is the Cerulean accent')
-check(expectedAccent.dark === '#7ac6e2', 'theme.json dark accent is the Cerulean dark accent')
+check(expectedAccent.light === '#0079a4', 'theme.json light accent is the Cerulean accent')
+check(expectedAccent.dark === '#2cc9ff', 'theme.json dark accent is the Cerulean dark accent')
 
 const rules = parseCss(themeCss)
 const accentIn = (environment) => effective(rules, environments(environment), '--color-accent')

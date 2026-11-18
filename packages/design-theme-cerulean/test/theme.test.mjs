@@ -158,12 +158,15 @@ test('resolved JSON satisfies the theme contract in both modes', () => {
     }
     expectValue(mode, 'radius.control', '0.625rem')
 
-    expectValue(mode, 'color.accent', mode === 'light' ? '#007ba7' : '#7ac6e2')
-    expectValue(mode, 'color.accent-hover', mode === 'light' ? '#00688f' : '#b0deee')
+    expectValue(mode, 'color.accent', mode === 'light' ? '#0079a4' : '#2cc9ff')
+    expectValue(mode, 'color.accent-hover', mode === 'light' ? '#006285' : '#6bd9ff')
     expectValue(mode, 'color.on-accent', mode === 'light' ? '#ffffff' : '#0b0b0f')
-    expectValue(mode, 'color.accent-subtle', mode === 'light' ? '#007ba71a' : '#7ac6e226')
-    expectValue(mode, 'color.accent-border', mode === 'light' ? '#007ba780' : '#7ac6e280')
-    expectValue(mode, 'color.focus-ring', mode === 'light' ? '#007ba7' : '#7ac6e2')
+    expectValue(mode, 'color.accent-subtle', mode === 'light' ? '#0079a41a' : '#2cc9ff26')
+    expectValue(mode, 'color.accent-border', mode === 'light' ? '#0079a480' : '#2cc9ff80')
+    expectValue(mode, 'color.focus-ring', mode === 'light' ? '#0079a4' : '#2cc9ff')
+    expectValue(mode, 'color.info', mode === 'light' ? '#0079a4' : '#2cc9ff')
+    expectValue(mode, 'color.info-solid', mode === 'light' ? '#0079a4' : '#00a4dd')
+    expectValue(mode, 'color.on-info', mode === 'light' ? '#ffffff' : '#0b0b0f')
   }
 })
 
@@ -302,15 +305,20 @@ test('every package export points at a generated file', async () => {
 /* Accessibility                                                              */
 /* -------------------------------------------------------------------------- */
 
-test('accent pairs meet WCAG AA contrast in both modes', () => {
+test('accent and info pairs meet WCAG AA contrast in both modes', () => {
   for (const mode of ['light', 'dark']) {
     const accent = resolved(mode, 'color.accent')
     const onAccent = resolved(mode, 'color.on-accent')
+    const info = resolved(mode, 'color.info')
+    const infoSolid = resolved(mode, 'color.info-solid')
+    const onInfo = resolved(mode, 'color.on-info')
     const background = resolved(mode, 'color.bg')
 
     for (const [foreground, background_] of [
       [onAccent, accent],
       [accent, background],
+      [info, background],
+      [onInfo, infoSolid],
     ]) {
       const ratio = contrastRatio(foreground, background_)
       assert.ok(ratio >= 4.5, `${mode}: contrast ${ratio.toFixed(2)} is below WCAG AA (4.5)`)

@@ -22,18 +22,22 @@ it re-maps the semantic layer and flips the accent to a lighter cerulean so cont
 
 ## Color Palette
 
-A monochrome-cerulean foundation conveys trust, precision and calm. The accent is anchored on
-**Cerulean Blue `#007BA7`** — a cooler, more technical blue than the reference brief's
-`#007BFF`, chosen so the theme has its own identity next to the (indigo-blue) `ocean` theme while
-remaining unmistakably "trustworthy blue".
+A monochrome-cerulean foundation conveys trust, precision and calm. The accent is anchored on the
+brand blue the designer supplied for both modes — `#00A4DD` on light surfaces and `#2CC9FF` on dark
+surfaces. Both ramps sit on the same hue (~222–232°) and differ only in where they sit on the
+lightness ladder, so they are spliced into a single 11-step ramp (see
+[Palette ramp](#palette-ramp)). That keeps the theme's own identity next to the (indigo-blue) `ocean`
+theme while remaining unmistakably "trustworthy blue".
 
 | Role                       | Token (semantic)                                       | Light mode                        | Dark mode                         |
 | -------------------------- | ------------------------------------------------------ | --------------------------------- | --------------------------------- |
-| Primary / interactive      | `--color-accent`                                       | `#007BA7`                         | `#7AC6E2`                         |
-| Primary hover              | `--color-accent-hover`                                 | `#00688F`                         | `#B0DEEE`                         |
+| Primary / interactive      | `--color-accent`                                       | `#0079A4`                         | `#2CC9FF`                         |
+| Primary hover              | `--color-accent-hover`                                 | `#006285`                         | `#6BD9FF`                         |
 | On primary                 | `--color-on-accent`                                    | `#FFFFFF`                         | `#0B0B0F`                         |
-| Tinted accent surface      | `--color-accent-subtle`                                | `#007BA71A`                       | `#7AC6E226`                       |
-| Accent border / ring       | `--color-accent-border`                                | `#007BA780`                       | `#7AC6E280`                       |
+| Tinted accent surface      | `--color-accent-subtle`                                | `#0079A41A`                       | `#2CC9FF26`                       |
+| Accent border / ring       | `--color-accent-border`                                | `#0079A480`                       | `#2CC9FF80`                       |
+| Informational text         | `--color-info`                                         | `#0079A4`                         | `#2CC9FF`                         |
+| On info surface            | `--color-on-info` / `--color-info-solid`               | `#FFFFFF` / `#0079A4`             | `#0B0B0F` / `#00A4DD`             |
 | Page background            | `--color-bg`                                           | `#FFFFFF`                         | `#16171D`                         |
 | Secondary surface          | `--color-bg-subtle`                                    | `#F4F4F5`                         | `#26222E`                         |
 | Default text               | `--color-fg`                                           | `#453F4F`                         | `#D6D4DB`                         |
@@ -62,21 +66,25 @@ foreground/surface pairs are asserted by the core package's suite
 (`pnpm --filter @ezhana/design-tokens test`), because this theme does not override them. A future
 palette edit cannot silently break either layer.
 
-| Pair (foreground / background)         | Light   | Dark    |
-| -------------------------------------- | ------- | ------- |
-| `--color-fg` / `--color-bg`            | 10.11:1 | 12.18:1 |
-| `--color-fg-muted` / `--color-bg`      | 4.75:1  | 7.26:1  |
-| `--color-fg-strong` / `--color-bg`     | 19.64:1 | 17.13:1 |
-| `--color-accent` / `--color-bg`        | 4.78:1  | 9.37:1  |
-| `--color-on-accent` / `--color-accent` | 4.78:1  | 10.29:1 |
-| `--color-accent-hover` / `--color-bg`  | 6.22:1  | 12.37:1 |
-| `--color-danger` / `--color-bg`        | 6.47:1  | 6.46:1  |
-| `--color-success` / `--color-bg`       | 7.13:1  | 10.26:1 |
-| `--color-warning` / `--color-bg`       | 7.09:1  | 12.40:1 |
+| Pair (foreground / background)           | Light   | Dark    |
+| ---------------------------------------- | ------- | ------- |
+| `--color-fg` / `--color-bg`              | 10.11:1 | 12.18:1 |
+| `--color-fg-muted` / `--color-bg`        | 4.75:1  | 7.26:1  |
+| `--color-fg-strong` / `--color-bg`       | 19.64:1 | 17.13:1 |
+| `--color-accent` / `--color-bg`          | 4.92:1  | 9.29:1  |
+| `--color-on-accent` / `--color-accent`   | 4.92:1  | 10.20:1 |
+| `--color-accent-hover` / `--color-bg`    | 6.81:1  | 11.06:1 |
+| `--color-info` / `--color-bg`            | 4.92:1  | 9.29:1  |
+| `--color-on-info` / `--color-info-solid` | 4.92:1  | 6.88:1  |
+| `--color-danger` / `--color-bg`          | 6.47:1  | 6.46:1  |
+| `--color-success` / `--color-bg`         | 7.13:1  | 10.26:1 |
+| `--color-warning` / `--color-bg`         | 7.09:1  | 12.40:1 |
 
 All foreground/background pairs meet **WCAG 2.2 AA (≥ 4.5:1)**. The accent is also usable as a solid
-button background: white text on `#007BA7` reaches 4.78:1, and dark text on the dark-mode accent
-reaches 10.29:1.
+button background: white text on `#0079A4` reaches 4.92:1, and dark text on the dark-mode accent
+reaches 10.20:1. The light-mode accent is deliberately at the _bright_ end of what AA allows
+(4.92:1 rather than the 6.81:1 that one step darker would give), which keeps it as close as possible
+to the designer's vivid `#00A4DD` without breaking text contrast.
 
 ### Palette ramp
 
@@ -85,7 +93,22 @@ The full ramp is theme-private material in [`tokens/palette.json`](../tokens/pal
 
 | Step | 50        | 100       | 200       | 300       | 400       | 500       | 600       | 700       | 800       | 900       | 950       |
 | ---- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- | --------- |
-| Hex  | `#EEF8FC` | `#D6EEF7` | `#B0DEEE` | `#7AC6E2` | `#3AA8CC` | `#0B8CB4` | `#007BA7` | `#00688F` | `#005574` | `#00425B` | `#002B3C` |
+| Hex  | `#F4FCFF` | `#CAF2FF` | `#ABE9FF` | `#6BD9FF` | `#2CC9FF` | `#00A4DD` | `#0094C7` | `#0079A4` | `#006285` | `#004A63` | `#003142` |
+
+The ladder is derived from the two ramps the designer supplied, which share one hue and differ only in
+lightness:
+
+- `50`–`400` keep the brighter dark-surface values (`#F4FCFF` … `#2CC9FF`). Dark mode's accent is
+  step `400` (`#2CC9FF`, 9.29:1 on `#16171D`) and its hover is `300`.
+- `500`–`950` keep the deeper light-surface values (`#00A4DD` … `#003142`). Step `500` is the
+  designer's light brand blue, kept as a decorative step because it is too light to be accent text
+  (2.86:1 on white).
+- `700` (`#0079A4`) is the one derived step. The supplied light ramp jumped from `#0094C7` (3.46:1)
+  straight to `#006285` (6.81:1), so this step fills that hole at the brightest point that still
+  passes AA on white — it is what `--color-accent` resolves to in light mode, with `800` as hover.
+
+Because the palette is mode-independent build-time material, "which step is the accent" is decided by
+`tokens/theme.json`, not by the palette.
 
 The palette is resolved at build time into the override values and is **never emitted as CSS custom
 properties**. It therefore cannot be consumed by product code and does not appear in the core
@@ -234,12 +257,15 @@ required theme contract (and inherits everything else from the default semantic 
 
 | Semantic token                             | Value                                |
 | ------------------------------------------ | ------------------------------------ |
-| `color.accent`                             | `#007BA7` (light) / `#7AC6E2` (dark) |
-| `color.accent-hover`                       | `#00688F` / `#B0DEEE`                |
+| `color.accent`                             | `#0079A4` (light) / `#2CC9FF` (dark) |
+| `color.accent-hover`                       | `#006285` / `#6BD9FF`                |
 | `color.on-accent`                          | `#FFFFFF` / `#0B0B0F`                |
-| `color.accent-subtle`                      | `#007BA71A` / `#7AC6E226`            |
-| `color.accent-border`                      | `#007BA780` / `#7AC6E280`            |
-| `color.focus-ring`                         | `#007BA7` / `#7AC6E2`                |
+| `color.accent-subtle`                      | `#0079A41A` / `#2CC9FF26`            |
+| `color.accent-border`                      | `#0079A480` / `#2CC9FF80`            |
+| `color.focus-ring`                         | `#0079A4` / `#2CC9FF`                |
+| `color.info`                               | `#0079A4` / `#2CC9FF`                |
+| `color.info-solid`                         | `#0079A4` / `#00A4DD`                |
+| `color.on-info`                            | `#FFFFFF` / `#0B0B0F`                |
 | `font.family.sans` / `font.family.heading` | Public Sans stack                    |
 | `radius.control`                           | `0.625rem`                           |
 
@@ -261,20 +287,22 @@ the same set" rule no longer applies.
 
 - Don't use the theme palette as tokens: `theme.color.cerulean.*` is build-time material and is never emitted as CSS variables.
 - Don't use the accent as a large background or long-form text color (keep it for local emphasis).
-- Don't hard-code `#007BA7` or Public Sans — both are theme values and can be replaced by another theme.
+- Don't hard-code `#0079A4` or Public Sans — both are theme values and can be replaced by another theme.
 - Don't mix pill and moderate radii within one control group; roundedness is a theme decision.
 
 ## Deviations from the Reference Brief (intentional)
 
-1. **Primary hue `#007BFF` → `#007BA7`.** Cerulean's identity is the cooler, more technical blue;
-   keeping the original classic blue would make the theme indistinguishable from the `ocean` theme.
-   The chosen step still passes AA as text on white and as a button surface with white text (4.78:1).
+1. **Primary hue `#007BFF` → the designer's brand blue (`#00A4DD` / `#2CC9FF`).** The supplied blue is
+   cooler and more cyan than the reference brief's classic blue, which keeps the theme distinct from
+   the `ocean` theme. It is too light to serve as accent _text_ on white (2.86:1), so the light-mode
+   accent resolves to the derived AA-safe step `#0079A4` (4.92:1); both supplied 500s remain in the
+   ramp as steps `500` and `400`.
 2. **Neutral grey `#777777` tokenized.** The literal grey is approximated by `--color-fg-muted`
    (`#78707F`, 4.75:1 on white) so it participates in the mode system and the contrast test suite
    instead of drifting as a hard-coded value.
-3. **Dark mode uses a lighter accent (`#7AC6E2`) with dark text.** Reusing `#007BA7` on a dark
-   surface would only reach ~2.9:1. The semantic layer swaps the accent per mode, which is exactly
-   what the token architecture is for.
+3. **Dark mode uses a lighter accent (`#2CC9FF`) with dark text.** Reusing the light-mode accent on a
+   dark surface would only reach 3.64:1. The semantic layer swaps the accent per mode, which is
+   exactly what the token architecture is for.
 4. **Roundedness "level 2" made concrete** as a 10px control radius / 12px surface radius (between
    compact and pill), and **spacing "level 2"** as the existing 4px-base normal density scale.
 5. **Public Sans self-hosted as a variable font** rather than depending on a third-party CDN, so the

@@ -4,18 +4,18 @@
       "$type": "color",
       "$description": "Theme-private palette. Resolved at build time and never emitted as CSS custom properties.",
       "cerulean": {
-        "$description": "Cerulean hue: calm, technical, trustworthy blue.",
-        "50": { "$value": "#eef8fc" },
-        "100": { "$value": "#d6eef7" },
-        "200": { "$value": "#b0deee" },
-        "300": { "$value": "#7ac6e2" },
-        "400": { "$value": "#3aa8cc" },
-        "500": { "$value": "#0b8cb4" },
-        "600": { "$value": "#007ba7" },
-        "700": { "$value": "#00688f" },
-        "800": { "$value": "#005574" },
-        "900": { "$value": "#00425b" },
-        "950": { "$value": "#002b3c" }
+        "$description": "Cerulean hue: calm, technical, trustworthy blue. One ladder derived from the designer-provided accents for both modes: 50-400 carry the brighter (dark-surface) end, 500-950 the deeper (light-surface) end, and 700 is the brightest step that still passes WCAG AA as text on white.",
+        "50": { "$value": "#f4fcff" },
+        "100": { "$value": "#caf2ff" },
+        "200": { "$value": "#abe9ff" },
+        "300": { "$value": "#6bd9ff" },
+        "400": { "$value": "#2cc9ff" },
+        "500": { "$value": "#00a4dd" },
+        "600": { "$value": "#0094c7" },
+        "700": { "$value": "#0079a4" },
+        "800": { "$value": "#006285" },
+        "900": { "$value": "#004a63" },
+        "950": { "$value": "#003142" }
       }
     }
   }

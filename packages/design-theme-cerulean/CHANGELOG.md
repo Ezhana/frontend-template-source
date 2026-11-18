@@ -1,5 +1,22 @@
 # @ezhana/design-theme-cerulean
 
+## 2.0.0
+
+### Major Changes
+
+- Replace the Cerulean accent with the designer-supplied brand blue, expressed as one 11-step ramp
+  shared by both color modes.
+
+  - `--color-accent` is `#0079A4` in light mode (4.92:1 on white) and `#2CC9FF` in dark mode (9.29:1 on
+    `#16171D`), with matching `accent-hover`, `accent-subtle`, `accent-border`, `focus-ring`, `info`,
+    `info-solid`, `on-info` and `shadow.glow` values.
+  - `theme.color.cerulean` is re-derived from the two designer ramps: steps `50`–`400` keep the brighter
+    dark-surface values, `500`–`950` the deeper light-surface values, and `700` (`#0079A4`) is a new
+    step tuned to the brightest WCAG AA-safe accent on white.
+  - Theme id, `data-theme` selector, mode support, fonts and the required token contract are unchanged;
+    only the resolved color values change. This is a visual brand change: consumers should expect
+    different colors, most noticeably in dark mode.
+
 ## 1.0.0
 
 ### Major Changes

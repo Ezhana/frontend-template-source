@@ -24,11 +24,12 @@
   "light": {
     "color": {
       "accent": {
-        "$value": "{theme.color.cerulean.600}",
-        "$type": "color"
+        "$value": "{theme.color.cerulean.700}",
+        "$type": "color",
+        "$description": "Brightest ladder step that still reaches WCAG AA (4.9:1) as text on white."
       },
       "accent-hover": {
-        "$value": "{theme.color.cerulean.700}",
+        "$value": "{theme.color.cerulean.800}",
         "$type": "color"
       },
       "on-accent": {
@@ -36,15 +37,15 @@
         "$type": "color"
       },
       "accent-subtle": {
-        "$value": "#007ba71a",
+        "$value": "#0079a41a",
         "$type": "color"
       },
       "accent-border": {
-        "$value": "#007ba780",
+        "$value": "#0079a480",
         "$type": "color"
       },
       "focus-ring": {
-        "$value": "{theme.color.cerulean.600}",
+        "$value": "{theme.color.cerulean.700}",
         "$type": "color"
       },
       "info": {
@@ -53,7 +54,7 @@
         "$description": "Informational text and icons; mirrors the cerulean accent family."
       },
       "info-solid": {
-        "$value": "{theme.color.cerulean.600}",
+        "$value": "{theme.color.cerulean.700}",
         "$type": "color",
         "$description": "Solid informational surface; pair with on-info."
       },
@@ -62,14 +63,14 @@
         "$type": "color"
       },
       "info-subtle": {
-        "$value": "#00688f1a",
+        "$value": "#0079a41a",
         "$type": "color",
         "$description": "Tinted informational surface."
       }
     },
     "shadow": {
       "glow": {
-        "$value": "0 0 20px rgb(0 123 167 / 0.4)",
+        "$value": "0 0 20px rgb(0 121 164 / 0.4)",
         "$type": "string",
         "$description": "Accent-tinted glow used for focus and featured surfaces."
       }
@@ -78,11 +79,11 @@
   "dark": {
     "color": {
       "accent": {
-        "$value": "{theme.color.cerulean.300}",
+        "$value": "{theme.color.cerulean.400}",
         "$type": "color"
       },
       "accent-hover": {
-        "$value": "{theme.color.cerulean.200}",
+        "$value": "{theme.color.cerulean.300}",
         "$type": "color"
       },
       "on-accent": {
@@ -90,24 +91,24 @@
         "$type": "color"
       },
       "accent-subtle": {
-        "$value": "#7ac6e226",
+        "$value": "#2cc9ff26",
         "$type": "color"
       },
       "accent-border": {
-        "$value": "#7ac6e280",
+        "$value": "#2cc9ff80",
         "$type": "color"
       },
       "focus-ring": {
-        "$value": "{theme.color.cerulean.300}",
+        "$value": "{theme.color.cerulean.400}",
         "$type": "color"
       },
       "info": {
-        "$value": "{theme.color.cerulean.300}",
+        "$value": "{theme.color.cerulean.400}",
         "$type": "color",
         "$description": "Informational text and icons; mirrors the cerulean accent family."
       },
       "info-solid": {
-        "$value": "{theme.color.cerulean.400}",
+        "$value": "{theme.color.cerulean.500}",
         "$type": "color",
         "$description": "Solid informational surface; pair with on-info."
       },
@@ -116,14 +117,14 @@
         "$type": "color"
       },
       "info-subtle": {
-        "$value": "#7ac6e226",
+        "$value": "#2cc9ff26",
         "$type": "color",
         "$description": "Tinted informational surface."
       }
     },
     "shadow": {
       "glow": {
-        "$value": "0 0 20px rgb(122 198 226 / 0.4)",
+        "$value": "0 0 20px rgb(44 201 255 / 0.4)",
         "$type": "string",
         "$description": "Accent-tinted glow used for focus and featured surfaces."
       }
